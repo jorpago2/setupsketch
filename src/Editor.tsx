@@ -51,7 +51,15 @@ type ElementKind =
   | "rfswitch"
   | "bandpass"
   | "vco"
-  | "termination";
+  | "termination"
+  | "networkanalyzer"
+  | "dmm"
+  | "powersupply"
+  | "smu"
+  | "electronicload"
+  | "waveformgenerator"
+  | "lcrmeter"
+  | "rfpowermeter";
 
 type ConnectionType = "beam" | "signal";
 
@@ -99,13 +107,16 @@ const elementKinds = new Set<ElementKind>([
   "amplifier", "hvamplifier", "photodiode", "qpd", "mixer", "lowpass",
   "highpass", "servo", "spectrum", "daq", "attenuator", "splitter",
   "directionalcoupler", "biastee", "rfswitch", "bandpass", "vco", "termination",
+  "networkanalyzer", "dmm", "powersupply", "smu", "electronicload",
+  "waveformgenerator", "lcrmeter", "rfpowermeter",
 ]);
 
 const electronicKinds = new Set<ElementKind>([
   "source", "oscilloscope", "amplifier", "hvamplifier", "photodiode", "qpd",
   "mixer", "lowpass", "highpass", "servo", "spectrum", "daq", "attenuator",
   "splitter", "directionalcoupler", "biastee", "rfswitch", "bandpass", "vco",
-  "termination",
+  "termination", "networkanalyzer", "dmm", "powersupply", "smu", "electronicload",
+  "waveformgenerator", "lcrmeter", "rfpowermeter",
 ]);
 
 const defaultColor = (kind: ElementKind) => {
@@ -174,10 +185,25 @@ const componentGroups: Array<{
     ],
   },
   {
+    title: "Test instruments",
+    items: [
+      { kind: "oscilloscope", label: "Oscilloscope" },
+      { kind: "spectrum", label: "Spectrum analyzer" },
+      { kind: "networkanalyzer", label: "Vector network analyzer" },
+      { kind: "waveformgenerator", label: "Waveform generator" },
+      { kind: "dmm", label: "Digital multimeter" },
+      { kind: "powersupply", label: "DC power supply" },
+      { kind: "smu", label: "Source measure unit" },
+      { kind: "electronicload", label: "Electronic load" },
+      { kind: "lcrmeter", label: "LCR meter" },
+      { kind: "rfpowermeter", label: "RF power meter" },
+      { kind: "daq", label: "DAQ" },
+    ],
+  },
+  {
     title: "Electronics",
     items: [
       { kind: "source", label: "Source" },
-      { kind: "oscilloscope", label: "Oscilloscope" },
       { kind: "amplifier", label: "Amplifier" },
       { kind: "hvamplifier", label: "HV amplifier" },
       { kind: "photodiode", label: "Photodiode" },
@@ -186,8 +212,6 @@ const componentGroups: Array<{
       { kind: "lowpass", label: "Low-pass filter" },
       { kind: "highpass", label: "High-pass filter" },
       { kind: "servo", label: "Servo controller" },
-      { kind: "spectrum", label: "Spectrum analyzer" },
-      { kind: "daq", label: "DAQ" },
     ],
   },
 ];
@@ -343,6 +367,22 @@ function ComponentShape({ element }: { element: DiagramElement }) {
       return <><circle r="36" {...common} /><path d="M-23 1C-16 -17 -9 -17 -2 1S12 19 20 1" fill="none" stroke={element.color} strokeWidth="4" /><path d="M0 -52V-36M-6 -44L0 -36L6 -44" fill="none" stroke={element.color} strokeWidth="3" /></>;
     case "termination":
       return <><path d="M-53 0H-38" stroke={element.color} strokeWidth="4" /><rect x="-38" y="-26" width="76" height="52" rx="5" {...common} /><text y="8" textAnchor="middle" fill={element.color} fontSize="19" fontWeight="700" fontFamily="Arial, sans-serif">50 Ω</text></>;
+    case "networkanalyzer":
+      return <><rect x="-53" y="-35" width="106" height="70" rx="6" {...common} /><rect x="-40" y="-23" width="57" height="38" rx="2" fill="none" stroke={element.color} strokeWidth="3" /><path d="M-34 8C-25 -15 -17 -15 -8 8S9 25 12 -13" fill="none" stroke={element.color} strokeWidth="3" /><circle cx="34" cy="-15" r="6" {...common} /><circle cx="28" cy="18" r="5" {...common} /><circle cx="43" cy="18" r="5" {...common} /></>;
+    case "dmm":
+      return <><rect x="-48" y="-35" width="96" height="70" rx="6" {...common} /><rect x="-35" y="-23" width="49" height="20" rx="2" fill="none" stroke={element.color} strokeWidth="3" /><text x="-10" y="-8" textAnchor="middle" fill={element.color} fontSize="12" fontWeight="700" fontFamily="Arial, sans-serif">0.000</text><circle cx="27" cy="11" r="13" fill="none" stroke={element.color} strokeWidth="3" /><path d="M27 11L35 3" stroke={element.color} strokeWidth="3" /></>;
+    case "powersupply":
+      return <><rect x="-50" y="-35" width="100" height="70" rx="6" {...common} /><rect x="-38" y="-23" width="50" height="21" rx="2" fill="none" stroke={element.color} strokeWidth="3" /><text x="-13" y="-8" textAnchor="middle" fill={element.color} fontSize="11" fontWeight="700" fontFamily="Arial, sans-serif">12.0 V</text><circle cx="27" cy="-12" r="7" {...common} /><circle cx="27" cy="16" r="7" {...common} /><path d="M23 -12H31M27 -16V-8M23 16H31" stroke={element.color} strokeWidth="2" /></>;
+    case "smu":
+      return <><rect x="-50" y="-35" width="100" height="70" rx="6" {...common} /><rect x="-38" y="-23" width="54" height="27" rx="2" fill="none" stroke={element.color} strokeWidth="3" /><text x="-11" y="-6" textAnchor="middle" fill={element.color} fontSize="15" fontWeight="700" fontFamily="Arial, sans-serif">SMU</text><path d="M28 -21V20M20 -13L28 -21L36 -13M20 12L28 20L36 12" fill="none" stroke={element.color} strokeWidth="3" /><circle cx="-25" cy="20" r="5" {...common} /><circle cx="-8" cy="20" r="5" {...common} /></>;
+    case "electronicload":
+      return <><rect x="-50" y="-35" width="100" height="70" rx="6" {...common} /><rect x="-38" y="-23" width="52" height="22" rx="2" fill="none" stroke={element.color} strokeWidth="3" /><text x="-12" y="-8" textAnchor="middle" fill={element.color} fontSize="12" fontWeight="700" fontFamily="Arial, sans-serif">LOAD</text><path d="M24 -20V20L38 13L24 6L38 -1L24 -8L38 -15Z" fill="none" stroke={element.color} strokeWidth="3" /></>;
+    case "waveformgenerator":
+      return <><rect x="-52" y="-35" width="104" height="70" rx="6" {...common} /><rect x="-40" y="-23" width="61" height="40" rx="2" fill="none" stroke={element.color} strokeWidth="3" /><path d="M-34 -2C-27 -18 -20 -18 -13 -2S1 14 8 -2M32 -18V17" fill="none" stroke={element.color} strokeWidth="3" /><circle cx="37" cy="17" r="6" {...common} /></>;
+    case "lcrmeter":
+      return <><rect x="-50" y="-35" width="100" height="70" rx="6" {...common} /><rect x="-38" y="-23" width="54" height="25" rx="2" fill="none" stroke={element.color} strokeWidth="3" /><text x="-11" y="-6" textAnchor="middle" fill={element.color} fontSize="15" fontWeight="700" fontFamily="Arial, sans-serif">LCR</text><path d="M26 -19C39 -19 39 -5 26 -5S13 9 26 9S39 23 26 23" fill="none" stroke={element.color} strokeWidth="3" /><circle cx="-25" cy="20" r="5" {...common} /><circle cx="-8" cy="20" r="5" {...common} /></>;
+    case "rfpowermeter":
+      return <><rect x="-50" y="-35" width="100" height="70" rx="6" {...common} /><path d="M-34 8A25 25 0 0116 8M-9 8L7 -10" fill="none" stroke={element.color} strokeWidth="3" /><path d="M-34 8H16" stroke={element.color} strokeWidth="3" /><text x="-9" y="26" textAnchor="middle" fill={element.color} fontSize="11" fontWeight="700" fontFamily="Arial, sans-serif">dBm</text><circle cx="34" cy="16" r="7" {...common} /></>;
   }
 }
 
