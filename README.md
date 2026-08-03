@@ -4,8 +4,9 @@ Browser-based editor for optical, photonic, and electronic experimental setup di
 
 ## Features
 
-- Scientific component library with drag-and-drop positioning
-- Directed connections, labels, rotation, and color controls
+- Original library of optical, photonic, modulation, and electronic components
+- Separate beam and signal connections with independent visibility layers
+- Drag positioning, labels, rotation, and color controls
 - Undo/redo and automatic local saving
 - SVG, high-resolution PNG, PDF, and editable JSON export
 - Static deployment to GitHub Pages

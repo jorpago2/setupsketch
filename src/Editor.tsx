@@ -11,16 +11,45 @@ import {
 type ElementKind =
   | "laser"
   | "mirror"
+  | "curvedmirror"
   | "beamsplitter"
   | "lens"
+  | "waveplate"
+  | "dichroic"
+  | "grating"
+  | "beamdump"
+  | "crystal"
   | "sample"
   | "detector"
   | "fiber"
+  | "fibercoupler"
+  | "aom"
+  | "eom"
+  | "isolator"
+  | "cavity"
   | "source"
   | "oscilloscope"
   | "amplifier"
+  | "hvamplifier"
   | "photodiode"
+  | "qpd"
+  | "mixer"
+  | "lowpass"
+  | "highpass"
+  | "servo"
+  | "spectrum"
   | "daq";
+
+type ConnectionType = "beam" | "signal";
+
+type LayerVisibility = {
+  grid: boolean;
+  labels: boolean;
+  optics: boolean;
+  electronics: boolean;
+  beams: boolean;
+  signals: boolean;
+};
 
 type DiagramElement = {
   id: string;
@@ -37,6 +66,7 @@ type Connection = {
   from: string;
   to: string;
   color: string;
+  type?: ConnectionType;
 };
 
 type Snapshot = {
@@ -49,9 +79,27 @@ const HEIGHT = 700;
 const STORAGE_KEY = "setupsketch-diagram-v1";
 
 const elementKinds = new Set<ElementKind>([
-  "laser", "mirror", "beamsplitter", "lens", "sample", "detector", "fiber",
-  "source", "oscilloscope", "amplifier", "photodiode", "daq",
+  "laser", "mirror", "curvedmirror", "beamsplitter", "lens", "waveplate",
+  "dichroic", "grating", "beamdump", "crystal", "sample", "detector", "fiber",
+  "fibercoupler", "aom", "eom", "isolator", "cavity", "source", "oscilloscope",
+  "amplifier", "hvamplifier", "photodiode", "qpd", "mixer", "lowpass",
+  "highpass", "servo", "spectrum", "daq",
 ]);
+
+const electronicKinds = new Set<ElementKind>([
+  "source", "oscilloscope", "amplifier", "hvamplifier", "photodiode", "qpd",
+  "mixer", "lowpass", "highpass", "servo", "spectrum", "daq",
+]);
+
+const defaultColor = (kind: ElementKind) => {
+  if (kind === "laser") return "#e84d3c";
+  if (["sample", "crystal", "eom", "aom", "cavity"].includes(kind)) return "#7253cf";
+  if (["detector", "photodiode", "qpd"].includes(kind)) return "#16846b";
+  return electronicKinds.has(kind) ? "#303844" : "#2263d4";
+};
+
+const getConnectionType = (connection: Connection): ConnectionType =>
+  connection.type ?? (connection.color.toLowerCase() === "#e84d3c" ? "beam" : "signal");
 
 const componentGroups: Array<{
   title: string;
@@ -62,11 +110,27 @@ const componentGroups: Array<{
     items: [
       { kind: "laser", label: "Laser" },
       { kind: "mirror", label: "Mirror" },
+      { kind: "curvedmirror", label: "Curved mirror" },
       { kind: "beamsplitter", label: "Beam splitter" },
       { kind: "lens", label: "Lens" },
+      { kind: "waveplate", label: "Wave plate" },
+      { kind: "dichroic", label: "Dichroic mirror" },
+      { kind: "grating", label: "Diffraction grating" },
+      { kind: "beamdump", label: "Beam dump" },
+      { kind: "crystal", label: "Nonlinear crystal" },
       { kind: "sample", label: "Sample" },
-      { kind: "detector", label: "Detector" },
       { kind: "fiber", label: "Optical fiber" },
+      { kind: "fibercoupler", label: "Fiber coupler" },
+    ],
+  },
+  {
+    title: "Modulation & compound",
+    items: [
+      { kind: "aom", label: "AOM" },
+      { kind: "eom", label: "EOM" },
+      { kind: "isolator", label: "Optical isolator" },
+      { kind: "cavity", label: "Ring cavity" },
+      { kind: "detector", label: "Detector" },
     ],
   },
   {
@@ -75,7 +139,14 @@ const componentGroups: Array<{
       { kind: "source", label: "Source" },
       { kind: "oscilloscope", label: "Oscilloscope" },
       { kind: "amplifier", label: "Amplifier" },
+      { kind: "hvamplifier", label: "HV amplifier" },
       { kind: "photodiode", label: "Photodiode" },
+      { kind: "qpd", label: "Quadrant detector" },
+      { kind: "mixer", label: "Mixer" },
+      { kind: "lowpass", label: "Low-pass filter" },
+      { kind: "highpass", label: "High-pass filter" },
+      { kind: "servo", label: "Servo controller" },
+      { kind: "spectrum", label: "Spectrum analyzer" },
       { kind: "daq", label: "DAQ" },
     ],
   },
@@ -90,10 +161,10 @@ const initialElements: DiagramElement[] = [
 ];
 
 const initialConnections: Connection[] = [
-  { id: "c1", from: "laser-1", to: "lens-1", color: "#e84d3c" },
-  { id: "c2", from: "lens-1", to: "sample-1", color: "#e84d3c" },
-  { id: "c3", from: "sample-1", to: "detector-1", color: "#e84d3c" },
-  { id: "c4", from: "detector-1", to: "daq-1", color: "#242a35" },
+  { id: "c1", from: "laser-1", to: "lens-1", color: "#e84d3c", type: "beam" },
+  { id: "c2", from: "lens-1", to: "sample-1", color: "#e84d3c", type: "beam" },
+  { id: "c3", from: "sample-1", to: "detector-1", color: "#e84d3c", type: "beam" },
+  { id: "c4", from: "detector-1", to: "daq-1", color: "#242a35", type: "signal" },
 ];
 
 const cloneSnapshot = (elements: DiagramElement[], connections: Connection[]): Snapshot => ({
@@ -137,6 +208,7 @@ const isDiagramFile = (value: unknown): value is { title?: string; elements: Dia
     const connection = candidate as Record<string, unknown>;
     return typeof connection.id === "string" && typeof connection.from === "string" &&
       typeof connection.to === "string" && typeof connection.color === "string" &&
+      (connection.type === undefined || connection.type === "beam" || connection.type === "signal") &&
       ids.has(connection.from) && ids.has(connection.to);
   });
 };
@@ -149,24 +221,60 @@ function ComponentShape({ element }: { element: DiagramElement }) {
       return <><rect x="-48" y="-24" width="96" height="48" rx="8" {...common} /><circle cx="28" cy="0" r="8" fill={element.color} /><path d="M-30 0h38" stroke={element.color} strokeWidth="4" /><path d="M-26 -10v20M-15 -10v20" stroke={element.color} strokeWidth="2" /></>;
     case "mirror":
       return <><path d="M-32 30L32 -30" stroke={element.color} strokeWidth="8" strokeLinecap="round" /><path d="M-25 35L39 -29" stroke="#b8c0cc" strokeWidth="3" /></>;
+    case "curvedmirror":
+      return <><path d="M12 -42Q-22 0 12 42" fill="none" stroke={element.color} strokeWidth="8" strokeLinecap="round" /><path d="M20 -39Q-10 0 20 39" fill="none" stroke="#b8c0cc" strokeWidth="3" /></>;
     case "beamsplitter":
       return <><rect x="-31" y="-31" width="62" height="62" rx="4" transform="rotate(45)" {...common} /><path d="M-43 43L43 -43" stroke={element.color} strokeWidth="3" /></>;
     case "lens":
       return <><path d="M0 -42C-22 -27 -22 27 0 42C22 27 22 -27 0 -42Z" {...common} /><path d="M-8 -25Q0 0 -8 25" fill="none" stroke="#9fc7ff" strokeWidth="3" /></>;
+    case "waveplate":
+      return <><rect x="-11" y="-42" width="22" height="84" rx="3" {...common} /><path d="M-11 -22L11 -34M-11 -3L11 -15M-11 16L11 4M-11 35L11 23" stroke={element.color} strokeWidth="2" /></>;
+    case "dichroic":
+      return <><rect x="-31" y="-31" width="62" height="62" rx="4" transform="rotate(45)" {...common} /><path d="M-43 43L43 -43" stroke="#e84d3c" strokeWidth="4" /><path d="M-43 -43L43 43" stroke={element.color} strokeWidth="3" opacity="0.75" /></>;
+    case "grating":
+      return <><rect x="-40" y="-32" width="80" height="64" rx="4" {...common} /><path d="M-28 -31v62M-18 -31v62M-8 -31v62M2 -31v62M12 -31v62M22 -31v62M32 -31v62" stroke={element.color} strokeWidth="2" /></>;
+    case "beamdump":
+      return <><path d="M-42 -34L42 -20L42 20L-42 34Z" {...common} /><path d="M-29 -27L-5 26M-12 -24L12 23M5 -21L29 26" stroke={element.color} strokeWidth="3" /></>;
+    case "crystal":
+      return <><path d="M-42 -24L25 -32L43 -14L43 24L-25 32L-42 14Z" {...common} /><path d="M-42 -24L-25 -6L43 -14M-25 -6V32" fill="none" stroke={element.color} strokeWidth="2" opacity="0.7" /></>;
     case "sample":
       return <><rect x="-50" y="-30" width="100" height="60" rx="5" {...common} /><path d="M-34 -18L34 18M-34 0L0 18M0 -18L34 0" stroke={element.color} strokeWidth="2" opacity="0.55" /></>;
     case "detector":
       return <><path d="M-38 -34H8A34 34 0 010 34H-38Z" {...common} /><path d="M-22 -16L6 0L-22 16Z" fill={element.color} stroke="none" /></>;
     case "fiber":
       return <><path d="M-50 16C-20 -34 20 34 50 -16" fill="none" stroke={element.color} strokeWidth="7" strokeLinecap="round" /><circle cx="-50" cy="16" r="6" fill="#fff" stroke={element.color} strokeWidth="3" /><circle cx="50" cy="-16" r="6" fill="#fff" stroke={element.color} strokeWidth="3" /></>;
+    case "fibercoupler":
+      return <><circle r="18" {...common} /><path d="M-52 -25C-28 -25 -24 -8 -16 -4M-52 25C-28 25 -24 8 -16 4M16 0H52" fill="none" stroke={element.color} strokeWidth="6" strokeLinecap="round" /><circle r="5" fill={element.color} /></>;
+    case "aom":
+      return <><rect x="-43" y="-32" width="86" height="64" rx="5" {...common} /><path d="M-31 17L-18 -17L-5 17L8 -17L21 17L34 -17" fill="none" stroke={element.color} strokeWidth="3" /><path d="M-52 0H52" stroke="#e84d3c" strokeWidth="3" /></>;
+    case "eom":
+      return <><rect x="-43" y="-32" width="86" height="64" rx="5" {...common} /><path d="M-30 -20V20M30 -20V20" stroke={element.color} strokeWidth="6" /><path d="M-18 0C-10 -20 -2 20 6 0S22 -20 28 0" fill="none" stroke={element.color} strokeWidth="3" /></>;
+    case "isolator":
+      return <><circle r="37" {...common} /><path d="M-22 0H20M8 -13L22 0L8 13" fill="none" stroke={element.color} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /><path d="M-28 29L28 -29" stroke={element.color} strokeWidth="3" opacity="0.55" /></>;
+    case "cavity":
+      return <><path d="M-38 25L0 -34L40 25Z" fill="none" stroke={element.color} strokeWidth="4" /><path d="M-48 22L-30 32M-9 -38L9 -30M31 32L49 22" stroke={element.color} strokeWidth="7" strokeLinecap="round" /></>;
     case "source":
       return <><circle r="36" {...common} /><path d="M-16 -9h13M-9 -16v14M5 10h14" stroke={element.color} strokeWidth="4" strokeLinecap="round" /></>;
     case "oscilloscope":
       return <><rect x="-52" y="-34" width="104" height="68" rx="7" {...common} /><path d="M-38 4C-27 -24 -15 25 -3 0S21 -24 38 2" fill="none" stroke={element.color} strokeWidth="4" /></>;
     case "amplifier":
       return <><path d="M-42 -36L45 0L-42 36Z" {...common} /><path d="M-27 0h18M-18 -9v18" stroke={element.color} strokeWidth="3" /></>;
+    case "hvamplifier":
+      return <><path d="M-42 -36L45 0L-42 36Z" {...common} /><path d="M-11 -21L-24 4H-8L-19 24L18 -8H1L12 -21Z" fill={element.color} /></>;
     case "photodiode":
       return <><path d="M-32 -31L24 0L-32 31Z" {...common} /><path d="M25 -34v68M-13 -48l14 13M4 -50l14 13" stroke={element.color} strokeWidth="4" /></>;
+    case "qpd":
+      return <><circle r="38" {...common} /><path d="M-38 0H38M0 -38V38" stroke={element.color} strokeWidth="3" /><circle r="7" fill={element.color} /></>;
+    case "mixer":
+      return <><circle r="37" {...common} /><path d="M-18 -18L18 18M18 -18L-18 18" stroke={element.color} strokeWidth="5" strokeLinecap="round" /></>;
+    case "lowpass":
+      return <><rect x="-49" y="-31" width="98" height="62" rx="6" {...common} /><path d="M-35 -18V5C-35 18 -20 18 -10 18H35" fill="none" stroke={element.color} strokeWidth="4" /></>;
+    case "highpass":
+      return <><rect x="-49" y="-31" width="98" height="62" rx="6" {...common} /><path d="M-35 18H-10C3 18 3 3 3 -6V-18H35" fill="none" stroke={element.color} strokeWidth="4" /></>;
+    case "servo":
+      return <><rect x="-48" y="-31" width="96" height="62" rx="9" {...common} /><path d="M-24 8A24 24 0 113 -22M-24 8L-26 -8M-24 8L-8 7" fill="none" stroke={element.color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /></>;
+    case "spectrum":
+      return <><rect x="-51" y="-34" width="102" height="68" rx="7" {...common} /><path d="M-37 22V8M-24 22V-2M-11 22V-20M2 22V10M15 22V-12M28 22V2M39 22V-25" stroke={element.color} strokeWidth="5" /></>;
     case "daq":
       return <><rect x="-48" y="-31" width="96" height="62" rx="7" {...common} /><path d="M-29 10v-20M-12 10V0M5 10v-30M22 10v-12" stroke={element.color} strokeWidth="5" /><circle cx="34" cy="-18" r="4" fill={element.color} /></>;
   }
@@ -180,6 +288,15 @@ export default function Home() {
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
   const [connectMode, setConnectMode] = useState(false);
+  const [connectionType, setConnectionType] = useState<ConnectionType>("beam");
+  const [layers, setLayers] = useState<LayerVisibility>({
+    grid: true,
+    labels: true,
+    optics: true,
+    electronics: true,
+    beams: true,
+    signals: true,
+  });
   const [past, setPast] = useState<Snapshot[]>([]);
   const [future, setFuture] = useState<Snapshot[]>([]);
   const [notice, setNotice] = useState("Autosaved locally");
@@ -265,7 +382,7 @@ export default function Home() {
       x: 170 + (index % 4) * 250,
       y: 170 + (Math.floor(index / 4) % 3) * 190,
       rotation: 0,
-      color: kind === "laser" ? "#e84d3c" : kind === "sample" ? "#7253cf" : "#2263d4",
+      color: defaultColor(kind),
     };
     commit([...elements, element]);
     setSelectedId(element.id);
@@ -302,7 +419,13 @@ export default function Home() {
         setConnectFrom(id);
         setNotice("Select the destination component");
       } else if (connectFrom !== id) {
-        const connection: Connection = { id: `connection-${Date.now()}`, from: connectFrom, to: id, color: "#303844" };
+        const connection: Connection = {
+          id: `connection-${Date.now()}`,
+          from: connectFrom,
+          to: id,
+          color: connectionType === "beam" ? "#e84d3c" : "#303844",
+          type: connectionType,
+        };
         commit(elements, [...connections, connection]);
         setConnectFrom(null);
         setConnectMode(false);
@@ -444,6 +567,13 @@ export default function Home() {
           <button className={connectMode ? "active" : ""} onClick={() => { setConnectMode(!connectMode); setConnectFrom(null); }}>
             {connectFrom ? "Choose target" : "Connect"}
           </button>
+          <label className="connection-type">
+            <span className="sr-only">Connection type</span>
+            <select value={connectionType} onChange={(event) => setConnectionType(event.target.value as ConnectionType)}>
+              <option value="beam">Beam</option>
+              <option value="signal">Signal</option>
+            </select>
+          </label>
           <span className="toolbar-divider" />
           <button onClick={saveJson}>JSON</button>
           <button onClick={() => fileRef.current?.click()}>Open</button>
@@ -466,7 +596,9 @@ export default function Home() {
               <div className="component-grid">
                 {group.items.map((item) => (
                   <button key={item.kind} onClick={() => addElement(item.kind, item.label)}>
-                    <span className={`mini-icon mini-${item.kind}`} aria-hidden="true" />
+                    <svg className="library-icon" viewBox="-60 -55 120 110" aria-hidden="true">
+                      <ComponentShape element={{ id: "preview", kind: item.kind, label: "", x: 0, y: 0, rotation: 0, color: defaultColor(item.kind) }} />
+                    </svg>
                     {item.label}
                   </button>
                 ))}
@@ -479,7 +611,7 @@ export default function Home() {
         <section className="stage-wrap" aria-label="Diagram workspace">
           <div className="stage-meta">
             <span>{elements.length} components · {connections.length} connections</span>
-            <span className={connectMode ? "mode-note active" : "mode-note"}>{connectMode ? (connectFrom ? "Select destination" : "Select source") : notice}</span>
+            <span className={connectMode ? "mode-note active" : "mode-note"} aria-live="polite">{connectMode ? (connectFrom ? `Select ${connectionType} destination` : `Select ${connectionType} source`) : notice}</span>
           </div>
           <div className="stage">
             <svg
@@ -503,11 +635,13 @@ export default function Home() {
                 </marker>
               </defs>
               <rect width={WIDTH} height={HEIGHT} fill="#ffffff" />
-              <rect className="grid-layer" width={WIDTH} height={HEIGHT} fill="url(#majorGrid)" />
-              <text x="42" y="54" fill="#171b22" fontSize="25" fontWeight="700" fontFamily="Arial, sans-serif">{title}</text>
-              <text x="42" y="80" fill="#6d7580" fontSize="12" fontFamily="Arial, sans-serif">Created with SetupSketch</text>
+              {layers.grid && <rect className="grid-layer" width={WIDTH} height={HEIGHT} fill="url(#majorGrid)" />}
+              {layers.labels && <g className="labels-layer">
+                <text x="42" y="54" fill="#171b22" fontSize="25" fontWeight="700" fontFamily="Arial, sans-serif">{title}</text>
+                <text x="42" y="80" fill="#6d7580" fontSize="12" fontFamily="Arial, sans-serif">Created with SetupSketch</text>
+              </g>}
 
-              {connections.map((connection) => {
+              {connections.filter((connection) => layers[getConnectionType(connection) === "beam" ? "beams" : "signals"]).map((connection) => {
                 const from = elements.find((element) => element.id === connection.from);
                 const to = elements.find((element) => element.id === connection.to);
                 if (!from || !to) return null;
@@ -522,7 +656,13 @@ export default function Home() {
                 const y2 = to.y - dy / distance * offset;
                 return (
                   <g key={connection.id}>
-                    <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={connection.color} strokeWidth={selectedEdge ? 5 : 3} markerEnd="url(#arrow)" />
+                    <line
+                      x1={x1} y1={y1} x2={x2} y2={y2}
+                      stroke={connection.color}
+                      strokeWidth={selectedEdge ? 5 : getConnectionType(connection) === "beam" ? 3 : 2.5}
+                      strokeDasharray={getConnectionType(connection) === "signal" ? "9 5" : undefined}
+                      markerEnd="url(#arrow)"
+                    />
                     <line
                       className="connection-hit"
                       x1={x1} y1={y1} x2={x2} y2={y2}
@@ -533,7 +673,7 @@ export default function Home() {
                 );
               })}
 
-              {elements.map((element) => (
+              {elements.filter((element) => layers[electronicKinds.has(element.kind) ? "electronics" : "optics"]).map((element) => (
                 <g
                   key={element.id}
                   className={`diagram-element${connectFrom === element.id ? " connection-source" : ""}`}
@@ -546,7 +686,7 @@ export default function Home() {
                   {selectedId === element.id && <rect className="selection-outline" x="-64" y="-58" width="128" height="116" rx="9" fill="none" stroke="#1665d8" strokeWidth="2" strokeDasharray="6 5" />}
                   <ComponentShape element={element} />
                   <rect x="-66" y="-54" width="132" height="108" fill="transparent" />
-                  <text y="65" textAnchor="middle" fill="#252b33" fontSize="14" fontWeight="600" fontFamily="Arial, sans-serif" transform={`rotate(${-element.rotation})`}>{element.label}</text>
+                  {layers.labels && <text className="labels-layer" y="65" textAnchor="middle" fill="#252b33" fontSize="14" fontWeight="600" fontFamily="Arial, sans-serif" transform={`rotate(${-element.rotation})`}>{element.label}</text>}
                 </g>
               ))}
             </svg>
@@ -574,6 +714,26 @@ export default function Home() {
           ) : (
             <div className="empty-inspector"><p>Select a component to edit its label, position, rotation, and color.</p><span>Tip: press Delete to remove a selection.</span></div>
           )}
+          <section className="layers-panel" aria-labelledby="layers-title">
+            <div className="panel-heading"><span id="layers-title">Layers</span></div>
+            {([
+              ["grid", "Grid"],
+              ["labels", "Labels"],
+              ["optics", "Optical components"],
+              ["electronics", "Electronics"],
+              ["beams", "Optical beams"],
+              ["signals", "Signal paths"],
+            ] as Array<[keyof LayerVisibility, string]>).map(([key, label]) => (
+              <label className="layer-toggle" key={key}>
+                <input
+                  type="checkbox"
+                  checked={layers[key]}
+                  onChange={(event) => setLayers((current) => ({ ...current, [key]: event.target.checked }))}
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+          </section>
         </aside>
       </section>
     </main>
