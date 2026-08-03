@@ -326,7 +326,7 @@ function ComponentShape({ element }: { element: DiagramElement }) {
     case "curvedmirror":
       return <><path d="M12 -42Q-22 0 12 42" fill="none" stroke={element.color} strokeWidth="8" strokeLinecap="round" /><path d="M20 -39Q-10 0 20 39" fill="none" stroke="#b8c0cc" strokeWidth="3" /></>;
     case "beamsplitter":
-      return <><rect x="-34" y="-34" width="68" height="68" rx="3" {...common} /><path d="M-34 34L34 -34" stroke={element.color} strokeWidth="4" /><path d="M-34 -34L34 34" stroke={element.color} strokeWidth="1.5" opacity="0.35" /></>;
+      return <><rect x="-34" y="-34" width="68" height="68" rx="3" {...common} /><path d="M-34 34L34 -34" stroke={element.color} strokeWidth="4" /><path d="M-22 34L34 -22" stroke="#b8c0cc" strokeWidth="2" /></>;
     case "lens":
       return <><path d="M0 -42C-22 -27 -22 27 0 42C22 27 22 -27 0 -42Z" {...common} /><path d="M-8 -25Q0 0 -8 25" fill="none" stroke="#9fc7ff" strokeWidth="3" /></>;
     case "waveplate":
@@ -346,7 +346,7 @@ function ComponentShape({ element }: { element: DiagramElement }) {
     case "fiber":
       return <><path d="M-50 16C-20 -34 20 34 50 -16" fill="none" stroke={element.color} strokeWidth="7" strokeLinecap="round" /><circle cx="-50" cy="16" r="6" fill="#fff" stroke={element.color} strokeWidth="3" /><circle cx="50" cy="-16" r="6" fill="#fff" stroke={element.color} strokeWidth="3" /></>;
     case "fibercoupler":
-      return <><circle r="18" {...common} /><path d="M-52 -25C-28 -25 -24 -8 -16 -4M-52 25C-28 25 -24 8 -16 4M16 0H52" fill="none" stroke={element.color} strokeWidth="6" strokeLinecap="round" /><circle r="5" fill={element.color} /></>;
+      return <><path d="M-52 -23C-24 -23 -22 21 3 21S25 -23 52 -23M-52 23C-24 23 -22 -21 3 -21S25 23 52 23" fill="none" stroke={element.color} strokeWidth="5" strokeLinecap="round" /><path d="M-13 -8C-5 -3 -5 3 -13 8M13 -8C5 -3 5 3 13 8" fill="none" stroke={element.color} strokeWidth="2.5" opacity="0.7" /></>;
     case "aom":
       return <><rect x="-43" y="-31" width="86" height="62" rx="4" {...common} /><text y="7" textAnchor="middle" fill={element.color} fontSize="22" fontWeight="700" fontFamily="Arial, sans-serif">AOM</text><path d="M-52 0H-43M43 0H52" stroke="#e84d3c" strokeWidth="3" /></>;
     case "eom":
@@ -390,7 +390,7 @@ function ComponentShape({ element }: { element: DiagramElement }) {
     case "hvamplifier":
       return <><path d="M-42 -36L45 0L-42 36Z" {...common} /><path d="M-11 -21L-24 4H-8L-19 24L18 -8H1L12 -21Z" fill={element.color} /></>;
     case "photodiode":
-      return <><path d="M-32 -31L24 0L-32 31Z" {...common} /><path d="M25 -34v68M-13 -48l14 13M4 -50l14 13" stroke={element.color} strokeWidth="4" /></>;
+      return <><path d="M-32 -31L24 0L-32 31Z" {...common} /><path d="M25 -34v68M-18 -48L-4 -34M-13 -35L-4 -34L-5 -43M0 -49L14 -35M5 -36L14 -35L13 -44" fill="none" stroke={element.color} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" /></>;
     case "qpd":
       return <><circle r="38" {...common} /><path d="M-38 0H38M0 -38V38" stroke={element.color} strokeWidth="3" /><circle r="7" fill={element.color} /></>;
     case "mixer":
@@ -410,9 +410,9 @@ function ComponentShape({ element }: { element: DiagramElement }) {
     case "splitter":
       return <><path d="M-52 0H-20M-20 0L28 -23H52M-20 0L28 23H52" fill="none" stroke={element.color} strokeWidth="5" strokeLinecap="round" /><circle cx="-20" r="7" fill="#fff" stroke={element.color} strokeWidth="3" /></>;
     case "directionalcoupler":
-      return <><rect x="-46" y="-31" width="92" height="62" rx="5" {...common} /><path d="M-54 -14H54M-54 14H54M-27 14H27M17 6L28 14L17 22" fill="none" stroke={element.color} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" /><path d="M-24 -8C-12 -2 -12 2 0 8" fill="none" stroke={element.color} strokeWidth="2.5" strokeDasharray="5 4" /></>;
+      return <><rect x="-46" y="-31" width="92" height="62" rx="5" {...common} /><path d="M-54 -14H54M-54 14H54M-22 -14L-8 -14M-14 -21L-7 -14L-14 -7M8 14H22M14 7L21 14L14 21" fill="none" stroke={element.color} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" /></>;
     case "biastee":
-      return <><circle r="31" {...common} /><path d="M-52 0H52M0 -52V-31" stroke={element.color} strokeWidth="4" /><text x="0" y="8" textAnchor="middle" fill={element.color} fontSize="20" fontWeight="700" fontFamily="Arial, sans-serif">T</text><text x="0" y="-37" textAnchor="middle" fill={element.color} fontSize="11" fontWeight="700" fontFamily="Arial, sans-serif">DC</text></>;
+      return <><rect x="-43" y="-31" width="86" height="62" rx="5" {...common} /><path d="M-54 0H-25M-25 -18V18M-14 -18V18M-14 0H54M10 0V-7C22 -7 22 -17 10 -17S-2 -27 10 -27S22 -37 10 -37V-52" fill="none" stroke={element.color} strokeWidth="3.5" strokeLinecap="round" /><circle cx="10" r="4" fill={element.color} /><text x="10" y="-40" textAnchor="middle" fill={element.color} fontSize="9" fontWeight="700" fontFamily="Arial, sans-serif">DC</text></>;
     case "rfswitch":
       return <><rect x="-45" y="-32" width="90" height="64" rx="5" {...common} /><path d="M-54 0H-18L22 -18M22 -18H54M22 18H54" fill="none" stroke={element.color} strokeWidth="4" strokeLinecap="round" /><circle cx="-18" r="5" fill={element.color} /><circle cx="22" cy="-18" r="5" fill={element.color} /><circle cx="22" cy="18" r="5" fill={element.color} /></>;
     case "bandpass":
