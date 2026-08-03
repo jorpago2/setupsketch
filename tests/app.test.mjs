@@ -6,14 +6,21 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
   const assets = await readdir(new URL("../dist/assets/", import.meta.url));
   const editor = await readFile(new URL("../src/Editor.tsx", import.meta.url), "utf8");
+  const catalog = await readFile(new URL("../src/componentCatalog.ts", import.meta.url), "utf8");
+  const templates = await readFile(new URL("../src/templates.ts", import.meta.url), "utf8");
   assert.match(html, /SetupSketch/);
   assert.ok(assets.some((name) => name.endsWith(".js")));
   assert.ok(assets.some((name) => name.endsWith(".css")));
   assert.doesNotMatch(html, /_next|codex-preview/);
   for (const component of ["waveplate", "grating", "aom", "eom", "kinematicmount", "fibercollimator", "prism", "iris", "breadboard", "flipmount", "qpd", "mixer", "attenuator", "biastee", "rfswitch", "vco", "balun", "dcblock", "phaseshifter", "limiter", "hybridcoupler", "networkanalyzer", "dmm", "powersupply", "smu", "electronicload", "waveformgenerator", "lcrmeter", "rfpowermeter"]) {
-    assert.match(editor, new RegExp(`\\| \\"${component}\\"`));
+    assert.match(catalog, new RegExp(`kind: \\"${component}\\"`));
   }
   for (const layer of ["optics", "electronics", "beams", "signals", "labels", "grid"]) {
     assert.match(editor, new RegExp(`\\[\\"${layer}\\",`));
   }
+  for (const feature of ["connectionPath", "orthogonal", "fromPort", "selectedIds", "exportBom", "Publication", "Search components"]) {
+    assert.match(editor, new RegExp(feature));
+  }
+  assert.match(templates, /mach-zehnder/);
+  assert.match(templates, /vna-chain/);
 });

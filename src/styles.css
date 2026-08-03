@@ -19,7 +19,7 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-button, input, select { font: inherit; }
+button, input, select, textarea { font: inherit; }
 
 button {
   border: 1px solid var(--line);
@@ -30,7 +30,7 @@ button {
 }
 
 button:hover { border-color: #aab3bf; background: #f8fafc; }
-button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(22, 101, 216, .25); outline-offset: 2px; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid rgba(22, 101, 216, .25); outline-offset: 2px; }
 button:disabled { cursor: not-allowed; opacity: .4; }
 button.active { border-color: var(--blue); background: var(--blue-soft); color: var(--blue); }
 button.primary { border-color: var(--blue); background: var(--blue); color: #fff; }
@@ -84,9 +84,13 @@ button.danger { color: var(--danger); }
 .text-button { padding: 2px 0; border: 0; background: transparent; font-size: 10px; text-transform: uppercase; }
 
 .library-group { margin-bottom: 24px; }
-.library-group h2 { margin: 0 0 9px; color: var(--muted); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+.library-search { width: 100%; margin: 0 0 18px; padding: 9px; border: 1px solid var(--line); border-radius: 7px; }
+.library-group-title { width: 100%; display: flex; justify-content: space-between; margin: 0 0 9px; padding: 3px 0; border: 0; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .component-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
-.component-grid button { min-height: 76px; display: grid; place-items: center; align-content: center; gap: 5px; padding: 7px 4px; color: #39414c; font-size: 10px; line-height: 1.15; }
+.component-card { position: relative; min-width: 0; }
+.component-grid .component-add { width: 100%; min-height: 76px; display: grid; place-items: center; align-content: center; gap: 5px; padding: 7px 4px; color: #39414c; font-size: 10px; line-height: 1.15; }
+.component-grid .favorite { position: absolute; top: 3px; right: 3px; min-height: 0; padding: 2px 4px; border: 0; background: transparent; color: #c1c7d0; font-size: 12px; }
+.component-grid .favorite.active { color: #e4a21a; }
 .library-icon { width: 42px; height: 34px; overflow: visible; pointer-events: none; }
 .library-help { margin: 10px 0 0; padding: 13px; border-radius: 7px; background: var(--paper); color: var(--muted); font-size: 10px; line-height: 1.5; }
 
@@ -99,16 +103,22 @@ button.danger { color: var(--danger); }
 .diagram-element:active { cursor: grabbing; }
 .diagram-element.connection-source .selection-outline { stroke: #e84d3c; stroke-width: 4; }
 .connection-hit { cursor: pointer; }
+.bend-handle { cursor: move; }
+.port-marker { pointer-events: none; }
 
 .property-form { display: grid; gap: 17px; }
 .property-form label { position: relative; display: grid; gap: 6px; color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; }
-.property-form input { width: 100%; min-width: 0; padding: 9px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); }
+.property-form input, .property-form select, .property-form textarea { width: 100%; min-width: 0; padding: 9px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); }
+.property-form textarea { min-height: 70px; resize: vertical; }
 .property-row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 .property-form output { position: absolute; right: 0; top: 0; color: var(--ink); }
 .property-form input[type="range"] { padding: 0; }
 .property-form .color-input { height: 38px; padding: 3px; }
 .property-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-top: 5px; }
 .property-actions button, .empty-inspector button { padding: 9px; font-size: 10px; font-weight: 700; }
+.selection-count { margin: 0; color: var(--muted); font-size: 11px; }
+.compact-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.compact-actions button, .property-form > button { min-height: 34px; padding: 7px; font-size: 10px; font-weight: 700; }
 .empty-inspector { padding: 14px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .empty-inspector p { margin: 0 0 10px; }
 .empty-inspector span { font-size: 10px; }

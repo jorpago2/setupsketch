@@ -7,77 +7,18 @@ import {
   useRef,
   useState,
 } from "react";
-
-type ElementKind =
-  | "laser"
-  | "mirror"
-  | "curvedmirror"
-  | "beamsplitter"
-  | "lens"
-  | "waveplate"
-  | "dichroic"
-  | "grating"
-  | "beamdump"
-  | "crystal"
-  | "sample"
-  | "detector"
-  | "fiber"
-  | "fibercoupler"
-  | "aom"
-  | "eom"
-  | "isolator"
-  | "cavity"
-  | "kinematicmount"
-  | "translationstage"
-  | "rotationmount"
-  | "fibercollimator"
-  | "cagecube"
-  | "prism"
-  | "objective"
-  | "shutter"
-  | "iris"
-  | "breadboard"
-  | "postholder"
-  | "flipmount"
-  | "motorizedstage"
-  | "source"
-  | "oscilloscope"
-  | "amplifier"
-  | "hvamplifier"
-  | "photodiode"
-  | "qpd"
-  | "mixer"
-  | "lowpass"
-  | "highpass"
-  | "servo"
-  | "spectrum"
-  | "daq"
-  | "attenuator"
-  | "splitter"
-  | "directionalcoupler"
-  | "biastee"
-  | "rfswitch"
-  | "bandpass"
-  | "vco"
-  | "termination"
-  | "networkanalyzer"
-  | "dmm"
-  | "powersupply"
-  | "smu"
-  | "electronicload"
-  | "waveformgenerator"
-  | "lcrmeter"
-  | "rfpowermeter"
-  | "balun"
-  | "dcblock"
-  | "rftransformer"
-  | "phaseshifter"
-  | "frequencymultiplier"
-  | "limiter"
-  | "rfdetector"
-  | "hybridcoupler";
-
-type ConnectionType = "beam" | "signal";
+import {
+  componentByKind,
+  componentDefinitions,
+  componentGroups,
+  defaultColor,
+  electronicKinds,
+  elementKinds,
+  type ConnectionType,
+  type ElementKind,
+  type PortLayout,
+} from "./componentCatalog";
+import { setupTemplates } from "./templates";
 
 type LayerVisibility = {
   grid: boolean;
@@ -88,6 +29,17 @@ type LayerVisibility = {
   signals: boolean;
 };
 
+type Point = { x: number; y: number };
+type Routing = "straight" | "orthogonal";
+type PagePreset = "canvas" | "a4" | "a3" | "single" | "double";
+
+type PublicationSettings = {
+  pagePreset: PagePreset;
+  monochrome: boolean;
+  showCredit: boolean;
+  labelScale: number;
+};
+
 type DiagramElement = {
   id: string;
   kind: ElementKind;
@@ -96,6 +48,11 @@ type DiagramElement = {
   y: number;
   rotation: number;
   color: string;
+  manufacturer?: string;
+  model?: string;
+  specs?: string;
+  notes?: string;
+  groupId?: string;
 };
 
 type Connection = {
@@ -104,6 +61,10 @@ type Connection = {
   to: string;
   color: string;
   type?: ConnectionType;
+  fromPort?: string;
+  toPort?: string;
+  routing?: Routing;
+  waypoints?: Point[];
 };
 
 type Snapshot = {
@@ -114,145 +75,72 @@ type Snapshot = {
 const WIDTH = 1200;
 const HEIGHT = 700;
 const STORAGE_KEY = "setupsketch-diagram-v1";
+const FAVORITES_KEY = "setupsketch-favorites-v1";
+const GRID_STEP = 20;
 
-const elementKinds = new Set<ElementKind>([
-  "laser", "mirror", "curvedmirror", "beamsplitter", "lens", "waveplate",
-  "dichroic", "grating", "beamdump", "crystal", "sample", "detector", "fiber",
-  "fibercoupler", "aom", "eom", "isolator", "cavity", "kinematicmount",
-  "translationstage", "rotationmount", "fibercollimator", "cagecube", "prism",
-  "objective", "shutter", "iris", "breadboard", "postholder", "flipmount",
-  "motorizedstage", "source", "oscilloscope",
-  "amplifier", "hvamplifier", "photodiode", "qpd", "mixer", "lowpass",
-  "highpass", "servo", "spectrum", "daq", "attenuator", "splitter",
-  "directionalcoupler", "biastee", "rfswitch", "bandpass", "vco", "termination",
-  "networkanalyzer", "dmm", "powersupply", "smu", "electronicload",
-  "waveformgenerator", "lcrmeter", "rfpowermeter",
-  "balun", "dcblock", "rftransformer", "phaseshifter", "frequencymultiplier",
-  "limiter", "rfdetector", "hybridcoupler",
-]);
+const pagePresets: Record<PagePreset, { label: string; width: number; height: number }> = {
+  canvas: { label: "Canvas 12:7", width: WIDTH, height: HEIGHT },
+  a4: { label: "A4 landscape", width: 1120, height: 792 },
+  a3: { label: "A3 landscape", width: 1400, height: 990 },
+  single: { label: "Single column", width: 850, height: 700 },
+  double: { label: "Double column", width: 1200, height: 700 },
+};
 
-const electronicKinds = new Set<ElementKind>([
-  "source", "oscilloscope", "amplifier", "hvamplifier", "photodiode", "qpd",
-  "mixer", "lowpass", "highpass", "servo", "spectrum", "daq", "attenuator",
-  "splitter", "directionalcoupler", "biastee", "rfswitch", "bandpass", "vco",
-  "termination", "networkanalyzer", "dmm", "powersupply", "smu", "electronicload",
-  "waveformgenerator", "lcrmeter", "rfpowermeter",
-  "balun", "dcblock", "rftransformer", "phaseshifter", "frequencymultiplier",
-  "limiter", "rfdetector", "hybridcoupler",
-]);
+const defaultPublication: PublicationSettings = {
+  pagePreset: "canvas",
+  monochrome: false,
+  showCredit: true,
+  labelScale: 1,
+};
 
-const defaultColor = (kind: ElementKind) => {
-  if (kind === "laser") return "#e84d3c";
-  if (["sample", "crystal", "eom", "aom", "cavity"].includes(kind)) return "#7253cf";
-  if (["detector", "photodiode", "qpd"].includes(kind)) return "#16846b";
-  return electronicKinds.has(kind) ? "#303844" : "#2263d4";
+const portLayouts: Record<PortLayout, Array<{ id: string; x: number; y: number }>> = {
+  lr: [{ id: "left", x: -58, y: 0 }, { id: "right", x: 58, y: 0 }],
+  cross: [
+    { id: "left", x: -58, y: 0 }, { id: "right", x: 58, y: 0 },
+    { id: "top", x: 0, y: -58 }, { id: "bottom", x: 0, y: 58 },
+  ],
+  quad: [
+    { id: "left-top", x: -58, y: -20 }, { id: "left-bottom", x: -58, y: 20 },
+    { id: "right-top", x: 58, y: -20 }, { id: "right-bottom", x: 58, y: 20 },
+  ],
+  lrr: [
+    { id: "left", x: -58, y: 0 },
+    { id: "right-top", x: 58, y: -22 }, { id: "right-bottom", x: 58, y: 22 },
+  ],
+  lrt: [
+    { id: "left", x: -58, y: 0 }, { id: "right", x: 58, y: 0 }, { id: "top", x: 0, y: -58 },
+  ],
+  input: [{ id: "input", x: -58, y: 0 }],
+  output: [{ id: "output", x: 58, y: 0 }],
+};
+
+const rotatePoint = (point: Point, angle: number): Point => {
+  const radians = angle * Math.PI / 180;
+  return {
+    x: point.x * Math.cos(radians) - point.y * Math.sin(radians),
+    y: point.x * Math.sin(radians) + point.y * Math.cos(radians),
+  };
+};
+
+const portsFor = (element: DiagramElement) => {
+  const layout = componentByKind.get(element.kind)?.ports ?? "lr";
+  return portLayouts[layout].map((port) => {
+    const rotated = rotatePoint(port, element.rotation);
+    return { ...port, x: element.x + rotated.x, y: element.y + rotated.y };
+  });
+};
+
+const closestPortPair = (from: DiagramElement, to: DiagramElement) => {
+  const pairs = portsFor(from).flatMap((source) => portsFor(to).map((target) => ({
+    source,
+    target,
+    distance: Math.hypot(target.x - source.x, target.y - source.y),
+  })));
+  return pairs.reduce((best, pair) => pair.distance < best.distance ? pair : best);
 };
 
 const getConnectionType = (connection: Connection): ConnectionType =>
   connection.type ?? (connection.color.toLowerCase() === "#e84d3c" ? "beam" : "signal");
-
-const componentGroups: Array<{
-  title: string;
-  items: Array<{ kind: ElementKind; label: string }>;
-}> = [
-  {
-    title: "Optics & photonics",
-    items: [
-      { kind: "laser", label: "Laser" },
-      { kind: "mirror", label: "Mirror" },
-      { kind: "curvedmirror", label: "Curved mirror" },
-      { kind: "beamsplitter", label: "Beam splitter" },
-      { kind: "lens", label: "Lens" },
-      { kind: "waveplate", label: "Wave plate" },
-      { kind: "dichroic", label: "Dichroic mirror" },
-      { kind: "grating", label: "Diffraction grating" },
-      { kind: "beamdump", label: "Beam dump" },
-      { kind: "crystal", label: "Nonlinear crystal" },
-      { kind: "sample", label: "Sample" },
-      { kind: "fiber", label: "Optical fiber" },
-      { kind: "fibercoupler", label: "Fiber coupler" },
-      { kind: "prism", label: "Prism" },
-      { kind: "objective", label: "Microscope objective" },
-      { kind: "shutter", label: "Optical shutter" },
-    ],
-  },
-  {
-    title: "Modulation & compound",
-    items: [
-      { kind: "aom", label: "AOM" },
-      { kind: "eom", label: "EOM" },
-      { kind: "isolator", label: "Optical isolator" },
-      { kind: "cavity", label: "Ring cavity" },
-      { kind: "detector", label: "Detector" },
-    ],
-  },
-  {
-    title: "Lab hardware",
-    items: [
-      { kind: "kinematicmount", label: "Kinematic mount" },
-      { kind: "translationstage", label: "Translation stage" },
-      { kind: "rotationmount", label: "Rotation mount" },
-      { kind: "fibercollimator", label: "Fiber collimator" },
-      { kind: "cagecube", label: "Cage cube" },
-      { kind: "iris", label: "Iris diaphragm" },
-      { kind: "breadboard", label: "Optical breadboard" },
-      { kind: "postholder", label: "Post & holder" },
-      { kind: "flipmount", label: "Flip mount" },
-      { kind: "motorizedstage", label: "Motorized stage" },
-    ],
-  },
-  {
-    title: "RF & microwave",
-    items: [
-      { kind: "attenuator", label: "Attenuator" },
-      { kind: "splitter", label: "Power splitter" },
-      { kind: "directionalcoupler", label: "Directional coupler" },
-      { kind: "biastee", label: "Bias tee" },
-      { kind: "rfswitch", label: "RF switch" },
-      { kind: "bandpass", label: "Band-pass filter" },
-      { kind: "vco", label: "VCO" },
-      { kind: "termination", label: "50 Ω termination" },
-      { kind: "balun", label: "Balun" },
-      { kind: "dcblock", label: "DC block" },
-      { kind: "rftransformer", label: "RF transformer" },
-      { kind: "phaseshifter", label: "Phase shifter" },
-      { kind: "frequencymultiplier", label: "Frequency multiplier" },
-      { kind: "limiter", label: "RF limiter" },
-      { kind: "rfdetector", label: "RF detector" },
-      { kind: "hybridcoupler", label: "90° hybrid" },
-    ],
-  },
-  {
-    title: "Test instruments",
-    items: [
-      { kind: "oscilloscope", label: "Oscilloscope" },
-      { kind: "spectrum", label: "Spectrum analyzer" },
-      { kind: "networkanalyzer", label: "Vector network analyzer" },
-      { kind: "waveformgenerator", label: "Waveform generator" },
-      { kind: "dmm", label: "Digital multimeter" },
-      { kind: "powersupply", label: "DC power supply" },
-      { kind: "smu", label: "Source measure unit" },
-      { kind: "electronicload", label: "Electronic load" },
-      { kind: "lcrmeter", label: "LCR meter" },
-      { kind: "rfpowermeter", label: "RF power meter" },
-      { kind: "daq", label: "DAQ" },
-    ],
-  },
-  {
-    title: "Electronics",
-    items: [
-      { kind: "source", label: "Source" },
-      { kind: "amplifier", label: "Amplifier" },
-      { kind: "hvamplifier", label: "HV amplifier" },
-      { kind: "photodiode", label: "Photodiode" },
-      { kind: "qpd", label: "Quadrant detector" },
-      { kind: "mixer", label: "Mixer" },
-      { kind: "lowpass", label: "Low-pass filter" },
-      { kind: "highpass", label: "High-pass filter" },
-      { kind: "servo", label: "Servo controller" },
-    ],
-  },
-];
 
 const initialElements: DiagramElement[] = [
   { id: "laser-1", kind: "laser", label: "1550 nm laser", x: 180, y: 330, rotation: 0, color: "#e84d3c" },
@@ -271,7 +159,10 @@ const initialConnections: Connection[] = [
 
 const cloneSnapshot = (elements: DiagramElement[], connections: Connection[]): Snapshot => ({
   elements: elements.map((element) => ({ ...element })),
-  connections: connections.map((connection) => ({ ...connection })),
+  connections: connections.map((connection) => ({
+    ...connection,
+    waypoints: connection.waypoints?.map((point) => ({ ...point })),
+  })),
 });
 
 const download = (blob: Blob, filename: string) => {
@@ -286,10 +177,27 @@ const download = (blob: Blob, filename: string) => {
 const safeFilename = (name: string) =>
   name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "setup";
 
-const isDiagramFile = (value: unknown): value is { title?: string; elements: DiagramElement[]; connections: Connection[] } => {
+type DiagramFile = {
+  title?: string;
+  elements: DiagramElement[];
+  connections: Connection[];
+  publication?: PublicationSettings;
+};
+
+const isPublicationSettings = (value: unknown): value is PublicationSettings => {
+  if (!value || typeof value !== "object") return false;
+  const settings = value as Record<string, unknown>;
+  return typeof settings.pagePreset === "string" && settings.pagePreset in pagePresets &&
+    typeof settings.monochrome === "boolean" && typeof settings.showCredit === "boolean" &&
+    typeof settings.labelScale === "number" && Number.isFinite(settings.labelScale) &&
+    settings.labelScale >= 0.7 && settings.labelScale <= 1.5;
+};
+
+const isDiagramFile = (value: unknown): value is DiagramFile => {
   if (!value || typeof value !== "object") return false;
   const diagram = value as Record<string, unknown>;
   if (diagram.title !== undefined && typeof diagram.title !== "string") return false;
+  if (diagram.publication !== undefined && !isPublicationSettings(diagram.publication)) return false;
   if (!Array.isArray(diagram.elements) || !Array.isArray(diagram.connections)) return false;
   const ids = new Set<string>();
   for (const candidate of diagram.elements) {
@@ -301,7 +209,9 @@ const isDiagramFile = (value: unknown): value is { title?: string; elements: Dia
       typeof element.label !== "string" || typeof element.color !== "string" ||
       typeof element.x !== "number" || !Number.isFinite(element.x) ||
       typeof element.y !== "number" || !Number.isFinite(element.y) ||
-      typeof element.rotation !== "number" || !Number.isFinite(element.rotation)
+      typeof element.rotation !== "number" || !Number.isFinite(element.rotation) ||
+      ["manufacturer", "model", "specs", "notes", "groupId"].some((key) =>
+        element[key] !== undefined && typeof element[key] !== "string")
     ) return false;
     ids.add(element.id);
   }
@@ -311,9 +221,37 @@ const isDiagramFile = (value: unknown): value is { title?: string; elements: Dia
     return typeof connection.id === "string" && typeof connection.from === "string" &&
       typeof connection.to === "string" && typeof connection.color === "string" &&
       (connection.type === undefined || connection.type === "beam" || connection.type === "signal") &&
+      (connection.routing === undefined || connection.routing === "straight" || connection.routing === "orthogonal") &&
+      (connection.fromPort === undefined || typeof connection.fromPort === "string") &&
+      (connection.toPort === undefined || typeof connection.toPort === "string") &&
+      (connection.waypoints === undefined || Array.isArray(connection.waypoints) && connection.waypoints.every((point) =>
+        point && typeof point === "object" && Number.isFinite((point as Point).x) && Number.isFinite((point as Point).y))) &&
       ids.has(connection.from) && ids.has(connection.to);
   });
 };
+
+const connectionPath = (connection: Connection, from: DiagramElement, to: DiagramElement): Point[] => {
+  const nearest = closestPortPair(from, to);
+  const source = portsFor(from).find((port) => port.id === connection.fromPort) ?? nearest.source;
+  const target = portsFor(to).find((port) => port.id === connection.toPort) ?? nearest.target;
+  if (connection.waypoints?.length) {
+    if (connection.routing !== "orthogonal") return [source, ...connection.waypoints, target];
+    const points: Point[] = [source];
+    for (const waypoint of connection.waypoints) {
+      const previous = points.at(-1)!;
+      points.push({ x: waypoint.x, y: previous.y }, waypoint);
+    }
+    const previous = points.at(-1)!;
+    return [...points, { x: target.x, y: previous.y }, target];
+  }
+  if ((connection.routing ?? (getConnectionType(connection) === "signal" ? "orthogonal" : "straight")) === "straight") {
+    return [source, target];
+  }
+  const middleX = (source.x + target.x) / 2;
+  return [source, { x: middleX, y: source.y }, { x: middleX, y: target.y }, target];
+};
+
+const csvCell = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
 
 function ComponentShape({ element }: { element: DiagramElement }) {
   const common = { stroke: element.color, strokeWidth: 4, fill: "#ffffff", vectorEffect: "non-scaling-stroke" as const };
@@ -460,7 +398,7 @@ export default function Home() {
   const [elements, setElements] = useState(initialElements);
   const [connections, setConnections] = useState(initialConnections);
   const [title, setTitle] = useState("Optical characterization setup");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
   const [connectMode, setConnectMode] = useState(false);
@@ -476,18 +414,28 @@ export default function Home() {
   const [past, setPast] = useState<Snapshot[]>([]);
   const [future, setFuture] = useState<Snapshot[]>([]);
   const [notice, setNotice] = useState("Autosaved locally");
+  const [publication, setPublication] = useState(defaultPublication);
+  const [snapEnabled, setSnapEnabled] = useState(true);
+  const [libraryQuery, setLibraryQuery] = useState("");
+  const [favoriteKinds, setFavoriteKinds] = useState<ElementKind[]>([]);
+  const [recentKinds, setRecentKinds] = useState<ElementKind[]>([]);
+  const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
   const svgRef = useRef<SVGSVGElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const hydrated = useRef(false);
   const drag = useRef<{
-    id: string;
-    offsetX: number;
-    offsetY: number;
+    ids: string[];
+    start: Point;
+    origins: Array<{ id: string; x: number; y: number }>;
     before: Snapshot;
     moved: boolean;
   } | null>(null);
+  const bendDrag = useRef<{ connectionId: string; index: number; before: Snapshot; moved: boolean } | null>(null);
 
-  const selected = elements.find((element) => element.id === selectedId) ?? null;
+  const dimensions = pagePresets[publication.pagePreset];
+  const selected = selectedIds.length === 1 ? elements.find((element) => element.id === selectedIds[0]) ?? null : null;
+  const selectedConnection = connections.find((connection) => connection.id === selectedConnectionId) ?? null;
+  const selection = new Set(selectedIds);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -498,11 +446,18 @@ export default function Home() {
           setTitle(parsed.title || title);
           setElements(parsed.elements);
           setConnections(parsed.connections);
+          if (parsed.publication) setPublication(parsed.publication);
         }
       } catch {
         setNotice("Local draft could not be read");
       }
     }
+    try {
+      const storedFavorites: unknown = JSON.parse(localStorage.getItem(FAVORITES_KEY) ?? "[]");
+      if (Array.isArray(storedFavorites)) {
+        setFavoriteKinds(storedFavorites.filter((kind): kind is ElementKind => typeof kind === "string" && elementKinds.has(kind as ElementKind)));
+      }
+    } catch { /* Ignore a damaged preference; the diagram remains intact. */ }
     hydrated.current = true;
   // The starter title is intentionally read only once.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -510,10 +465,14 @@ export default function Home() {
 
   useEffect(() => {
     if (!hydrated.current) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, title, elements, connections }));
-  }, [title, elements, connections]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, title, elements, connections, publication }));
+  }, [title, elements, connections, publication]);
 
-  const pointFromEvent = (event: ReactPointerEvent<SVGSVGElement | SVGGElement>) => {
+  useEffect(() => {
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(favoriteKinds));
+  }, [favoriteKinds]);
+
+  const pointFromEvent = (event: ReactPointerEvent<SVGElement>) => {
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
     const point = svg.createSVGPoint();
@@ -536,7 +495,7 @@ export default function Home() {
     setPast((items) => items.slice(0, -1));
     setElements(previous.elements);
     setConnections(previous.connections);
-    setSelectedId(null);
+    setSelectedIds([]);
   };
 
   const redo = () => {
@@ -546,7 +505,7 @@ export default function Home() {
     setFuture((items) => items.slice(1));
     setElements(next.elements);
     setConnections(next.connections);
-    setSelectedId(null);
+    setSelectedIds([]);
   };
 
   const addElement = (kind: ElementKind, label: string) => {
@@ -561,17 +520,19 @@ export default function Home() {
       color: defaultColor(kind),
     };
     commit([...elements, element]);
-    setSelectedId(element.id);
+    setSelectedIds([element.id]);
     setSelectedConnectionId(null);
+    setRecentKinds((items) => [kind, ...items.filter((item) => item !== kind)].slice(0, 6));
   };
 
   const removeSelected = () => {
-    if (selectedId) {
+    if (selectedIds.length) {
+      const ids = new Set(selectedIds);
       commit(
-        elements.filter((element) => element.id !== selectedId),
-        connections.filter((connection) => connection.from !== selectedId && connection.to !== selectedId),
+        elements.filter((element) => !ids.has(element.id)),
+        connections.filter((connection) => !ids.has(connection.from) && !ids.has(connection.to)),
       );
-      setSelectedId(null);
+      setSelectedIds([]);
     } else if (selectedConnectionId) {
       commit(elements, connections.filter((connection) => connection.id !== selectedConnectionId));
       setSelectedConnectionId(null);
@@ -579,13 +540,29 @@ export default function Home() {
   };
 
   const updateSelected = (changes: Partial<DiagramElement>) =>
-    setElements((items) => items.map((element) => element.id === selectedId ? { ...element, ...changes } : element));
+    setElements((items) => items.map((element) => selection.has(element.id) ? { ...element, ...changes } : element));
 
   const duplicateSelected = () => {
-    if (!selected) return;
-    const copy = { ...selected, id: `${selected.kind}-${Date.now()}`, x: selected.x + 35, y: selected.y + 35, label: `${selected.label} copy` };
-    commit([...elements, copy]);
-    setSelectedId(copy.id);
+    if (!selectedIds.length) return;
+    const stamp = Date.now();
+    const idMap = new Map(selectedIds.map((id, index) => [id, `${id}-copy-${stamp}-${index}`]));
+    const copies = elements.filter((element) => selection.has(element.id)).map((element) => ({
+      ...element,
+      id: idMap.get(element.id)!,
+      x: element.x + 35,
+      y: element.y + 35,
+      label: `${element.label} copy`,
+      groupId: element.groupId ? `group-${stamp}` : undefined,
+    }));
+    const copiedConnections = connections.filter((connection) => selection.has(connection.from) && selection.has(connection.to)).map((connection, index) => ({
+      ...connection,
+      id: `connection-copy-${stamp}-${index}`,
+      from: idMap.get(connection.from)!,
+      to: idMap.get(connection.to)!,
+      waypoints: connection.waypoints?.map((point) => ({ x: point.x + 35, y: point.y + 35 })),
+    }));
+    commit([...elements, ...copies], [...connections, ...copiedConnections]);
+    setSelectedIds(copies.map((element) => element.id));
   };
 
   const selectElement = (event: ReactPointerEvent<SVGGElement>, id: string) => {
@@ -595,12 +572,19 @@ export default function Home() {
         setConnectFrom(id);
         setNotice("Select the destination component");
       } else if (connectFrom !== id) {
+        const from = elements.find((element) => element.id === connectFrom);
+        const to = elements.find((element) => element.id === id);
+        if (!from || !to) return;
+        const ports = closestPortPair(from, to);
         const connection: Connection = {
           id: `connection-${Date.now()}`,
           from: connectFrom,
           to: id,
           color: connectionType === "beam" ? "#e84d3c" : "#303844",
           type: connectionType,
+          fromPort: ports.source.id,
+          toPort: ports.target.id,
+          routing: connectionType === "beam" ? "straight" : "orthogonal",
         };
         commit(elements, [...connections, connection]);
         setConnectFrom(null);
@@ -609,15 +593,21 @@ export default function Home() {
       }
       return;
     }
-    setSelectedId(id);
+    const clicked = elements.find((element) => element.id === id);
+    if (!clicked) return;
+    const groupIds = clicked.groupId
+      ? elements.filter((element) => element.groupId === clicked.groupId).map((element) => element.id)
+      : [id];
+    const nextIds = event.shiftKey
+      ? selectedIds.includes(id) ? selectedIds.filter((selectedId) => !groupIds.includes(selectedId)) : [...new Set([...selectedIds, ...groupIds])]
+      : selectedIds.includes(id) ? selectedIds : groupIds;
+    setSelectedIds(nextIds);
     setSelectedConnectionId(null);
     const point = pointFromEvent(event);
-    const element = elements.find((item) => item.id === id);
-    if (!element) return;
     drag.current = {
-      id,
-      offsetX: point.x - element.x,
-      offsetY: point.y - element.y,
+      ids: nextIds,
+      start: point,
+      origins: elements.filter((element) => nextIds.includes(element.id)).map(({ id: elementId, x, y }) => ({ id: elementId, x, y })),
       before: cloneSnapshot(elements, connections),
       moved: false,
     };
@@ -627,10 +617,18 @@ export default function Home() {
   const moveElement = (event: ReactPointerEvent<SVGGElement>) => {
     if (!drag.current || connectMode) return;
     const point = pointFromEvent(event);
-    const x = Math.max(60, Math.min(WIDTH - 60, Math.round((point.x - drag.current.offsetX) / 10) * 10));
-    const y = Math.max(60, Math.min(HEIGHT - 60, Math.round((point.y - drag.current.offsetY) / 10) * 10));
+    const dx = point.x - drag.current.start.x;
+    const dy = point.y - drag.current.start.y;
     drag.current.moved = true;
-    setElements((items) => items.map((item) => item.id === drag.current?.id ? { ...item, x, y } : item));
+    setElements((items) => items.map((item) => {
+      const origin = drag.current?.origins.find((candidate) => candidate.id === item.id);
+      if (!origin) return item;
+      const rawX = origin.x + dx;
+      const rawY = origin.y + dy;
+      const x = snapEnabled ? Math.round(rawX / GRID_STEP) * GRID_STEP : rawX;
+      const y = snapEnabled ? Math.round(rawY / GRID_STEP) * GRID_STEP : rawY;
+      return { ...item, x: Math.max(60, Math.min(dimensions.width - 60, x)), y: Math.max(60, Math.min(dimensions.height - 60, y)) };
+    }));
   };
 
   const finishDrag = () => {
@@ -639,6 +637,51 @@ export default function Home() {
       setFuture([]);
     }
     drag.current = null;
+  };
+
+  const moveBend = (event: ReactPointerEvent<SVGCircleElement>) => {
+    const active = bendDrag.current;
+    if (!active) return;
+    const point = pointFromEvent(event);
+    active.moved = true;
+    setConnections((items) => items.map((connection) => connection.id === active.connectionId ? {
+      ...connection,
+      waypoints: connection.waypoints?.map((waypoint, index) => index === active.index ? {
+        x: snapEnabled ? Math.round(point.x / GRID_STEP) * GRID_STEP : point.x,
+        y: snapEnabled ? Math.round(point.y / GRID_STEP) * GRID_STEP : point.y,
+      } : waypoint),
+    } : connection));
+  };
+
+  const finishBend = () => {
+    if (bendDrag.current?.moved) {
+      setPast((items) => [...items.slice(-39), bendDrag.current!.before]);
+      setFuture([]);
+    }
+    bendDrag.current = null;
+  };
+
+  const groupSelection = () => {
+    if (selectedIds.length < 2) return;
+    const groupId = `group-${Date.now()}`;
+    commit(elements.map((element) => selection.has(element.id) ? { ...element, groupId } : element));
+  };
+
+  const ungroupSelection = () => commit(elements.map((element) => selection.has(element.id) ? { ...element, groupId: undefined } : element));
+
+  const alignSelection = (axis: "x" | "y") => {
+    const chosen = elements.filter((element) => selection.has(element.id));
+    if (chosen.length < 2) return;
+    const value = chosen.reduce((sum, element) => sum + element[axis], 0) / chosen.length;
+    commit(elements.map((element) => selection.has(element.id) ? { ...element, [axis]: value } : element));
+  };
+
+  const distributeSelection = () => {
+    const chosen = elements.filter((element) => selection.has(element.id)).sort((a, b) => a.x - b.x);
+    if (chosen.length < 3) return;
+    const step = (chosen.at(-1)!.x - chosen[0].x) / (chosen.length - 1);
+    const positions = new Map(chosen.map((element, index) => [element.id, chosen[0].x + index * step]));
+    commit(elements.map((element) => positions.has(element.id) ? { ...element, x: positions.get(element.id)! } : element));
   };
 
   useEffect(() => {
@@ -654,10 +697,25 @@ export default function Home() {
         event.preventDefault();
         redo();
       }
+      if (!editing && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "d") {
+        event.preventDefault();
+        duplicateSelected();
+      }
+      if (!editing && selectedIds.length && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+        event.preventDefault();
+        const distance = event.shiftKey ? GRID_STEP : 1;
+        const dx = event.key === "ArrowLeft" ? -distance : event.key === "ArrowRight" ? distance : 0;
+        const dy = event.key === "ArrowUp" ? -distance : event.key === "ArrowDown" ? distance : 0;
+        commit(elements.map((element) => selection.has(element.id) ? {
+          ...element,
+          x: Math.max(60, Math.min(dimensions.width - 60, element.x + dx)),
+          y: Math.max(60, Math.min(dimensions.height - 60, element.y + dy)),
+        } : element));
+      }
       if (event.key === "Escape") {
         setConnectMode(false);
         setConnectFrom(null);
-        setSelectedId(null);
+        setSelectedIds([]);
         setSelectedConnectionId(null);
       }
     };
@@ -668,10 +726,10 @@ export default function Home() {
   const svgSource = () => {
     if (!svgRef.current) return "";
     const clone = svgRef.current.cloneNode(true) as SVGSVGElement;
-    clone.querySelectorAll(".selection-outline, .connection-hit, .grid-layer").forEach((node) => node.remove());
+    clone.querySelectorAll(".selection-outline, .connection-hit, .grid-layer, .port-marker, .bend-handle").forEach((node) => node.remove());
     clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-    clone.setAttribute("width", String(WIDTH));
-    clone.setAttribute("height", String(HEIGHT));
+    clone.setAttribute("width", String(dimensions.width));
+    clone.setAttribute("height", String(dimensions.height));
     return `<?xml version="1.0" encoding="UTF-8"?>\n${new XMLSerializer().serializeToString(clone)}`;
   };
 
@@ -682,8 +740,8 @@ export default function Home() {
     const url = URL.createObjectURL(new Blob([svgSource()], { type: "image/svg+xml" }));
     image.onload = () => {
       const canvas = document.createElement("canvas");
-      canvas.width = WIDTH * 2;
-      canvas.height = HEIGHT * 2;
+      canvas.width = dimensions.width * 2;
+      canvas.height = dimensions.height * 2;
       const context = canvas.getContext("2d");
       if (!context) return;
       context.fillStyle = "white";
@@ -696,9 +754,25 @@ export default function Home() {
   };
 
   const saveJson = () => download(
-    new Blob([JSON.stringify({ version: 1, title, elements, connections }, null, 2)], { type: "application/json" }),
+    new Blob([JSON.stringify({ version: 2, title, elements, connections, publication }, null, 2)], { type: "application/json" }),
     `${safeFilename(title)}.json`,
   );
+
+  const exportBom = () => {
+    const rows = new Map<string, { quantity: number; element: DiagramElement }>();
+    for (const element of elements) {
+      const key = [element.kind, element.manufacturer, element.model, element.specs].join("|");
+      const row = rows.get(key);
+      if (row) row.quantity += 1;
+      else rows.set(key, { quantity: 1, element });
+    }
+    const header = ["Quantity", "Component", "Manufacturer", "Model", "Specifications", "Notes"];
+    const lines = [header, ...[...rows.values()].map(({ quantity, element }) => [
+      quantity, componentByKind.get(element.kind)?.label ?? element.kind, element.manufacturer ?? "",
+      element.model ?? "", element.specs ?? "", element.notes ?? "",
+    ])].map((row) => row.map(csvCell).join(","));
+    download(new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" }), `${safeFilename(title)}-bom.csv`);
+  };
 
   const loadJson = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -710,7 +784,9 @@ export default function Home() {
       setTitle(parsed.title || "Untitled setup");
       setElements(parsed.elements);
       setConnections(parsed.connections);
+      if (parsed.publication) setPublication(parsed.publication);
       setFuture([]);
+      setSelectedIds([]);
       setNotice("Diagram loaded");
     } catch {
       setNotice("That file is not a valid SetupSketch diagram");
@@ -722,12 +798,72 @@ export default function Home() {
   const clearDiagram = () => {
     if ((elements.length || connections.length) && !window.confirm("Clear the current diagram? You can still undo this action.")) return;
     commit([], []);
-    setSelectedId(null);
+    setSelectedIds([]);
     setSelectedConnectionId(null);
+  };
+
+  const applyTemplate = (templateId: string) => {
+    const template = setupTemplates.find((candidate) => candidate.id === templateId);
+    if (!template || (elements.length && !window.confirm("Replace the current diagram with this template?"))) return;
+    const prefix = `template-${Date.now()}-`;
+    const nextElements: DiagramElement[] = template.elements.map((element) => ({
+      ...element,
+      id: prefix + element.id,
+      rotation: element.rotation ?? 0,
+      color: defaultColor(element.kind),
+    }));
+    const byId = new Map(nextElements.map((element) => [element.id, element]));
+    const nextConnections: Connection[] = template.connections.map((connection, index) => {
+      const from = byId.get(prefix + connection.from)!;
+      const to = byId.get(prefix + connection.to)!;
+      const ports = closestPortPair(from, to);
+      return {
+        id: `${prefix}connection-${index}`,
+        from: from.id,
+        to: to.id,
+        type: connection.type,
+        color: connection.type === "beam" ? "#e84d3c" : "#303844",
+        routing: connection.type === "beam" ? "straight" : "orthogonal",
+        fromPort: ports.source.id,
+        toPort: ports.target.id,
+      };
+    });
+    commit(nextElements, nextConnections);
+    setTitle(template.title);
+    setSelectedIds([]);
+    setSelectedConnectionId(null);
+    setNotice("Template loaded");
+  };
+
+  const toggleFavorite = (kind: ElementKind) => setFavoriteKinds((items) =>
+    items.includes(kind) ? items.filter((item) => item !== kind) : [...items, kind]);
+
+  const visibleGroups = [
+    ...(recentKinds.length ? [{ title: "Recent", items: componentDefinitions.filter((item) => recentKinds.includes(item.kind)) }] : []),
+    ...(favoriteKinds.length ? [{ title: "Favorites", items: componentDefinitions.filter((item) => favoriteKinds.includes(item.kind)) }] : []),
+    ...componentGroups,
+  ].map((group) => ({
+    ...group,
+    items: group.items.filter((item) => `${item.label} ${item.kind}`.toLowerCase().includes(libraryQuery.trim().toLowerCase())),
+  })).filter((group) => group.items.length);
+
+  const addConnectionBend = () => {
+    if (!selectedConnection) return;
+    const from = elements.find((element) => element.id === selectedConnection.from);
+    const to = elements.find((element) => element.id === selectedConnection.to);
+    if (!from || !to) return;
+    const points = connectionPath(selectedConnection, from, to);
+    const middle = points[Math.floor(points.length / 2)];
+    commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? {
+      ...connection,
+      routing: "orthogonal",
+      waypoints: [...(connection.waypoints ?? []), { ...middle }],
+    } : connection));
   };
 
   return (
     <main className="app-shell">
+      <style>{`@media print { @page { size: ${publication.pagePreset === "a3" ? "A3 landscape" : "A4 landscape"}; margin: 8mm; } }`}</style>
       <header className="topbar">
         <div className="brand" aria-label="SetupSketch">
           <span className="brand-mark" aria-hidden="true">S</span>
@@ -750,12 +886,20 @@ export default function Home() {
               <option value="signal">Signal</option>
             </select>
           </label>
+          <label className="connection-type">
+            <span className="sr-only">Setup template</span>
+            <select defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; }}>
+              <option value="" disabled>Template</option>
+              {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
+            </select>
+          </label>
           <span className="toolbar-divider" />
           <button onClick={saveJson}>JSON</button>
           <button onClick={() => fileRef.current?.click()}>Open</button>
           <input ref={fileRef} className="sr-only" type="file" accept="application/json,.json" onChange={loadJson} />
           <button onClick={exportSvg}>SVG</button>
           <button onClick={exportPng}>PNG</button>
+          <button onClick={exportBom}>BOM</button>
           <button className="primary" onClick={() => window.print()}>PDF</button>
         </div>
       </header>
@@ -766,19 +910,38 @@ export default function Home() {
             <span>Library</span>
             <button className="text-button danger" onClick={clearDiagram}>Clear</button>
           </div>
-          {componentGroups.map((group) => (
+          <input
+            className="library-search"
+            type="search"
+            placeholder="Search components"
+            value={libraryQuery}
+            onChange={(event) => setLibraryQuery(event.target.value)}
+          />
+          {visibleGroups.map((group) => (
             <section className="library-group" key={group.title}>
-              <h2>{group.title}</h2>
-              <div className="component-grid">
+              <button
+                className="library-group-title"
+                onClick={() => setCollapsedGroups((items) => items.includes(group.title) ? items.filter((title) => title !== group.title) : [...items, group.title])}
+                aria-expanded={!collapsedGroups.includes(group.title)}
+              >{group.title}<span>{collapsedGroups.includes(group.title) ? "+" : "−"}</span></button>
+              {!collapsedGroups.includes(group.title) && <div className="component-grid">
                 {group.items.map((item) => (
-                  <button key={item.kind} onClick={() => addElement(item.kind, item.label)}>
-                    <svg className="library-icon" viewBox="-60 -55 120 110" aria-hidden="true">
-                      <ComponentShape element={{ id: "preview", kind: item.kind, label: "", x: 0, y: 0, rotation: 0, color: defaultColor(item.kind) }} />
-                    </svg>
-                    {item.label}
-                  </button>
+                  <div className="component-card" key={`${group.title}-${item.kind}`}>
+                    <button className="component-add" onClick={() => addElement(item.kind, item.label)}>
+                      <svg className="library-icon" viewBox="-60 -55 120 110" aria-hidden="true">
+                        <ComponentShape element={{ id: "preview", kind: item.kind, label: "", x: 0, y: 0, rotation: 0, color: defaultColor(item.kind) }} />
+                      </svg>
+                      {item.label}
+                    </button>
+                    <button
+                      className={favoriteKinds.includes(item.kind) ? "favorite active" : "favorite"}
+                      onClick={() => toggleFavorite(item.kind)}
+                      aria-label={`${favoriteKinds.includes(item.kind) ? "Remove" : "Add"} ${item.label} ${favoriteKinds.includes(item.kind) ? "from" : "to"} favorites`}
+                      title="Favorite"
+                    >★</button>
+                  </div>
                 ))}
-              </div>
+              </div>}
             </section>
           ))}
           <p className="library-help">Add a component, drag it into place, then use Connect to draw signal paths.</p>
@@ -793,10 +956,11 @@ export default function Home() {
             <svg
               ref={svgRef}
               className="diagram"
-              viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+              viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
+              style={{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }}
               role="img"
               aria-label={`${title}, editable scientific setup diagram`}
-              onPointerDown={() => { setSelectedId(null); setSelectedConnectionId(null); }}
+              onPointerDown={() => { setSelectedIds([]); setSelectedConnectionId(null); }}
             >
               <defs>
                 <pattern id="minorGrid" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -810,11 +974,11 @@ export default function Home() {
                   <path d="M0 0L10 5L0 10Z" fill="context-stroke" />
                 </marker>
               </defs>
-              <rect width={WIDTH} height={HEIGHT} fill="#ffffff" />
-              {layers.grid && <rect className="grid-layer" width={WIDTH} height={HEIGHT} fill="url(#majorGrid)" />}
+              <rect width={dimensions.width} height={dimensions.height} fill="#ffffff" />
+              {layers.grid && <rect className="grid-layer" width={dimensions.width} height={dimensions.height} fill="url(#majorGrid)" />}
               {layers.labels && <g className="labels-layer">
-                <text x="42" y="54" fill="#171b22" fontSize="25" fontWeight="700" fontFamily="Arial, sans-serif">{title}</text>
-                <text x="42" y="80" fill="#6d7580" fontSize="12" fontFamily="Arial, sans-serif">Created with SetupSketch</text>
+                <text x="42" y="54" fill="#171b22" fontSize={25 * publication.labelScale} fontWeight="700" fontFamily="Arial, sans-serif">{title}</text>
+                {publication.showCredit && <text x="42" y="80" fill="#6d7580" fontSize={12 * publication.labelScale} fontFamily="Arial, sans-serif">Created with SetupSketch</text>}
               </g>}
 
               {connections.filter((connection) => layers[getConnectionType(connection) === "beam" ? "beams" : "signals"]).map((connection) => {
@@ -822,29 +986,40 @@ export default function Home() {
                 const to = elements.find((element) => element.id === connection.to);
                 if (!from || !to) return null;
                 const selectedEdge = selectedConnectionId === connection.id;
-                const dx = to.x - from.x;
-                const dy = to.y - from.y;
-                const distance = Math.hypot(dx, dy) || 1;
-                const offset = Math.min(58, distance / 3);
-                const x1 = from.x + dx / distance * offset;
-                const y1 = from.y + dy / distance * offset;
-                const x2 = to.x - dx / distance * offset;
-                const y2 = to.y - dy / distance * offset;
+                const points = connectionPath(connection, from, to);
+                const pointString = points.map((point) => `${point.x},${point.y}`).join(" ");
                 return (
                   <g key={connection.id}>
-                    <line
-                      x1={x1} y1={y1} x2={x2} y2={y2}
-                      stroke={connection.color}
+                    <polyline
+                      points={pointString}
+                      fill="none"
+                      stroke={publication.monochrome ? "#20242a" : connection.color}
                       strokeWidth={selectedEdge ? 5 : getConnectionType(connection) === "beam" ? 3 : 2.5}
                       strokeDasharray={getConnectionType(connection) === "signal" ? "9 5" : undefined}
                       markerEnd={getConnectionType(connection) === "signal" ? "url(#arrow)" : undefined}
+                      strokeLinejoin="round"
                     />
-                    <line
+                    <polyline
                       className="connection-hit"
-                      x1={x1} y1={y1} x2={x2} y2={y2}
-                      stroke="transparent" strokeWidth="18"
-                      onPointerDown={(event) => { event.stopPropagation(); setSelectedConnectionId(connection.id); setSelectedId(null); }}
+                      points={pointString}
+                      fill="none" stroke="transparent" strokeWidth="18"
+                      onPointerDown={(event) => { event.stopPropagation(); setSelectedConnectionId(connection.id); setSelectedIds([]); }}
                     />
+                    {selectedEdge && connection.waypoints?.map((point, index) => (
+                      <circle
+                        className="bend-handle"
+                        key={`${connection.id}-bend-${index}`}
+                        cx={point.x} cy={point.y} r="7" fill="#fff" stroke="#1665d8" strokeWidth="3"
+                        onPointerDown={(event) => {
+                          event.stopPropagation();
+                          bendDrag.current = { connectionId: connection.id, index, before: cloneSnapshot(elements, connections), moved: false };
+                          event.currentTarget.setPointerCapture(event.pointerId);
+                        }}
+                        onPointerMove={moveBend}
+                        onPointerUp={finishBend}
+                        onPointerCancel={finishBend}
+                      />
+                    ))}
                   </g>
                 );
               })}
@@ -859,10 +1034,14 @@ export default function Home() {
                   onPointerUp={finishDrag}
                   onPointerCancel={finishDrag}
                 >
-                  {selectedId === element.id && <rect className="selection-outline" x="-64" y="-58" width="128" height="116" rx="9" fill="none" stroke="#1665d8" strokeWidth="2" strokeDasharray="6 5" />}
-                  <ComponentShape element={element} />
+                  {selection.has(element.id) && <rect className="selection-outline" x="-64" y="-58" width="128" height="116" rx="9" fill="none" stroke="#1665d8" strokeWidth="2" strokeDasharray="6 5" />}
+                  <ComponentShape element={publication.monochrome ? { ...element, color: "#20242a" } : element} />
                   <rect x="-66" y="-54" width="132" height="108" fill="transparent" />
-                  {layers.labels && <text className="labels-layer" y="65" textAnchor="middle" fill="#252b33" fontSize="14" fontWeight="600" fontFamily="Arial, sans-serif" transform={`rotate(${-element.rotation})`}>{element.label}</text>}
+                  {(selection.has(element.id) || connectMode) && portsFor(element).map((port) => {
+                    const local = rotatePoint({ x: port.x - element.x, y: port.y - element.y }, -element.rotation);
+                    return <circle className="port-marker" key={port.id} cx={local.x} cy={local.y} r="5" fill="#fff" stroke="#1665d8" strokeWidth="2" />;
+                  })}
+                  {layers.labels && <text className="labels-layer" y="65" textAnchor="middle" fill="#252b33" fontSize={14 * publication.labelScale} fontWeight="600" fontFamily="Arial, sans-serif" transform={`rotate(${-element.rotation})`}>{element.label}</text>}
                 </g>
               ))}
             </svg>
@@ -875,21 +1054,60 @@ export default function Home() {
             <div className="property-form">
               <label>Label<input value={selected.label} onChange={(event) => updateSelected({ label: event.target.value })} /></label>
               <div className="property-row">
-                <label>X<input type="number" value={selected.x} min="0" max={WIDTH} onChange={(event) => updateSelected({ x: Number(event.target.value) })} /></label>
-                <label>Y<input type="number" value={selected.y} min="0" max={HEIGHT} onChange={(event) => updateSelected({ y: Number(event.target.value) })} /></label>
+                <label>X<input type="number" value={selected.x} min="0" max={dimensions.width} onChange={(event) => updateSelected({ x: Number(event.target.value) })} /></label>
+                <label>Y<input type="number" value={selected.y} min="0" max={dimensions.height} onChange={(event) => updateSelected({ y: Number(event.target.value) })} /></label>
               </div>
               <label>Rotation<input type="range" min="0" max="345" step="15" value={selected.rotation} onChange={(event) => updateSelected({ rotation: Number(event.target.value) })} /><output>{selected.rotation}°</output></label>
               <label>Color<input className="color-input" type="color" value={selected.color} onChange={(event) => updateSelected({ color: event.target.value })} /></label>
+              <label>Manufacturer<input value={selected.manufacturer ?? ""} onChange={(event) => updateSelected({ manufacturer: event.target.value })} placeholder="e.g. Thorlabs" /></label>
+              <label>Model<input value={selected.model ?? ""} onChange={(event) => updateSelected({ model: event.target.value })} placeholder="Part number" /></label>
+              <label>Specifications<input value={selected.specs ?? ""} onChange={(event) => updateSelected({ specs: event.target.value })} placeholder="Wavelength, bandwidth…" /></label>
+              <label>Notes<textarea value={selected.notes ?? ""} onChange={(event) => updateSelected({ notes: event.target.value })} /></label>
               <div className="property-actions">
                 <button onClick={duplicateSelected}>Duplicate</button>
                 <button className="danger" onClick={removeSelected}>Delete</button>
               </div>
             </div>
-          ) : selectedConnectionId ? (
-            <div className="empty-inspector"><p>Connection selected.</p><button className="danger" onClick={removeSelected}>Delete connection</button></div>
+          ) : selectedIds.length > 1 ? (
+            <div className="property-form">
+              <p className="selection-count">{selectedIds.length} components selected</p>
+              <div className="compact-actions">
+                <button onClick={() => alignSelection("y")}>Align row</button>
+                <button onClick={() => alignSelection("x")}>Align column</button>
+                <button onClick={distributeSelection} disabled={selectedIds.length < 3}>Distribute</button>
+                <button onClick={groupSelection}>Group</button>
+                <button onClick={ungroupSelection}>Ungroup</button>
+                <button onClick={duplicateSelected}>Duplicate</button>
+                <button className="danger" onClick={removeSelected}>Delete</button>
+              </div>
+            </div>
+          ) : selectedConnection ? (
+            <div className="property-form">
+              <label>Routing<select value={selectedConnection.routing ?? (getConnectionType(selectedConnection) === "signal" ? "orthogonal" : "straight")} onChange={(event) => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, routing: event.target.value as Routing, waypoints: undefined } : connection))}>
+                <option value="straight">Straight</option><option value="orthogonal">Orthogonal</option>
+              </select></label>
+              <button onClick={addConnectionBend}>Add bend</button>
+              {selectedConnection.waypoints?.length ? <button onClick={() => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, waypoints: undefined } : connection))}>Clear bends</button> : null}
+              <button className="danger" onClick={removeSelected}>Delete connection</button>
+            </div>
           ) : (
-            <div className="empty-inspector"><p>Select a component to edit its label, position, rotation, and color.</p><span>Tip: press Delete to remove a selection.</span></div>
+            <div className="empty-inspector"><p>Select a component to edit it. Shift-click selects several.</p><span>Arrow keys nudge; Shift moves one grid step.</span></div>
           )}
+          <section className="layers-panel" aria-labelledby="layout-title">
+            <div className="panel-heading"><span id="layout-title">Layout</span></div>
+            <label className="layer-toggle"><input type="checkbox" checked={snapEnabled} onChange={(event) => setSnapEnabled(event.target.checked)} /><span>Snap to grid</span></label>
+          </section>
+          <section className="layers-panel" aria-labelledby="publication-title">
+            <div className="panel-heading"><span id="publication-title">Publication</span></div>
+            <div className="property-form">
+              <label>Page<select value={publication.pagePreset} onChange={(event) => setPublication((current) => ({ ...current, pagePreset: event.target.value as PagePreset }))}>
+                {(Object.entries(pagePresets) as Array<[PagePreset, typeof pagePresets[PagePreset]]>).map(([key, preset]) => <option key={key} value={key}>{preset.label}</option>)}
+              </select></label>
+              <label>Label scale<input type="range" min="0.7" max="1.5" step="0.1" value={publication.labelScale} onChange={(event) => setPublication((current) => ({ ...current, labelScale: Number(event.target.value) }))} /><output>{publication.labelScale.toFixed(1)}×</output></label>
+              <label className="layer-toggle"><input type="checkbox" checked={publication.monochrome} onChange={(event) => setPublication((current) => ({ ...current, monochrome: event.target.checked }))} /><span>Monochrome</span></label>
+              <label className="layer-toggle"><input type="checkbox" checked={publication.showCredit} onChange={(event) => setPublication((current) => ({ ...current, showCredit: event.target.checked }))} /><span>Show credit</span></label>
+            </div>
+          </section>
           <section className="layers-panel" aria-labelledby="layers-title">
             <div className="panel-heading"><span id="layers-title">Layers</span></div>
             {([
