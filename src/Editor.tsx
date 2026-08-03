@@ -218,19 +218,19 @@ function ComponentShape({ element }: { element: DiagramElement }) {
 
   switch (element.kind) {
     case "laser":
-      return <><rect x="-48" y="-24" width="96" height="48" rx="8" {...common} /><circle cx="28" cy="0" r="8" fill={element.color} /><path d="M-30 0h38" stroke={element.color} strokeWidth="4" /><path d="M-26 -10v20M-15 -10v20" stroke={element.color} strokeWidth="2" /></>;
+      return <><rect x="-48" y="-25" width="82" height="50" rx="4" {...common} /><circle cx="16" cy="0" r="8" fill="none" stroke={element.color} strokeWidth="3" /><path d="M-32 0H8M34 0H52M-37 -13L-27 -6M-37 13L-27 6" stroke={element.color} strokeWidth="3" strokeLinecap="round" /></>;
     case "mirror":
       return <><path d="M-32 30L32 -30" stroke={element.color} strokeWidth="8" strokeLinecap="round" /><path d="M-25 35L39 -29" stroke="#b8c0cc" strokeWidth="3" /></>;
     case "curvedmirror":
       return <><path d="M12 -42Q-22 0 12 42" fill="none" stroke={element.color} strokeWidth="8" strokeLinecap="round" /><path d="M20 -39Q-10 0 20 39" fill="none" stroke="#b8c0cc" strokeWidth="3" /></>;
     case "beamsplitter":
-      return <><rect x="-31" y="-31" width="62" height="62" rx="4" transform="rotate(45)" {...common} /><path d="M-43 43L43 -43" stroke={element.color} strokeWidth="3" /></>;
+      return <><rect x="-34" y="-34" width="68" height="68" rx="3" {...common} /><path d="M-34 34L34 -34" stroke={element.color} strokeWidth="4" /><path d="M-34 -34L34 34" stroke={element.color} strokeWidth="1.5" opacity="0.35" /></>;
     case "lens":
       return <><path d="M0 -42C-22 -27 -22 27 0 42C22 27 22 -27 0 -42Z" {...common} /><path d="M-8 -25Q0 0 -8 25" fill="none" stroke="#9fc7ff" strokeWidth="3" /></>;
     case "waveplate":
-      return <><rect x="-11" y="-42" width="22" height="84" rx="3" {...common} /><path d="M-11 -22L11 -34M-11 -3L11 -15M-11 16L11 4M-11 35L11 23" stroke={element.color} strokeWidth="2" /></>;
+      return <><rect x="-9" y="-42" width="18" height="84" rx="2" {...common} /><path d="M-9 25L9 -25M-16 14L-9 25L2 18" fill="none" stroke={element.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></>;
     case "dichroic":
-      return <><rect x="-31" y="-31" width="62" height="62" rx="4" transform="rotate(45)" {...common} /><path d="M-43 43L43 -43" stroke="#e84d3c" strokeWidth="4" /><path d="M-43 -43L43 43" stroke={element.color} strokeWidth="3" opacity="0.75" /></>;
+      return <><path d="M-26 40L26 -40" stroke="#b8c0cc" strokeWidth="12" strokeLinecap="round" /><path d="M-26 40L26 -40" stroke={element.color} strokeWidth="5" strokeLinecap="round" /><path d="M-42 0H42M0 -42V42" stroke="#e84d3c" strokeWidth="2.5" opacity="0.8" /></>;
     case "grating":
       return <><rect x="-40" y="-32" width="80" height="64" rx="4" {...common} /><path d="M-28 -31v62M-18 -31v62M-8 -31v62M2 -31v62M12 -31v62M22 -31v62M32 -31v62" stroke={element.color} strokeWidth="2" /></>;
     case "beamdump":
@@ -238,7 +238,7 @@ function ComponentShape({ element }: { element: DiagramElement }) {
     case "crystal":
       return <><path d="M-42 -24L25 -32L43 -14L43 24L-25 32L-42 14Z" {...common} /><path d="M-42 -24L-25 -6L43 -14M-25 -6V32" fill="none" stroke={element.color} strokeWidth="2" opacity="0.7" /></>;
     case "sample":
-      return <><rect x="-50" y="-30" width="100" height="60" rx="5" {...common} /><path d="M-34 -18L34 18M-34 0L0 18M0 -18L34 0" stroke={element.color} strokeWidth="2" opacity="0.55" /></>;
+      return <><rect x="-48" y="-28" width="96" height="56" rx="3" {...common} /><path d="M-34 14H34M-25 -14H25" stroke={element.color} strokeWidth="3" /><circle r="8" fill="none" stroke={element.color} strokeWidth="3" /></>;
     case "detector":
       return <><path d="M-38 -34H8A34 34 0 010 34H-38Z" {...common} /><path d="M-22 -16L6 0L-22 16Z" fill={element.color} stroke="none" /></>;
     case "fiber":
@@ -246,15 +246,15 @@ function ComponentShape({ element }: { element: DiagramElement }) {
     case "fibercoupler":
       return <><circle r="18" {...common} /><path d="M-52 -25C-28 -25 -24 -8 -16 -4M-52 25C-28 25 -24 8 -16 4M16 0H52" fill="none" stroke={element.color} strokeWidth="6" strokeLinecap="round" /><circle r="5" fill={element.color} /></>;
     case "aom":
-      return <><rect x="-43" y="-32" width="86" height="64" rx="5" {...common} /><path d="M-31 17L-18 -17L-5 17L8 -17L21 17L34 -17" fill="none" stroke={element.color} strokeWidth="3" /><path d="M-52 0H52" stroke="#e84d3c" strokeWidth="3" /></>;
+      return <><rect x="-43" y="-31" width="86" height="62" rx="4" {...common} /><text y="7" textAnchor="middle" fill={element.color} fontSize="22" fontWeight="700" fontFamily="Arial, sans-serif">AOM</text><path d="M-52 0H-43M43 0H52" stroke="#e84d3c" strokeWidth="3" /></>;
     case "eom":
-      return <><rect x="-43" y="-32" width="86" height="64" rx="5" {...common} /><path d="M-30 -20V20M30 -20V20" stroke={element.color} strokeWidth="6" /><path d="M-18 0C-10 -20 -2 20 6 0S22 -20 28 0" fill="none" stroke={element.color} strokeWidth="3" /></>;
+      return <><rect x="-43" y="-31" width="86" height="62" rx="4" {...common} /><text y="7" textAnchor="middle" fill={element.color} fontSize="22" fontWeight="700" fontFamily="Arial, sans-serif">EOM</text><path d="M-52 0H-43M43 0H52" stroke="#e84d3c" strokeWidth="3" /></>;
     case "isolator":
       return <><circle r="37" {...common} /><path d="M-22 0H20M8 -13L22 0L8 13" fill="none" stroke={element.color} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /><path d="M-28 29L28 -29" stroke={element.color} strokeWidth="3" opacity="0.55" /></>;
     case "cavity":
       return <><path d="M-38 25L0 -34L40 25Z" fill="none" stroke={element.color} strokeWidth="4" /><path d="M-48 22L-30 32M-9 -38L9 -30M31 32L49 22" stroke={element.color} strokeWidth="7" strokeLinecap="round" /></>;
     case "source":
-      return <><circle r="36" {...common} /><path d="M-16 -9h13M-9 -16v14M5 10h14" stroke={element.color} strokeWidth="4" strokeLinecap="round" /></>;
+      return <><circle r="36" {...common} /><path d="M-24 0C-18 -22 -10 -22 -4 0S10 22 16 0S25 -22 29 0" fill="none" stroke={element.color} strokeWidth="4" /></>;
     case "oscilloscope":
       return <><rect x="-52" y="-34" width="104" height="68" rx="7" {...common} /><path d="M-38 4C-27 -24 -15 25 -3 0S21 -24 38 2" fill="none" stroke={element.color} strokeWidth="4" /></>;
     case "amplifier":
@@ -272,7 +272,7 @@ function ComponentShape({ element }: { element: DiagramElement }) {
     case "highpass":
       return <><rect x="-49" y="-31" width="98" height="62" rx="6" {...common} /><path d="M-35 18H-10C3 18 3 3 3 -6V-18H35" fill="none" stroke={element.color} strokeWidth="4" /></>;
     case "servo":
-      return <><rect x="-48" y="-31" width="96" height="62" rx="9" {...common} /><path d="M-24 8A24 24 0 113 -22M-24 8L-26 -8M-24 8L-8 7" fill="none" stroke={element.color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /></>;
+      return <><rect x="-48" y="-31" width="96" height="62" rx="5" {...common} /><text y="8" textAnchor="middle" fill={element.color} fontSize="23" fontWeight="700" fontFamily="Arial, sans-serif">PID</text></>;
     case "spectrum":
       return <><rect x="-51" y="-34" width="102" height="68" rx="7" {...common} /><path d="M-37 22V8M-24 22V-2M-11 22V-20M2 22V10M15 22V-12M28 22V2M39 22V-25" stroke={element.color} strokeWidth="5" /></>;
     case "daq":
@@ -661,7 +661,7 @@ export default function Home() {
                       stroke={connection.color}
                       strokeWidth={selectedEdge ? 5 : getConnectionType(connection) === "beam" ? 3 : 2.5}
                       strokeDasharray={getConnectionType(connection) === "signal" ? "9 5" : undefined}
-                      markerEnd="url(#arrow)"
+                      markerEnd={getConnectionType(connection) === "signal" ? "url(#arrow)" : undefined}
                     />
                     <line
                       className="connection-hit"
