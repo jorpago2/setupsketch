@@ -10,7 +10,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.ok(assets.some((name) => name.endsWith(".js")));
   assert.ok(assets.some((name) => name.endsWith(".css")));
   assert.doesNotMatch(html, /_next|codex-preview/);
-  for (const component of ["waveplate", "grating", "aom", "eom", "qpd", "mixer", "servo"]) {
+  for (const component of ["waveplate", "grating", "aom", "eom", "kinematicmount", "fibercollimator", "qpd", "mixer", "attenuator", "biastee", "rfswitch", "vco"]) {
     assert.match(editor, new RegExp(`\\| \\"${component}\\"`));
   }
   for (const layer of ["optics", "electronics", "beams", "signals", "labels", "grid"]) {

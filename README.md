@@ -4,12 +4,14 @@ Browser-based editor for optical, photonic, and electronic experimental setup di
 
 ## Features
 
-- Original library of optical, photonic, modulation, and electronic components
+- Original library of optical, photonic, laboratory hardware, and RF/electronic components
 - Separate beam and signal connections with independent visibility layers
 - Drag positioning, labels, rotation, and color controls
 - Undo/redo and automatic local saving
 - SVG, high-resolution PNG, PDF, and editable JSON export
 - Static deployment to GitHub Pages
+
+All symbols are generic original sketches; the project is not affiliated with or endorsed by any equipment manufacturer.
 
 ## Development
 
