@@ -32,6 +32,14 @@ type ElementKind =
   | "rotationmount"
   | "fibercollimator"
   | "cagecube"
+  | "prism"
+  | "objective"
+  | "shutter"
+  | "iris"
+  | "breadboard"
+  | "postholder"
+  | "flipmount"
+  | "motorizedstage"
   | "source"
   | "oscilloscope"
   | "amplifier"
@@ -59,7 +67,15 @@ type ElementKind =
   | "electronicload"
   | "waveformgenerator"
   | "lcrmeter"
-  | "rfpowermeter";
+  | "rfpowermeter"
+  | "balun"
+  | "dcblock"
+  | "rftransformer"
+  | "phaseshifter"
+  | "frequencymultiplier"
+  | "limiter"
+  | "rfdetector"
+  | "hybridcoupler";
 
 type ConnectionType = "beam" | "signal";
 
@@ -103,12 +119,16 @@ const elementKinds = new Set<ElementKind>([
   "laser", "mirror", "curvedmirror", "beamsplitter", "lens", "waveplate",
   "dichroic", "grating", "beamdump", "crystal", "sample", "detector", "fiber",
   "fibercoupler", "aom", "eom", "isolator", "cavity", "kinematicmount",
-  "translationstage", "rotationmount", "fibercollimator", "cagecube", "source", "oscilloscope",
+  "translationstage", "rotationmount", "fibercollimator", "cagecube", "prism",
+  "objective", "shutter", "iris", "breadboard", "postholder", "flipmount",
+  "motorizedstage", "source", "oscilloscope",
   "amplifier", "hvamplifier", "photodiode", "qpd", "mixer", "lowpass",
   "highpass", "servo", "spectrum", "daq", "attenuator", "splitter",
   "directionalcoupler", "biastee", "rfswitch", "bandpass", "vco", "termination",
   "networkanalyzer", "dmm", "powersupply", "smu", "electronicload",
   "waveformgenerator", "lcrmeter", "rfpowermeter",
+  "balun", "dcblock", "rftransformer", "phaseshifter", "frequencymultiplier",
+  "limiter", "rfdetector", "hybridcoupler",
 ]);
 
 const electronicKinds = new Set<ElementKind>([
@@ -117,6 +137,8 @@ const electronicKinds = new Set<ElementKind>([
   "splitter", "directionalcoupler", "biastee", "rfswitch", "bandpass", "vco",
   "termination", "networkanalyzer", "dmm", "powersupply", "smu", "electronicload",
   "waveformgenerator", "lcrmeter", "rfpowermeter",
+  "balun", "dcblock", "rftransformer", "phaseshifter", "frequencymultiplier",
+  "limiter", "rfdetector", "hybridcoupler",
 ]);
 
 const defaultColor = (kind: ElementKind) => {
@@ -149,6 +171,9 @@ const componentGroups: Array<{
       { kind: "sample", label: "Sample" },
       { kind: "fiber", label: "Optical fiber" },
       { kind: "fibercoupler", label: "Fiber coupler" },
+      { kind: "prism", label: "Prism" },
+      { kind: "objective", label: "Microscope objective" },
+      { kind: "shutter", label: "Optical shutter" },
     ],
   },
   {
@@ -169,6 +194,11 @@ const componentGroups: Array<{
       { kind: "rotationmount", label: "Rotation mount" },
       { kind: "fibercollimator", label: "Fiber collimator" },
       { kind: "cagecube", label: "Cage cube" },
+      { kind: "iris", label: "Iris diaphragm" },
+      { kind: "breadboard", label: "Optical breadboard" },
+      { kind: "postholder", label: "Post & holder" },
+      { kind: "flipmount", label: "Flip mount" },
+      { kind: "motorizedstage", label: "Motorized stage" },
     ],
   },
   {
@@ -182,6 +212,14 @@ const componentGroups: Array<{
       { kind: "bandpass", label: "Band-pass filter" },
       { kind: "vco", label: "VCO" },
       { kind: "termination", label: "50 Ω termination" },
+      { kind: "balun", label: "Balun" },
+      { kind: "dcblock", label: "DC block" },
+      { kind: "rftransformer", label: "RF transformer" },
+      { kind: "phaseshifter", label: "Phase shifter" },
+      { kind: "frequencymultiplier", label: "Frequency multiplier" },
+      { kind: "limiter", label: "RF limiter" },
+      { kind: "rfdetector", label: "RF detector" },
+      { kind: "hybridcoupler", label: "90° hybrid" },
     ],
   },
   {
@@ -327,6 +365,22 @@ function ComponentShape({ element }: { element: DiagramElement }) {
       return <><path d="M-53 0H-35" stroke={element.color} strokeWidth="6" strokeLinecap="round" /><rect x="-35" y="-18" width="48" height="36" rx="4" {...common} /><path d="M13 -25V25M22 -29C10 -18 10 18 22 29M22 0H51" fill="none" stroke={element.color} strokeWidth="4" /></>;
     case "cagecube":
       return <><rect x="-34" y="-34" width="68" height="68" rx="3" {...common} /><path d="M-34 -34L-20 -45H45V20L34 34M34 -34L45 -45" fill="none" stroke={element.color} strokeWidth="3" /><circle r="17" fill="none" stroke={element.color} strokeWidth="3" /><circle cx="-27" cy="-27" r="4" fill={element.color} /><circle cx="27" cy="27" r="4" fill={element.color} /></>;
+    case "prism":
+      return <><path d="M0 -40L43 34H-43Z" {...common} /><path d="M-49 7L-22 7L23 -6L50 -20" fill="none" stroke={element.color} strokeWidth="3" strokeLinecap="round" /><path d="M22 -6L49 10M22 -6L46 -32" stroke={element.color} strokeWidth="2" opacity="0.65" /></>;
+    case "objective":
+      return <><path d="M-48 -18H-27L-18 -28H13L31 -17V17L13 28H-18L-27 18H-48Z" {...common} /><path d="M-27 -18V18M-18 -28V28M13 -28V28M31 -17C19 -10 19 10 31 17M31 0H50" fill="none" stroke={element.color} strokeWidth="3" /></>;
+    case "shutter":
+      return <><rect x="-38" y="-38" width="76" height="76" rx="5" {...common} /><circle r="25" fill="none" stroke={element.color} strokeWidth="3" /><path d="M-27 27L25 -25L35 -15L-17 37Z" fill={element.color} opacity="0.8" /><circle cx="-25" cy="-25" r="5" fill="#fff" stroke={element.color} strokeWidth="3" /></>;
+    case "iris":
+      return <><circle r="39" {...common} /><circle r="14" fill="none" stroke={element.color} strokeWidth="3" /><path d="M0 -38L12 -14M33 -19L14 2M33 19L2 14M0 38L-12 14M-33 19L-14 -2M-33 -19L-2 -14" stroke={element.color} strokeWidth="4" strokeLinecap="round" /></>;
+    case "breadboard":
+      return <><rect x="-52" y="-34" width="104" height="68" rx="4" {...common} /><path d="M-35 -19h0M-17 -19h0M1 -19h0M19 -19h0M37 -19h0M-35 0h0M-17 0h0M1 0h0M19 0h0M37 0h0M-35 19h0M-17 19h0M1 19h0M19 19h0M37 19h0" stroke={element.color} strokeWidth="7" strokeLinecap="round" /></>;
+    case "postholder":
+      return <><path d="M0 -45V27M-11 -33H11M-11 -20H11" stroke={element.color} strokeWidth="6" strokeLinecap="round" /><rect x="-17" y="-19" width="34" height="47" rx="6" {...common} /><path d="M-35 38H35L27 27H-27Z" {...common} /><circle cx="11" cy="-8" r="4" fill={element.color} /></>;
+    case "flipmount":
+      return <><path d="M-40 37H40M-27 37V23M27 37V23" stroke={element.color} strokeWidth="5" strokeLinecap="round" /><circle cy="-4" r="27" {...common} /><path d="M27 -4H43V-37M36 -29L43 -37L50 -29" fill="none" stroke={element.color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /><circle cx="27" cy="-4" r="5" fill={element.color} /></>;
+    case "motorizedstage":
+      return <><path d="M-53 29H28M-45 18H26" stroke={element.color} strokeWidth="5" strokeLinecap="round" /><rect x="-31" y="-23" width="58" height="41" rx="4" {...common} /><rect x="27" y="-15" width="25" height="30" rx="5" {...common} /><path d="M-14 -9H10M-2 -20V8M35 -7V7M43 -7V7" stroke={element.color} strokeWidth="3" /></>;
     case "source":
       return <><circle r="36" {...common} /><path d="M-24 0C-18 -22 -10 -22 -4 0S10 22 16 0S25 -22 29 0" fill="none" stroke={element.color} strokeWidth="4" /></>;
     case "oscilloscope":
@@ -367,6 +421,22 @@ function ComponentShape({ element }: { element: DiagramElement }) {
       return <><circle r="36" {...common} /><path d="M-23 1C-16 -17 -9 -17 -2 1S12 19 20 1" fill="none" stroke={element.color} strokeWidth="4" /><path d="M0 -52V-36M-6 -44L0 -36L6 -44" fill="none" stroke={element.color} strokeWidth="3" /></>;
     case "termination":
       return <><path d="M-53 0H-38" stroke={element.color} strokeWidth="4" /><rect x="-38" y="-26" width="76" height="52" rx="5" {...common} /><text y="8" textAnchor="middle" fill={element.color} fontSize="19" fontWeight="700" fontFamily="Arial, sans-serif">50 Ω</text></>;
+    case "balun":
+      return <><rect x="-45" y="-31" width="90" height="62" rx="5" {...common} /><path d="M-54 0H-27M-27 -18V18M27 -18V18M27 -12H54M27 12H54" fill="none" stroke={element.color} strokeWidth="4" /><path d="M-17 -18C-5 -18 -5 -6 -17 -6S-29 6 -17 6S-5 18 -17 18M17 -18C5 -18 5 -6 17 -6S29 6 17 6S5 18 17 18" fill="none" stroke={element.color} strokeWidth="3" /></>;
+    case "dcblock":
+      return <><rect x="-45" y="-29" width="90" height="58" rx="5" {...common} /><path d="M-54 0H-9M9 0H54M-9 -20V20M9 -20V20" stroke={element.color} strokeWidth="4" /><text y="-12" textAnchor="middle" fill={element.color} fontSize="10" fontWeight="700" fontFamily="Arial, sans-serif">DC</text></>;
+    case "rftransformer":
+      return <><rect x="-46" y="-31" width="92" height="62" rx="5" {...common} /><path d="M-54 0H-32M32 0H54M-32 -18V18M32 -18V18" stroke={element.color} strokeWidth="4" /><path d="M-22 -18C-8 -18 -8 -6 -22 -6S-36 6 -22 6S-8 18 -22 18M22 -18C8 -18 8 -6 22 -6S36 6 22 6S8 18 22 18" fill="none" stroke={element.color} strokeWidth="3" /></>;
+    case "phaseshifter":
+      return <><path d="M-54 0H-43M43 0H54" stroke={element.color} strokeWidth="4" /><rect x="-43" y="-28" width="86" height="56" rx="5" {...common} /><text x="-7" y="10" textAnchor="middle" fill={element.color} fontSize="29" fontWeight="700" fontFamily="serif">φ</text><path d="M13 12L30 -12M21 -12H30V-3" fill="none" stroke={element.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></>;
+    case "frequencymultiplier":
+      return <><path d="M-54 0H-43M43 0H54" stroke={element.color} strokeWidth="4" /><rect x="-43" y="-28" width="86" height="56" rx="5" {...common} /><text y="9" textAnchor="middle" fill={element.color} fontSize="25" fontWeight="700" fontFamily="Arial, sans-serif">×N</text></>;
+    case "limiter":
+      return <><rect x="-47" y="-29" width="94" height="58" rx="5" {...common} /><path d="M-54 0H-34C-26 -19 -18 -19 -10 0S6 19 14 0S30 -19 38 0H54M-31 -14H35M-31 14H35" fill="none" stroke={element.color} strokeWidth="3" strokeLinecap="round" /></>;
+    case "rfdetector":
+      return <><rect x="-46" y="-30" width="92" height="60" rx="5" {...common} /><path d="M-54 0H-28L3 -18V18L-28 0M4 -20V20M4 0H54" fill="none" stroke={element.color} strokeWidth="4" strokeLinejoin="round" /><path d="M17 13C23 -5 30 -5 36 13" fill="none" stroke={element.color} strokeWidth="3" /></>;
+    case "hybridcoupler":
+      return <><rect x="-43" y="-32" width="86" height="64" rx="5" {...common} /><path d="M-54 -16H-43M-54 16H-43M43 -16H54M43 16H54M-27 -16H27M-27 16H27M-27 -16V16M27 -16V16" fill="none" stroke={element.color} strokeWidth="3" /><text y="6" textAnchor="middle" fill={element.color} fontSize="17" fontWeight="700" fontFamily="Arial, sans-serif">90°</text></>;
     case "networkanalyzer":
       return <><rect x="-53" y="-35" width="106" height="70" rx="6" {...common} /><rect x="-40" y="-23" width="57" height="38" rx="2" fill="none" stroke={element.color} strokeWidth="3" /><path d="M-34 8C-25 -15 -17 -15 -8 8S9 25 12 -13" fill="none" stroke={element.color} strokeWidth="3" /><circle cx="34" cy="-15" r="6" {...common} /><circle cx="28" cy="18" r="5" {...common} /><circle cx="43" cy="18" r="5" {...common} /></>;
     case "dmm":
