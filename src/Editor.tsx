@@ -364,7 +364,7 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
 
   switch (element.kind) {
     case "laser":
-      return <><path d="M-46 -25H28L39 -14V14L28 25H-46Z" {...common} /><circle cx="28" cy="0" r="8" fill="none" stroke={element.color} strokeWidth="2.6" /><path d="M-34 0H17M39 0H52M-38 -13L-27 -7M-38 13L-27 7" fill="none" stroke={element.color} strokeWidth="2.8" strokeLinecap="round" /><path d="M-38 31H30" stroke={element.color} strokeWidth="3.4" strokeLinecap="round" /></>;
+      return <><path d="M-58 0H-44" stroke={monochrome ? element.color : portTypeColors.dc} strokeWidth="3.4" /><rect x="-44" y="-28" width="88" height="56" rx="4" {...common} /><path d="M-27 -16V8M20 -16V8M-21 -4H14" fill="none" stroke={element.color} strokeWidth="2.6" /><circle cx="34" cy="0" r="5" fill="#fff" stroke={element.color} strokeWidth="2.4" /><path d="M44 0H58" stroke={monochrome ? element.color : portTypeColors["optical-free-space"]} strokeWidth="3.4" /><text x="-3" y="21" textAnchor="middle" fill={element.color} fontSize="9" fontWeight="700" fontFamily="Arial, sans-serif">LASER</text></>;
     case "mirror":
       return <><path d="M-32 30L32 -30" stroke={element.color} strokeWidth="8" strokeLinecap="round" /><path d="M-25 35L39 -29" stroke="#b8c0cc" strokeWidth="3" /></>;
     case "curvedmirror":
@@ -384,7 +384,7 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
     case "dichroic":
       return <><path d="M-26 40L26 -40" stroke="#c7ccd3" strokeWidth="12" strokeLinecap="round" /><path d="M-26 40L26 -40" stroke={element.color} strokeWidth="4.2" strokeLinecap="round" /><path d="M-18 34L34 -18" stroke={element.color} strokeWidth="1.6" strokeDasharray="5 4" opacity="0.55" /></>;
     case "grating":
-      return <><path d="M-34 35L5 -35H35L-4 35Z" {...common} /><path d="M-25 34L14 -35M-15 34L24 -35M-5 34L34 -35M5 17L34 -35" stroke={element.color} strokeWidth="2.1" opacity="0.72" /></>;
+      return <g transform="rotate(25)"><rect x="-9" y="-42" width="18" height="84" rx="1" {...common} /><path d="M-18 -28H8M-18 -14H8M-18 0H8M-18 14H8M-18 28H8" stroke={element.color} strokeWidth="2.2" strokeLinecap="round" /></g>;
     case "beamdump":
       return <><path d="M-42 -34L42 -20L42 20L-42 34Z" {...common} /><path d="M-29 -27L-5 26M-12 -24L12 23M5 -21L29 26" stroke={element.color} strokeWidth="3" /></>;
     case "crystal":
@@ -392,7 +392,7 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
     case "sample":
       return <><rect x="-48" y="-28" width="96" height="56" rx="3" {...common} /><path d="M-36 -13H36V13H-36Z" fill={element.color} fillOpacity="0.08" stroke={element.color} strokeWidth="2" /><circle r="8" fill="#fff" stroke={element.color} strokeWidth="2.6" /><path d="M-28 -19H28M-28 19H28" stroke={element.color} strokeWidth="1.7" opacity="0.55" /></>;
     case "detector":
-      return <><path d="M-42 -32H20L36 -18V18L20 32H-42Z" {...common} /><circle cx="-16" cy="0" r="15" fill="none" stroke={element.color} strokeWidth="3" /><circle cx="-16" cy="0" r="6" fill={element.color} /><path d="M36 0H52M25 -12V12" stroke={element.color} strokeWidth="3" strokeLinecap="round" /></>;
+      return <><path d="M-58 0H-42" stroke={monochrome ? element.color : portTypeColors["optical-free-space"]} strokeWidth="3.4" /><rect x="-42" y="-29" width="84" height="58" rx="4" {...common} /><circle cx="-17" cy="0" r="15" fill="none" stroke={element.color} strokeWidth="2.8" /><circle cx="-17" cy="0" r="4" fill={element.color} /><text x="17" y="5" textAnchor="middle" fill={element.color} fontSize="13" fontWeight="700" fontFamily="Arial, sans-serif">PD</text><path d="M42 0H58" stroke={monochrome ? element.color : portTypeColors.rf} strokeWidth="3.4" /></>;
     case "fiber":
       return <><path d="M-50 16C-20 -34 20 34 50 -16" fill="none" stroke={element.color} strokeWidth="7" strokeLinecap="round" /><circle cx="-50" cy="16" r="6" fill="#fff" stroke={element.color} strokeWidth="3" /><circle cx="50" cy="-16" r="6" fill="#fff" stroke={element.color} strokeWidth="3" /></>;
     case "fibercoupler":
@@ -434,7 +434,7 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
     case "cagecube":
       return <><rect x="-34" y="-34" width="68" height="68" rx="3" {...common} /><path d="M-34 -34L-20 -45H45V20L34 34M34 -34L45 -45" fill="none" stroke={element.color} strokeWidth="3" /><circle r="17" fill="none" stroke={element.color} strokeWidth="3" /><circle cx="-27" cy="-27" r="4" fill={element.color} /><circle cx="27" cy="27" r="4" fill={element.color} /></>;
     case "prism":
-      return <><path d="M0 -40L43 34H-43Z" {...common} /><path d="M-49 7L-22 7L23 -6L50 -20" fill="none" stroke={element.color} strokeWidth="3" strokeLinecap="round" /><path d="M22 -6L49 10M22 -6L46 -32" stroke={element.color} strokeWidth="2" opacity="0.65" /></>;
+      return <path d="M0 -40L43 34H-43Z" {...common} />;
     case "objective":
       return <><path d="M-48 -18H-27L-18 -28H13L31 -17V17L13 28H-18L-27 18H-48Z" {...common} /><path d="M-27 -18V18M-18 -28V28M13 -28V28M31 -17C19 -10 19 10 31 17M31 0H50" fill="none" stroke={element.color} strokeWidth="3" /></>;
     case "shutter":
