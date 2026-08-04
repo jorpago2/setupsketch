@@ -20,6 +20,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   const catalogKinds = [...new Set([...catalog.matchAll(/kind: "([a-z]+)"/g)].map((match) => match[1]))];
   for (const kind of catalogKinds) assert.match(editor, new RegExp(`case "${kind}"`), `${kind} needs a vector symbol`);
   for (const legacyColor of ["#e84d3c", "#2263d4", "#7253cf", "#16846b"]) assert.doesNotMatch(catalog, new RegExp(legacyColor));
+  assert.doesNotMatch(editor, /current!\.before/, "drag history must capture the active gesture before clearing its ref");
   for (const layer of ["optics", "electronics", "beams", "signals", "labels", "grid"]) {
     assert.match(editor, new RegExp(`\\[\\"${layer}\\",`));
   }

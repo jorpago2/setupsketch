@@ -822,8 +822,9 @@ export default function Home() {
   };
 
   const finishDrag = () => {
-    if (drag.current?.moved) {
-      setPast((items) => [...items.slice(-39), drag.current!.before]);
+    const active = drag.current;
+    if (active?.moved) {
+      setPast((items) => [...items.slice(-39), active.before]);
       setFuture([]);
     }
     drag.current = null;
@@ -844,8 +845,9 @@ export default function Home() {
   };
 
   const finishBend = () => {
-    if (bendDrag.current?.moved) {
-      setPast((items) => [...items.slice(-39), bendDrag.current!.before]);
+    const active = bendDrag.current;
+    if (active?.moved) {
+      setPast((items) => [...items.slice(-39), active.before]);
       setFuture([]);
     }
     bendDrag.current = null;
