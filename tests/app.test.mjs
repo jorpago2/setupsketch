@@ -21,6 +21,12 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   for (const feature of ["connectionPath", "orthogonal", "fromPort", "selectedIds", "exportBom", "Publication", "Search components"]) {
     assert.match(editor, new RegExp(feature));
   }
+  for (const feature of ["saveSelectionAsModule", "finishEndpoint", "cropToContent", "loadBom", "Setup checks", "Flip horizontal"]) {
+    assert.match(editor, new RegExp(feature));
+  }
+  for (const annotation of ["textnote", "equation", "region", "dimension", "brace", "legend"]) {
+    assert.match(catalog, new RegExp(`kind: \\"${annotation}\\"`));
+  }
   assert.match(templates, /mach-zehnder/);
   assert.match(templates, /vna-chain/);
 });

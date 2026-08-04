@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && vite build",
-    "test": "pnpm build && node --test tests/app.test.mjs",
+    "test": "pnpm build && node --experimental-strip-types --test tests/app.test.mjs tests/model.test.ts",
     "lint": "eslint . --ignore-pattern dist"
   },
   "dependencies": {

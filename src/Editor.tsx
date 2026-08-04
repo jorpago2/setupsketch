@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import {
+  annotationKinds,
   componentByKind,
   componentDefinitions,
   componentGroups,
@@ -18,6 +19,7 @@ import {
   type ElementKind,
   type PortLayout,
 } from "./componentCatalog";
+import { moveElements, parseCsv, routeOrthogonal, validateSetup } from "./editorModel";
 import { setupTemplates } from "./templates";
 
 type LayerVisibility = {
@@ -27,6 +29,7 @@ type LayerVisibility = {
   electronics: boolean;
   beams: boolean;
   signals: boolean;
+  annotations: boolean;
 };
 
 type Point = { x: number; y: number };
@@ -38,6 +41,7 @@ type PublicationSettings = {
   monochrome: boolean;
   showCredit: boolean;
   labelScale: number;
+  cropToContent: boolean;
 };
 
 type DiagramElement = {
@@ -53,6 +57,12 @@ type DiagramElement = {
   specs?: string;
   notes?: string;
   groupId?: string;
+  scale?: number;
+  flipX?: boolean;
+  flipY?: boolean;
+  locked?: boolean;
+  width?: number;
+  height?: number;
 };
 
 type Connection = {
@@ -70,12 +80,21 @@ type Connection = {
 type Snapshot = {
   elements: DiagramElement[];
   connections: Connection[];
+  publication: PublicationSettings;
+};
+
+type SavedModule = {
+  id: string;
+  name: string;
+  elements: DiagramElement[];
+  connections: Connection[];
 };
 
 const WIDTH = 1200;
 const HEIGHT = 700;
 const STORAGE_KEY = "setupsketch-diagram-v1";
 const FAVORITES_KEY = "setupsketch-favorites-v1";
+const MODULES_KEY = "setupsketch-modules-v1";
 const GRID_STEP = 20;
 
 const pagePresets: Record<PagePreset, { label: string; width: number; height: number }> = {
@@ -91,6 +110,7 @@ const defaultPublication: PublicationSettings = {
   monochrome: false,
   showCredit: true,
   labelScale: 1,
+  cropToContent: false,
 };
 
 const portLayouts: Record<PortLayout, Array<{ id: string; x: number; y: number }>> = {
@@ -125,7 +145,12 @@ const rotatePoint = (point: Point, angle: number): Point => {
 const portsFor = (element: DiagramElement) => {
   const layout = componentByKind.get(element.kind)?.ports ?? "lr";
   return portLayouts[layout].map((port) => {
-    const rotated = rotatePoint(port, element.rotation);
+    const scale = element.scale ?? 1;
+    const transformed = {
+      x: port.x * scale * (element.flipX ? -1 : 1),
+      y: port.y * scale * (element.flipY ? -1 : 1),
+    };
+    const rotated = rotatePoint(transformed, element.rotation);
     return { ...port, x: element.x + rotated.x, y: element.y + rotated.y };
   });
 };
@@ -157,12 +182,17 @@ const initialConnections: Connection[] = [
   { id: "c4", from: "detector-1", to: "daq-1", color: "#242a35", type: "signal" },
 ];
 
-const cloneSnapshot = (elements: DiagramElement[], connections: Connection[]): Snapshot => ({
+const cloneSnapshot = (
+  elements: DiagramElement[],
+  connections: Connection[],
+  publication: PublicationSettings = defaultPublication,
+): Snapshot => ({
   elements: elements.map((element) => ({ ...element })),
   connections: connections.map((connection) => ({
     ...connection,
     waypoints: connection.waypoints?.map((point) => ({ ...point })),
   })),
+  publication: { ...publication },
 });
 
 const download = (blob: Blob, filename: string) => {
@@ -189,6 +219,7 @@ const isPublicationSettings = (value: unknown): value is PublicationSettings => 
   const settings = value as Record<string, unknown>;
   return typeof settings.pagePreset === "string" && settings.pagePreset in pagePresets &&
     typeof settings.monochrome === "boolean" && typeof settings.showCredit === "boolean" &&
+    (settings.cropToContent === undefined || typeof settings.cropToContent === "boolean") &&
     typeof settings.labelScale === "number" && Number.isFinite(settings.labelScale) &&
     settings.labelScale >= 0.7 && settings.labelScale <= 1.5;
 };
@@ -211,7 +242,10 @@ const isDiagramFile = (value: unknown): value is DiagramFile => {
       typeof element.y !== "number" || !Number.isFinite(element.y) ||
       typeof element.rotation !== "number" || !Number.isFinite(element.rotation) ||
       ["manufacturer", "model", "specs", "notes", "groupId"].some((key) =>
-        element[key] !== undefined && typeof element[key] !== "string")
+        element[key] !== undefined && typeof element[key] !== "string") ||
+      ["flipX", "flipY", "locked"].some((key) => element[key] !== undefined && typeof element[key] !== "boolean") ||
+      ["scale", "width", "height"].some((key) => element[key] !== undefined &&
+        (typeof element[key] !== "number" || !Number.isFinite(element[key] as number)))
     ) return false;
     ids.add(element.id);
   }
@@ -230,7 +264,14 @@ const isDiagramFile = (value: unknown): value is DiagramFile => {
   });
 };
 
-const connectionPath = (connection: Connection, from: DiagramElement, to: DiagramElement): Point[] => {
+const isSavedModule = (value: unknown): value is SavedModule => {
+  if (!value || typeof value !== "object") return false;
+  const module = value as Record<string, unknown>;
+  return typeof module.id === "string" && typeof module.name === "string" &&
+    isDiagramFile({ elements: module.elements, connections: module.connections });
+};
+
+const connectionPath = (connection: Connection, from: DiagramElement, to: DiagramElement, elements: DiagramElement[]): Point[] => {
   const nearest = closestPortPair(from, to);
   const source = portsFor(from).find((port) => port.id === connection.fromPort) ?? nearest.source;
   const target = portsFor(to).find((port) => port.id === connection.toPort) ?? nearest.target;
@@ -247,8 +288,7 @@ const connectionPath = (connection: Connection, from: DiagramElement, to: Diagra
   if ((connection.routing ?? (getConnectionType(connection) === "signal" ? "orthogonal" : "straight")) === "straight") {
     return [source, target];
   }
-  const middleX = (source.x + target.x) / 2;
-  return [source, { x: middleX, y: source.y }, { x: middleX, y: target.y }, target];
+  return routeOrthogonal(source, target, elements, [from.id, to.id]);
 };
 
 const csvCell = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
@@ -319,6 +359,18 @@ function ComponentShape({ element }: { element: DiagramElement }) {
       return <><path d="M-42 38H42M-28 38V27M28 38V27" stroke={element.color} strokeWidth="5" strokeLinecap="round" /><path d="M20 27L-10 -13" stroke={element.color} strokeWidth="7" strokeLinecap="round" /><circle cx="-18" cy="-24" r="20" {...common} /><circle cx="20" cy="27" r="6" fill={element.color} /><path d="M30 15A37 37 0 0016 -31M15 -21L16 -31L26 -28" fill="none" stroke={element.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></>;
     case "motorizedstage":
       return <><path d="M-53 29H28M-45 18H26" stroke={element.color} strokeWidth="5" strokeLinecap="round" /><rect x="-31" y="-23" width="58" height="41" rx="4" {...common} /><rect x="27" y="-15" width="25" height="30" rx="5" {...common} /><path d="M-14 -9H10M-2 -20V8M35 -7V7M43 -7V7" stroke={element.color} strokeWidth="3" /></>;
+    case "textnote":
+      return <><rect x={-(element.width ?? 150) / 2} y={-(element.height ?? 70) / 2} width={element.width ?? 150} height={element.height ?? 70} rx="5" fill="#fffdf3" stroke={element.color} strokeWidth="2" strokeDasharray="5 4" /><text y="5" textAnchor="middle" fill={element.color} fontSize="16" fontFamily="Arial, sans-serif">{element.label}</text></>;
+    case "equation":
+      return <><rect x={-(element.width ?? 180) / 2} y={-(element.height ?? 60) / 2} width={element.width ?? 180} height={element.height ?? 60} rx="4" fill="#fff" stroke={element.color} strokeWidth="1.5" /><text y="6" textAnchor="middle" fill={element.color} fontSize="18" fontStyle="italic" fontFamily="Georgia, serif">{element.label}</text></>;
+    case "region":
+      return <><rect x={-(element.width ?? 220) / 2} y={-(element.height ?? 150) / 2} width={element.width ?? 220} height={element.height ?? 150} rx="10" fill={element.color} fillOpacity="0.06" stroke={element.color} strokeWidth="2" strokeDasharray="9 6" /><text x={-(element.width ?? 220) / 2 + 12} y={-(element.height ?? 150) / 2 + 22} fill={element.color} fontSize="14" fontWeight="700" fontFamily="Arial, sans-serif">{element.label}</text></>;
+    case "dimension":
+      return <><path d={`M${-(element.width ?? 180) / 2} 0H${(element.width ?? 180) / 2}M${-(element.width ?? 180) / 2} -12V12M${(element.width ?? 180) / 2} -12V12`} fill="none" stroke={element.color} strokeWidth="2" /><path d={`M${-(element.width ?? 180) / 2} 0l12 -6v12zM${(element.width ?? 180) / 2} 0l-12 -6v12z`} fill={element.color} /><text y="-10" textAnchor="middle" fill={element.color} fontSize="14" fontFamily="Arial, sans-serif">{element.label}</text></>;
+    case "brace":
+      return <><path d={`M${-(element.width ?? 180) / 2} 0C${-(element.width ?? 180) / 4} 0 ${-(element.width ?? 180) / 4} -18 0 -18C${(element.width ?? 180) / 4} -18 ${(element.width ?? 180) / 4} 0 ${(element.width ?? 180) / 2} 0`} fill="none" stroke={element.color} strokeWidth="3" /><text y="-29" textAnchor="middle" fill={element.color} fontSize="14" fontFamily="Arial, sans-serif">{element.label}</text></>;
+    case "legend":
+      return <><rect x="-90" y="-50" width="180" height="100" rx="5" fill="#fff" stroke={element.color} strokeWidth="2" /><text x="-74" y="-27" fill={element.color} fontSize="14" fontWeight="700" fontFamily="Arial, sans-serif">{element.label}</text><path d="M-72 -5H-22" stroke="#e84d3c" strokeWidth="4" /><text x="-10" y="0" fill={element.color} fontSize="12" fontFamily="Arial, sans-serif">Optical beam</text><path d="M-72 25H-22" stroke={element.color} strokeWidth="3" strokeDasharray="7 4" /><text x="-10" y="30" fill={element.color} fontSize="12" fontFamily="Arial, sans-serif">Signal path</text></>;
     case "source":
       return <><circle r="36" {...common} /><path d="M-24 0C-18 -22 -10 -22 -4 0S10 22 16 0S25 -22 29 0" fill="none" stroke={element.color} strokeWidth="4" /></>;
     case "oscilloscope":
@@ -410,6 +462,7 @@ export default function Home() {
     electronics: true,
     beams: true,
     signals: true,
+    annotations: true,
   });
   const [past, setPast] = useState<Snapshot[]>([]);
   const [future, setFuture] = useState<Snapshot[]>([]);
@@ -420,9 +473,13 @@ export default function Home() {
   const [favoriteKinds, setFavoriteKinds] = useState<ElementKind[]>([]);
   const [recentKinds, setRecentKinds] = useState<ElementKind[]>([]);
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
+  const [savedModules, setSavedModules] = useState<SavedModule[]>([]);
+  const [endpointPreview, setEndpointPreview] = useState<Point | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const bomRef = useRef<HTMLInputElement>(null);
   const hydrated = useRef(false);
+  const editBefore = useRef<Snapshot | null>(null);
   const drag = useRef<{
     ids: string[];
     start: Point;
@@ -431,11 +488,13 @@ export default function Home() {
     moved: boolean;
   } | null>(null);
   const bendDrag = useRef<{ connectionId: string; index: number; before: Snapshot; moved: boolean } | null>(null);
+  const endpointDrag = useRef<{ connectionId: string; end: "from" | "to"; before: Snapshot } | null>(null);
 
   const dimensions = pagePresets[publication.pagePreset];
   const selected = selectedIds.length === 1 ? elements.find((element) => element.id === selectedIds[0]) ?? null : null;
   const selectedConnection = connections.find((connection) => connection.id === selectedConnectionId) ?? null;
   const selection = new Set(selectedIds);
+  const validationIssues = validateSetup(elements, connections, electronicKinds, annotationKinds);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -446,7 +505,7 @@ export default function Home() {
           setTitle(parsed.title || title);
           setElements(parsed.elements);
           setConnections(parsed.connections);
-          if (parsed.publication) setPublication(parsed.publication);
+          if (parsed.publication) setPublication({ ...defaultPublication, ...parsed.publication });
         }
       } catch {
         setNotice("Local draft could not be read");
@@ -458,6 +517,10 @@ export default function Home() {
         setFavoriteKinds(storedFavorites.filter((kind): kind is ElementKind => typeof kind === "string" && elementKinds.has(kind as ElementKind)));
       }
     } catch { /* Ignore a damaged preference; the diagram remains intact. */ }
+    try {
+      const storedModules: unknown = JSON.parse(localStorage.getItem(MODULES_KEY) ?? "[]");
+      if (Array.isArray(storedModules)) setSavedModules(storedModules.filter(isSavedModule));
+    } catch { /* Ignore damaged reusable modules. */ }
     hydrated.current = true;
   // The starter title is intentionally read only once.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -465,12 +528,16 @@ export default function Home() {
 
   useEffect(() => {
     if (!hydrated.current) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, title, elements, connections, publication }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 3, title, elements, connections, publication }));
   }, [title, elements, connections, publication]);
 
   useEffect(() => {
     localStorage.setItem(FAVORITES_KEY, JSON.stringify(favoriteKinds));
   }, [favoriteKinds]);
+
+  useEffect(() => {
+    localStorage.setItem(MODULES_KEY, JSON.stringify(savedModules));
+  }, [savedModules]);
 
   const pointFromEvent = (event: ReactPointerEvent<SVGElement>) => {
     const svg = svgRef.current;
@@ -482,30 +549,55 @@ export default function Home() {
   };
 
   const commit = (nextElements: DiagramElement[], nextConnections = connections) => {
-    setPast((items) => [...items.slice(-39), cloneSnapshot(elements, connections)]);
+    const before = editBefore.current ?? cloneSnapshot(elements, connections, publication);
+    editBefore.current = null;
+    setPast((items) => [...items.slice(-39), before]);
     setFuture([]);
     setElements(nextElements);
     setConnections(nextConnections);
   };
 
+  const commitPublication = (next: PublicationSettings) => {
+    setPast((items) => [...items.slice(-39), cloneSnapshot(elements, connections, publication)]);
+    setFuture([]);
+    setPublication(next);
+  };
+
+  const beginPropertyEdit = () => {
+    if (!editBefore.current) editBefore.current = cloneSnapshot(elements, connections, publication);
+  };
+
+  const finishPropertyEdit = (nextTarget: EventTarget | null, container: HTMLElement) => {
+    if (nextTarget instanceof Node && container.contains(nextTarget)) return;
+    const before = editBefore.current;
+    editBefore.current = null;
+    if (!before || JSON.stringify(before) === JSON.stringify(cloneSnapshot(elements, connections, publication))) return;
+    setPast((items) => [...items.slice(-39), before]);
+    setFuture([]);
+  };
+
   const undo = () => {
     const previous = past.at(-1);
     if (!previous) return;
-    setFuture((items) => [cloneSnapshot(elements, connections), ...items]);
+    setFuture((items) => [cloneSnapshot(elements, connections, publication), ...items]);
     setPast((items) => items.slice(0, -1));
     setElements(previous.elements);
     setConnections(previous.connections);
+    setPublication(previous.publication);
     setSelectedIds([]);
+    setSelectedConnectionId(null);
   };
 
   const redo = () => {
     const next = future[0];
     if (!next) return;
-    setPast((items) => [...items, cloneSnapshot(elements, connections)]);
+    setPast((items) => [...items, cloneSnapshot(elements, connections, publication)]);
     setFuture((items) => items.slice(1));
     setElements(next.elements);
     setConnections(next.connections);
+    setPublication(next.publication);
     setSelectedIds([]);
+    setSelectedConnectionId(null);
   };
 
   const addElement = (kind: ElementKind, label: string) => {
@@ -541,6 +633,9 @@ export default function Home() {
 
   const updateSelected = (changes: Partial<DiagramElement>) =>
     setElements((items) => items.map((element) => selection.has(element.id) ? { ...element, ...changes } : element));
+
+  const changeSelected = (changes: Partial<DiagramElement>) =>
+    commit(elements.map((element) => selection.has(element.id) ? { ...element, ...changes } : element));
 
   const duplicateSelected = () => {
     if (!selectedIds.length) return;
@@ -603,12 +698,13 @@ export default function Home() {
       : selectedIds.includes(id) ? selectedIds : groupIds;
     setSelectedIds(nextIds);
     setSelectedConnectionId(null);
+    if (clicked.locked) return;
     const point = pointFromEvent(event);
     drag.current = {
       ids: nextIds,
       start: point,
-      origins: elements.filter((element) => nextIds.includes(element.id)).map(({ id: elementId, x, y }) => ({ id: elementId, x, y })),
-      before: cloneSnapshot(elements, connections),
+      origins: elements.filter((element) => nextIds.includes(element.id) && !element.locked).map(({ id: elementId, x, y }) => ({ id: elementId, x, y })),
+      before: cloneSnapshot(elements, connections, publication),
       moved: false,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -661,6 +757,41 @@ export default function Home() {
     bendDrag.current = null;
   };
 
+  const moveEndpoint = (event: ReactPointerEvent<SVGCircleElement>) => {
+    if (!endpointDrag.current) return;
+    setEndpointPreview(pointFromEvent(event));
+  };
+
+  const finishEndpoint = (event: ReactPointerEvent<SVGCircleElement>) => {
+    const active = endpointDrag.current;
+    if (!active) return;
+    const point = pointFromEvent(event);
+    const connection = connections.find((item) => item.id === active.connectionId);
+    if (connection) {
+      const oppositeId = active.end === "from" ? connection.to : connection.from;
+      const choices = elements.filter((element) => element.id !== oppositeId).flatMap((element) =>
+        portsFor(element).map((port) => ({ element, port, distance: Math.hypot(port.x - point.x, port.y - point.y) })),
+      );
+      const nearest = choices.sort((a, b) => a.distance - b.distance)[0];
+      if (nearest && nearest.distance <= 90) {
+        setPast((items) => [...items.slice(-39), active.before]);
+        setFuture([]);
+        setConnections((items) => items.map((item) => item.id === active.connectionId ? active.end === "from"
+          ? { ...item, from: nearest.element.id, fromPort: nearest.port.id, waypoints: undefined }
+          : { ...item, to: nearest.element.id, toPort: nearest.port.id, waypoints: undefined }
+        : item));
+        setNotice("Connection endpoint moved");
+      }
+    }
+    endpointDrag.current = null;
+    setEndpointPreview(null);
+  };
+
+  const cancelEndpoint = () => {
+    endpointDrag.current = null;
+    setEndpointPreview(null);
+  };
+
   const groupSelection = () => {
     if (selectedIds.length < 2) return;
     const groupId = `group-${Date.now()}`;
@@ -670,18 +801,24 @@ export default function Home() {
   const ungroupSelection = () => commit(elements.map((element) => selection.has(element.id) ? { ...element, groupId: undefined } : element));
 
   const alignSelection = (axis: "x" | "y") => {
-    const chosen = elements.filter((element) => selection.has(element.id));
+    const chosen = elements.filter((element) => selection.has(element.id) && !element.locked);
     if (chosen.length < 2) return;
     const value = chosen.reduce((sum, element) => sum + element[axis], 0) / chosen.length;
-    commit(elements.map((element) => selection.has(element.id) ? { ...element, [axis]: value } : element));
+    commit(elements.map((element) => selection.has(element.id) && !element.locked ? { ...element, [axis]: value } : element));
   };
 
   const distributeSelection = () => {
-    const chosen = elements.filter((element) => selection.has(element.id)).sort((a, b) => a.x - b.x);
+    const chosen = elements.filter((element) => selection.has(element.id) && !element.locked).sort((a, b) => a.x - b.x);
     if (chosen.length < 3) return;
     const step = (chosen.at(-1)!.x - chosen[0].x) / (chosen.length - 1);
     const positions = new Map(chosen.map((element, index) => [element.id, chosen[0].x + index * step]));
     commit(elements.map((element) => positions.has(element.id) ? { ...element, x: positions.get(element.id)! } : element));
+  };
+
+  const reorderSelection = (direction: "front" | "back") => {
+    const chosen = elements.filter((element) => selection.has(element.id));
+    const rest = elements.filter((element) => !selection.has(element.id));
+    commit(direction === "front" ? [...rest, ...chosen] : [...chosen, ...rest]);
   };
 
   useEffect(() => {
@@ -706,11 +843,7 @@ export default function Home() {
         const distance = event.shiftKey ? GRID_STEP : 1;
         const dx = event.key === "ArrowLeft" ? -distance : event.key === "ArrowRight" ? distance : 0;
         const dy = event.key === "ArrowUp" ? -distance : event.key === "ArrowDown" ? distance : 0;
-        commit(elements.map((element) => selection.has(element.id) ? {
-          ...element,
-          x: Math.max(60, Math.min(dimensions.width - 60, element.x + dx)),
-          y: Math.max(60, Math.min(dimensions.height - 60, element.y + dy)),
-        } : element));
+        commit(moveElements(elements, selection, dx, dy, dimensions));
       }
       if (event.key === "Escape") {
         setConnectMode(false);
@@ -723,13 +856,32 @@ export default function Home() {
     return () => window.removeEventListener("keydown", onKeyDown);
   });
 
+  const exportFrame = () => {
+    if (!publication.cropToContent || !elements.length) return { x: 0, y: 0, width: dimensions.width, height: dimensions.height };
+    const points = [
+      ...elements.flatMap((element) => {
+        const halfWidth = Math.max(75, (element.width ?? 120) * (element.scale ?? 1) / 2);
+        const halfHeight = Math.max(65, (element.height ?? 100) * (element.scale ?? 1) / 2);
+        return [{ x: element.x - halfWidth, y: element.y - halfHeight }, { x: element.x + halfWidth, y: element.y + halfHeight }];
+      }),
+      ...connections.flatMap((connection) => connection.waypoints ?? []),
+    ];
+    const minX = Math.max(0, Math.min(...points.map((point) => point.x)) - 35);
+    const minY = Math.max(0, Math.min(...points.map((point) => point.y)) - 95);
+    const maxX = Math.min(dimensions.width, Math.max(...points.map((point) => point.x)) + 35);
+    const maxY = Math.min(dimensions.height, Math.max(...points.map((point) => point.y)) + 35);
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+  };
+
   const svgSource = () => {
     if (!svgRef.current) return "";
+    const frame = exportFrame();
     const clone = svgRef.current.cloneNode(true) as SVGSVGElement;
-    clone.querySelectorAll(".selection-outline, .connection-hit, .grid-layer, .port-marker, .bend-handle").forEach((node) => node.remove());
+    clone.querySelectorAll(".selection-outline, .connection-hit, .grid-layer, .port-marker, .bend-handle, .endpoint-handle").forEach((node) => node.remove());
     clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-    clone.setAttribute("width", String(dimensions.width));
-    clone.setAttribute("height", String(dimensions.height));
+    clone.setAttribute("viewBox", `${frame.x} ${frame.y} ${frame.width} ${frame.height}`);
+    clone.setAttribute("width", String(frame.width));
+    clone.setAttribute("height", String(frame.height));
     return `<?xml version="1.0" encoding="UTF-8"?>\n${new XMLSerializer().serializeToString(clone)}`;
   };
 
@@ -739,9 +891,10 @@ export default function Home() {
     const image = new Image();
     const url = URL.createObjectURL(new Blob([svgSource()], { type: "image/svg+xml" }));
     image.onload = () => {
+      const frame = exportFrame();
       const canvas = document.createElement("canvas");
-      canvas.width = dimensions.width * 2;
-      canvas.height = dimensions.height * 2;
+      canvas.width = frame.width * 2;
+      canvas.height = frame.height * 2;
       const context = canvas.getContext("2d");
       if (!context) return;
       context.fillStyle = "white";
@@ -753,8 +906,24 @@ export default function Home() {
     image.src = url;
   };
 
+  const exportPdf = () => {
+    const popup = window.open("", "_blank", "popup");
+    if (!popup) {
+      setNotice("Allow pop-ups to export the vector PDF");
+      return;
+    }
+    popup.document.title = title;
+    const style = popup.document.createElement("style");
+    style.textContent = `@page { size: ${publication.pagePreset === "a3" ? "A3 landscape" : "A4 landscape"}; margin: 8mm; } body { margin: 0; display: grid; place-items: center; } svg { width: 100%; height: auto; }`;
+    popup.document.head.append(style);
+    const parsed = new DOMParser().parseFromString(svgSource(), "image/svg+xml").documentElement;
+    popup.document.body.append(popup.document.importNode(parsed, true));
+    popup.focus();
+    window.setTimeout(() => popup.print(), 250);
+  };
+
   const saveJson = () => download(
-    new Blob([JSON.stringify({ version: 2, title, elements, connections, publication }, null, 2)], { type: "application/json" }),
+    new Blob([JSON.stringify({ version: 3, title, elements, connections, publication }, null, 2)], { type: "application/json" }),
     `${safeFilename(title)}.json`,
   );
 
@@ -766,12 +935,53 @@ export default function Home() {
       if (row) row.quantity += 1;
       else rows.set(key, { quantity: 1, element });
     }
-    const header = ["Quantity", "Component", "Manufacturer", "Model", "Specifications", "Notes"];
+    const header = ["Quantity", "Kind", "Component", "Manufacturer", "Part number", "Specifications", "Notes"];
     const lines = [header, ...[...rows.values()].map(({ quantity, element }) => [
-      quantity, componentByKind.get(element.kind)?.label ?? element.kind, element.manufacturer ?? "",
+      quantity, element.kind, componentByKind.get(element.kind)?.label ?? element.kind, element.manufacturer ?? "",
       element.model ?? "", element.specs ?? "", element.notes ?? "",
     ])].map((row) => row.map(csvCell).join(","));
     download(new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" }), `${safeFilename(title)}-bom.csv`);
+  };
+
+  const loadBom = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const [header, ...rows] = parseCsv(await file.text());
+      const columns = new Map(header.map((cell, index) => [cell.trim().toLowerCase(), index]));
+      const kindColumn = columns.get("kind");
+      if (kindColumn === undefined) throw new Error("Missing Kind column");
+      const imported: DiagramElement[] = [];
+      for (const row of rows) {
+        const kind = row[kindColumn]?.trim() as ElementKind;
+        if (!elementKinds.has(kind)) continue;
+        const quantity = Math.min(100, Math.max(1, Number.parseInt(row[columns.get("quantity") ?? -1] ?? "1", 10) || 1));
+        for (let count = 0; count < quantity; count += 1) {
+          const index = elements.length + imported.length;
+          imported.push({
+            id: `${kind}-bom-${Date.now()}-${index}`,
+            kind,
+            label: row[columns.get("component") ?? -1] || componentByKind.get(kind)?.label || kind,
+            x: 170 + (index % 4) * 250,
+            y: 170 + (Math.floor(index / 4) % 3) * 190,
+            rotation: 0,
+            color: defaultColor(kind),
+            manufacturer: row[columns.get("manufacturer") ?? -1] || undefined,
+            model: row[columns.get("part number") ?? columns.get("model") ?? -1] || undefined,
+            specs: row[columns.get("specifications") ?? -1] || undefined,
+            notes: row[columns.get("notes") ?? -1] || undefined,
+          });
+        }
+      }
+      if (!imported.length) throw new Error("No recognized components");
+      commit([...elements, ...imported]);
+      setSelectedIds(imported.map((element) => element.id));
+      setNotice(`${imported.length} BOM components imported`);
+    } catch {
+      setNotice("BOM import failed: use the exported CSV format");
+    } finally {
+      event.target.value = "";
+    }
   };
 
   const loadJson = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -780,11 +990,11 @@ export default function Home() {
     try {
       const parsed: unknown = JSON.parse(await file.text());
       if (!isDiagramFile(parsed)) throw new Error("Invalid diagram");
-      setPast((items) => [...items, cloneSnapshot(elements, connections)]);
+      setPast((items) => [...items, cloneSnapshot(elements, connections, publication)]);
       setTitle(parsed.title || "Untitled setup");
       setElements(parsed.elements);
       setConnections(parsed.connections);
-      if (parsed.publication) setPublication(parsed.publication);
+      setPublication(parsed.publication ? { ...defaultPublication, ...parsed.publication } : defaultPublication);
       setFuture([]);
       setSelectedIds([]);
       setNotice("Diagram loaded");
@@ -835,6 +1045,52 @@ export default function Home() {
     setNotice("Template loaded");
   };
 
+  const saveSelectionAsModule = () => {
+    const chosen = elements.filter((element) => selection.has(element.id));
+    if (!chosen.length) return;
+    const name = window.prompt("Reusable module name:", "Measurement block")?.trim();
+    if (!name) return;
+    const originX = Math.min(...chosen.map((element) => element.x));
+    const originY = Math.min(...chosen.map((element) => element.y));
+    const module: SavedModule = {
+      id: `module-${Date.now()}`,
+      name,
+      elements: chosen.map((element) => ({ ...element, x: element.x - originX, y: element.y - originY })),
+      connections: connections.filter((connection) => selection.has(connection.from) && selection.has(connection.to)).map((connection) => ({
+        ...connection,
+        waypoints: connection.waypoints?.map((point) => ({ x: point.x - originX, y: point.y - originY })),
+      })),
+    };
+    setSavedModules((items) => [...items, module]);
+    setNotice("Reusable module saved");
+  };
+
+  const insertModule = (moduleId: string) => {
+    const module = savedModules.find((item) => item.id === moduleId);
+    if (!module) return;
+    const prefix = `instance-${Date.now()}-`;
+    const offsetX = dimensions.width / 2 - Math.max(...module.elements.map((element) => element.x)) / 2;
+    const offsetY = dimensions.height / 2 - Math.max(...module.elements.map((element) => element.y)) / 2;
+    const idMap = new Map(module.elements.map((element) => [element.id, prefix + element.id]));
+    const nextElements = module.elements.map((element) => ({
+      ...element,
+      id: idMap.get(element.id)!,
+      x: element.x + offsetX,
+      y: element.y + offsetY,
+      groupId: `group-${prefix}`,
+    }));
+    const nextConnections = module.connections.map((connection, index) => ({
+      ...connection,
+      id: `${prefix}connection-${index}`,
+      from: idMap.get(connection.from)!,
+      to: idMap.get(connection.to)!,
+      waypoints: connection.waypoints?.map((point) => ({ x: point.x + offsetX, y: point.y + offsetY })),
+    }));
+    commit([...elements, ...nextElements], [...connections, ...nextConnections]);
+    setSelectedIds(nextElements.map((element) => element.id));
+    setNotice("Reusable module inserted");
+  };
+
   const toggleFavorite = (kind: ElementKind) => setFavoriteKinds((items) =>
     items.includes(kind) ? items.filter((item) => item !== kind) : [...items, kind]);
 
@@ -852,7 +1108,7 @@ export default function Home() {
     const from = elements.find((element) => element.id === selectedConnection.from);
     const to = elements.find((element) => element.id === selectedConnection.to);
     if (!from || !to) return;
-    const points = connectionPath(selectedConnection, from, to);
+    const points = connectionPath(selectedConnection, from, to, elements);
     const middle = points[Math.floor(points.length / 2)];
     commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? {
       ...connection,
@@ -899,8 +1155,10 @@ export default function Home() {
           <input ref={fileRef} className="sr-only" type="file" accept="application/json,.json" onChange={loadJson} />
           <button onClick={exportSvg}>SVG</button>
           <button onClick={exportPng}>PNG</button>
-          <button onClick={exportBom}>BOM</button>
-          <button className="primary" onClick={() => window.print()}>PDF</button>
+          <button onClick={exportBom} title="Export bill of materials">BOM↓</button>
+          <button onClick={() => bomRef.current?.click()} title="Import bill of materials">BOM↑</button>
+          <input ref={bomRef} className="sr-only" type="file" accept="text/csv,.csv" onChange={loadBom} />
+          <button className="primary" onClick={exportPdf}>PDF</button>
         </div>
       </header>
 
@@ -917,6 +1175,13 @@ export default function Home() {
             value={libraryQuery}
             onChange={(event) => setLibraryQuery(event.target.value)}
           />
+          {savedModules.length ? <section className="library-group saved-modules">
+            <div className="library-group-title"><span>Reusable modules</span></div>
+            {savedModules.map((module) => <div className="module-row" key={module.id}>
+              <button onClick={() => insertModule(module.id)}>{module.name}</button>
+              <button className="danger" aria-label={`Delete ${module.name}`} onClick={() => setSavedModules((items) => items.filter((item) => item.id !== module.id))}>×</button>
+            </div>)}
+          </section> : null}
           {visibleGroups.map((group) => (
             <section className="library-group" key={group.title}>
               <button
@@ -986,7 +1251,7 @@ export default function Home() {
                 const to = elements.find((element) => element.id === connection.to);
                 if (!from || !to) return null;
                 const selectedEdge = selectedConnectionId === connection.id;
-                const points = connectionPath(connection, from, to);
+                const points = connectionPath(connection, from, to, elements);
                 const pointString = points.map((point) => `${point.x},${point.y}`).join(" ");
                 return (
                   <g key={connection.id}>
@@ -1012,7 +1277,7 @@ export default function Home() {
                         cx={point.x} cy={point.y} r="7" fill="#fff" stroke="#1665d8" strokeWidth="3"
                         onPointerDown={(event) => {
                           event.stopPropagation();
-                          bendDrag.current = { connectionId: connection.id, index, before: cloneSnapshot(elements, connections), moved: false };
+                          bendDrag.current = { connectionId: connection.id, index, before: cloneSnapshot(elements, connections, publication), moved: false };
                           event.currentTarget.setPointerCapture(event.pointerId);
                         }}
                         onPointerMove={moveBend}
@@ -1024,26 +1289,51 @@ export default function Home() {
                 );
               })}
 
-              {elements.filter((element) => layers[electronicKinds.has(element.kind) ? "electronics" : "optics"]).map((element) => (
+              {elements.filter((element) => layers[annotationKinds.has(element.kind) ? "annotations" : electronicKinds.has(element.kind) ? "electronics" : "optics"]).map((element) => (
                 <g
                   key={element.id}
-                  className={`diagram-element${connectFrom === element.id ? " connection-source" : ""}`}
+                  className={`diagram-element${connectFrom === element.id ? " connection-source" : ""}${element.locked ? " locked" : ""}`}
                   transform={`translate(${element.x} ${element.y}) rotate(${element.rotation})`}
                   onPointerDown={(event) => selectElement(event, element.id)}
                   onPointerMove={moveElement}
                   onPointerUp={finishDrag}
                   onPointerCancel={finishDrag}
                 >
-                  {selection.has(element.id) && <rect className="selection-outline" x="-64" y="-58" width="128" height="116" rx="9" fill="none" stroke="#1665d8" strokeWidth="2" strokeDasharray="6 5" />}
-                  <ComponentShape element={publication.monochrome ? { ...element, color: "#20242a" } : element} />
-                  <rect x="-66" y="-54" width="132" height="108" fill="transparent" />
+                  {selection.has(element.id) && <rect className="selection-outline" x={-Math.max(64, (element.width ?? 120) * (element.scale ?? 1) / 2 + 6)} y={-Math.max(58, (element.height ?? 100) * (element.scale ?? 1) / 2 + 6)} width={Math.max(128, (element.width ?? 120) * (element.scale ?? 1) + 12)} height={Math.max(116, (element.height ?? 100) * (element.scale ?? 1) + 12)} rx="9" fill="none" stroke="#1665d8" strokeWidth="2" strokeDasharray="6 5" />}
+                  <g transform={`scale(${(element.scale ?? 1) * (element.flipX ? -1 : 1)} ${(element.scale ?? 1) * (element.flipY ? -1 : 1)})`}>
+                    <ComponentShape element={publication.monochrome ? { ...element, color: "#20242a" } : element} />
+                  </g>
+                  <rect x={-Math.max(66, (element.width ?? 120) * (element.scale ?? 1) / 2)} y={-Math.max(54, (element.height ?? 100) * (element.scale ?? 1) / 2)} width={Math.max(132, (element.width ?? 120) * (element.scale ?? 1))} height={Math.max(108, (element.height ?? 100) * (element.scale ?? 1))} fill="transparent" />
                   {(selection.has(element.id) || connectMode) && portsFor(element).map((port) => {
                     const local = rotatePoint({ x: port.x - element.x, y: port.y - element.y }, -element.rotation);
                     return <circle className="port-marker" key={port.id} cx={local.x} cy={local.y} r="5" fill="#fff" stroke="#1665d8" strokeWidth="2" />;
                   })}
-                  {layers.labels && <text className="labels-layer" y="65" textAnchor="middle" fill="#252b33" fontSize={14 * publication.labelScale} fontWeight="600" fontFamily="Arial, sans-serif" transform={`rotate(${-element.rotation})`}>{element.label}</text>}
+                  {layers.labels && !annotationKinds.has(element.kind) && <text className="labels-layer" y={70 * (element.scale ?? 1)} textAnchor="middle" fill="#252b33" fontSize={14 * publication.labelScale} fontWeight="600" fontFamily="Arial, sans-serif" transform={`rotate(${-element.rotation})`}>{element.label}</text>}
                 </g>
               ))}
+              {selectedConnection && (() => {
+                const from = elements.find((element) => element.id === selectedConnection.from);
+                const to = elements.find((element) => element.id === selectedConnection.to);
+                if (!from || !to) return null;
+                const points = connectionPath(selectedConnection, from, to, elements);
+                return ([points[0], points.at(-1)!] as Point[]).map((point, index) => (
+                  <circle
+                    className="endpoint-handle"
+                    key={`${selectedConnection.id}-endpoint-${index}`}
+                    cx={point.x} cy={point.y} r="8" fill="#1665d8" stroke="#fff" strokeWidth="3"
+                    onPointerDown={(event) => {
+                      event.stopPropagation();
+                      endpointDrag.current = { connectionId: selectedConnection.id, end: index === 0 ? "from" : "to", before: cloneSnapshot(elements, connections, publication) };
+                      setEndpointPreview(point);
+                      event.currentTarget.setPointerCapture(event.pointerId);
+                    }}
+                    onPointerMove={moveEndpoint}
+                    onPointerUp={finishEndpoint}
+                    onPointerCancel={cancelEndpoint}
+                  />
+                ));
+              })()}
+              {endpointPreview && <circle className="endpoint-handle" cx={endpointPreview.x} cy={endpointPreview.y} r="10" fill="#fff" stroke="#1665d8" strokeWidth="3" pointerEvents="none" />}
             </svg>
           </div>
         </section>
@@ -1051,18 +1341,31 @@ export default function Home() {
         <aside className="inspector" aria-label="Properties">
           <div className="panel-heading"><span>Properties</span></div>
           {selected ? (
-            <div className="property-form">
+            <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
               <label>Label<input value={selected.label} onChange={(event) => updateSelected({ label: event.target.value })} /></label>
               <div className="property-row">
                 <label>X<input type="number" value={selected.x} min="0" max={dimensions.width} onChange={(event) => updateSelected({ x: Number(event.target.value) })} /></label>
                 <label>Y<input type="number" value={selected.y} min="0" max={dimensions.height} onChange={(event) => updateSelected({ y: Number(event.target.value) })} /></label>
               </div>
               <label>Rotation<input type="range" min="0" max="345" step="15" value={selected.rotation} onChange={(event) => updateSelected({ rotation: Number(event.target.value) })} /><output>{selected.rotation}°</output></label>
+              <label>Scale<input type="range" min="0.5" max="2" step="0.1" value={selected.scale ?? 1} onChange={(event) => updateSelected({ scale: Number(event.target.value) })} /><output>{(selected.scale ?? 1).toFixed(1)}×</output></label>
+              {annotationKinds.has(selected.kind) && <div className="property-row">
+                <label>Width<input type="number" min="40" max="600" value={selected.width ?? (selected.kind === "region" ? 220 : 180)} onChange={(event) => updateSelected({ width: Number(event.target.value) })} /></label>
+                <label>Height<input type="number" min="30" max="500" value={selected.height ?? (selected.kind === "region" ? 150 : 70)} onChange={(event) => updateSelected({ height: Number(event.target.value) })} /></label>
+              </div>}
               <label>Color<input className="color-input" type="color" value={selected.color} onChange={(event) => updateSelected({ color: event.target.value })} /></label>
-              <label>Manufacturer<input value={selected.manufacturer ?? ""} onChange={(event) => updateSelected({ manufacturer: event.target.value })} placeholder="e.g. Thorlabs" /></label>
-              <label>Model<input value={selected.model ?? ""} onChange={(event) => updateSelected({ model: event.target.value })} placeholder="Part number" /></label>
+              <label>Manufacturer<input list="manufacturers" value={selected.manufacturer ?? ""} onChange={(event) => updateSelected({ manufacturer: event.target.value })} placeholder="e.g. Thorlabs" /></label>
+              <datalist id="manufacturers"><option value="Thorlabs" /><option value="Mini-Circuits" /><option value="Keysight" /></datalist>
+              <label>Part number<input value={selected.model ?? ""} onChange={(event) => updateSelected({ model: event.target.value })} placeholder="Vendor model / part number" /></label>
               <label>Specifications<input value={selected.specs ?? ""} onChange={(event) => updateSelected({ specs: event.target.value })} placeholder="Wavelength, bandwidth…" /></label>
               <label>Notes<textarea value={selected.notes ?? ""} onChange={(event) => updateSelected({ notes: event.target.value })} /></label>
+              <div className="compact-actions">
+                <button onClick={() => changeSelected({ flipX: !selected.flipX })}>Flip horizontal</button>
+                <button onClick={() => changeSelected({ flipY: !selected.flipY })}>Flip vertical</button>
+                <button onClick={() => changeSelected({ locked: !selected.locked })}>{selected.locked ? "Unlock" : "Lock"}</button>
+                <button onClick={() => reorderSelection("front")}>Bring front</button>
+                <button onClick={() => reorderSelection("back")}>Send back</button>
+              </div>
               <div className="property-actions">
                 <button onClick={duplicateSelected}>Duplicate</button>
                 <button className="danger" onClick={removeSelected}>Delete</button>
@@ -1077,12 +1380,22 @@ export default function Home() {
                 <button onClick={distributeSelection} disabled={selectedIds.length < 3}>Distribute</button>
                 <button onClick={groupSelection}>Group</button>
                 <button onClick={ungroupSelection}>Ungroup</button>
+                <button onClick={saveSelectionAsModule}>Save module</button>
+                <button onClick={() => changeSelected({ locked: true })}>Lock</button>
                 <button onClick={duplicateSelected}>Duplicate</button>
                 <button className="danger" onClick={removeSelected}>Delete</button>
               </div>
             </div>
           ) : selectedConnection ? (
             <div className="property-form">
+              {(() => {
+                const from = elements.find((element) => element.id === selectedConnection.from);
+                const to = elements.find((element) => element.id === selectedConnection.to);
+                return <>
+                  {from && <label>Source port<select value={selectedConnection.fromPort ?? closestPortPair(from, to ?? from).source.id} onChange={(event) => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, fromPort: event.target.value, waypoints: undefined } : connection))}>{portsFor(from).map((port) => <option key={port.id} value={port.id}>{from.label}: {port.id}</option>)}</select></label>}
+                  {to && <label>Target port<select value={selectedConnection.toPort ?? closestPortPair(from ?? to, to).target.id} onChange={(event) => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, toPort: event.target.value, waypoints: undefined } : connection))}>{portsFor(to).map((port) => <option key={port.id} value={port.id}>{to.label}: {port.id}</option>)}</select></label>}
+                </>;
+              })()}
               <label>Routing<select value={selectedConnection.routing ?? (getConnectionType(selectedConnection) === "signal" ? "orthogonal" : "straight")} onChange={(event) => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, routing: event.target.value as Routing, waypoints: undefined } : connection))}>
                 <option value="straight">Straight</option><option value="orthogonal">Orthogonal</option>
               </select></label>
@@ -1097,15 +1410,25 @@ export default function Home() {
             <div className="panel-heading"><span id="layout-title">Layout</span></div>
             <label className="layer-toggle"><input type="checkbox" checked={snapEnabled} onChange={(event) => setSnapEnabled(event.target.checked)} /><span>Snap to grid</span></label>
           </section>
+          <section className="layers-panel validation-panel" aria-labelledby="validation-title">
+            <div className="panel-heading"><span id="validation-title">Setup checks</span><span>{validationIssues.length}</span></div>
+            {validationIssues.length ? validationIssues.slice(0, 8).map((issue, index) => (
+              <button className={`validation-issue ${issue.severity}`} key={`${issue.message}-${index}`} onClick={() => setSelectedIds(issue.elementIds)}>
+                <span>{issue.severity === "error" ? "Error" : "Check"}</span>{issue.message}
+              </button>
+            )) : <p className="validation-ok">No structural issues found.</p>}
+            {validationIssues.length > 8 && <p className="validation-more">+{validationIssues.length - 8} more checks</p>}
+          </section>
           <section className="layers-panel" aria-labelledby="publication-title">
             <div className="panel-heading"><span id="publication-title">Publication</span></div>
             <div className="property-form">
-              <label>Page<select value={publication.pagePreset} onChange={(event) => setPublication((current) => ({ ...current, pagePreset: event.target.value as PagePreset }))}>
+              <label>Page<select value={publication.pagePreset} onChange={(event) => commitPublication({ ...publication, pagePreset: event.target.value as PagePreset })}>
                 {(Object.entries(pagePresets) as Array<[PagePreset, typeof pagePresets[PagePreset]]>).map(([key, preset]) => <option key={key} value={key}>{preset.label}</option>)}
               </select></label>
-              <label>Label scale<input type="range" min="0.7" max="1.5" step="0.1" value={publication.labelScale} onChange={(event) => setPublication((current) => ({ ...current, labelScale: Number(event.target.value) }))} /><output>{publication.labelScale.toFixed(1)}×</output></label>
-              <label className="layer-toggle"><input type="checkbox" checked={publication.monochrome} onChange={(event) => setPublication((current) => ({ ...current, monochrome: event.target.checked }))} /><span>Monochrome</span></label>
-              <label className="layer-toggle"><input type="checkbox" checked={publication.showCredit} onChange={(event) => setPublication((current) => ({ ...current, showCredit: event.target.checked }))} /><span>Show credit</span></label>
+              <label>Label scale<input type="range" min="0.7" max="1.5" step="0.1" value={publication.labelScale} onChange={(event) => commitPublication({ ...publication, labelScale: Number(event.target.value) })} /><output>{publication.labelScale.toFixed(1)}×</output></label>
+              <label className="layer-toggle"><input type="checkbox" checked={publication.monochrome} onChange={(event) => commitPublication({ ...publication, monochrome: event.target.checked })} /><span>Monochrome</span></label>
+              <label className="layer-toggle"><input type="checkbox" checked={publication.showCredit} onChange={(event) => commitPublication({ ...publication, showCredit: event.target.checked })} /><span>Show credit</span></label>
+              <label className="layer-toggle"><input type="checkbox" checked={publication.cropToContent} onChange={(event) => commitPublication({ ...publication, cropToContent: event.target.checked })} /><span>Crop exports to content</span></label>
             </div>
           </section>
           <section className="layers-panel" aria-labelledby="layers-title">
@@ -1117,6 +1440,7 @@ export default function Home() {
               ["electronics", "Electronics"],
               ["beams", "Optical beams"],
               ["signals", "Signal paths"],
+              ["annotations", "Annotations"],
             ] as Array<[keyof LayerVisibility, string]>).map(([key, label]) => (
               <label className="layer-toggle" key={key}>
                 <input

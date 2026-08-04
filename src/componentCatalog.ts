@@ -103,6 +103,17 @@ export const componentGroups = [
       { kind: "servo", label: "Servo controller", layer: "electronics", color: DARK, ports: "lr" },
     ],
   },
+  {
+    title: "Annotations",
+    items: [
+      { kind: "textnote", label: "Text note", layer: "annotations", color: DARK, ports: "lr" },
+      { kind: "equation", label: "Equation", layer: "annotations", color: DARK, ports: "lr" },
+      { kind: "region", label: "Region", layer: "annotations", color: BLUE, ports: "lr" },
+      { kind: "dimension", label: "Dimension", layer: "annotations", color: DARK, ports: "lr" },
+      { kind: "brace", label: "Brace", layer: "annotations", color: DARK, ports: "lr" },
+      { kind: "legend", label: "Legend", layer: "annotations", color: DARK, ports: "lr" },
+    ],
+  },
 ] as const;
 
 export type ElementKind = (typeof componentGroups)[number]["items"][number]["kind"];
@@ -110,7 +121,7 @@ export type PortLayout = (typeof componentGroups)[number]["items"][number]["port
 export type ComponentDefinition = {
   readonly kind: ElementKind;
   readonly label: string;
-  readonly layer: "optics" | "electronics";
+  readonly layer: "optics" | "electronics" | "annotations";
   readonly color: string;
   readonly ports: PortLayout;
 };
@@ -125,5 +136,8 @@ export const componentByKind = new Map<ElementKind, ComponentDefinition>(
 export const elementKinds = new Set<ElementKind>(componentDefinitions.map((component) => component.kind));
 export const electronicKinds = new Set<ElementKind>(
   componentDefinitions.filter((component) => component.layer === "electronics").map((component) => component.kind),
+);
+export const annotationKinds = new Set<ElementKind>(
+  componentDefinitions.filter((component) => component.layer === "annotations").map((component) => component.kind),
 );
 export const defaultColor = (kind: ElementKind) => componentByKind.get(kind)?.color ?? DARK;
