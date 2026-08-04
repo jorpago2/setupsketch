@@ -137,11 +137,6 @@ const defaultPublication: PublicationSettings = {
 };
 
 const defaultExperiment: ExperimentRecord = { procedure: "", checklist: [] };
-const centeredOpticalKinds = new Set<ElementKind>([
-  "mirror", "curvedmirror", "beamsplitter", "lens", "waveplate", "dichroic", "grating", "crystal", "sample", "prism",
-  "objective", "shutter", "aom", "eom", "isolator", "cavity", "cagecube", "iris",
-]);
-
 const rotatePoint = (point: Point, angle: number): Point => {
   const radians = angle * Math.PI / 180;
   return {
@@ -174,24 +169,24 @@ const closestPortPair = (from: DiagramElement, to: DiagramElement, requestedType
 };
 
 const getConnectionType = (connection: Connection): ConnectionType =>
-  connection.type ?? (connection.color.toLowerCase() === "#e84d3c" ? "beam" : "signal");
+  connection.type ?? ([portTypeColors["optical-free-space"], "#e84d3c"].includes(connection.color.toLowerCase()) ? "beam" : "signal");
 
 const getConnectionDomain = (connection: Connection, from?: DiagramElement): PortType =>
   connection.portType ?? (from && connection.fromPort ? portTypeFor(from.kind, connection.fromPort) : getConnectionType(connection) === "beam" ? "optical-free-space" : "rf");
 
 const initialElements: DiagramElement[] = [
-  { id: "laser-1", kind: "laser", label: "1550 nm laser", x: 180, y: 330, rotation: 0, color: "#e84d3c", powerDbm: 10, wavelengthNm: 1550 },
-  { id: "lens-1", kind: "lens", label: "L1", x: 420, y: 330, rotation: 0, color: "#2263d4", lossDb: 0.2 },
-  { id: "sample-1", kind: "sample", label: "Device under test", x: 650, y: 330, rotation: 0, color: "#7253cf", lossDb: 1 },
-  { id: "detector-1", kind: "detector", label: "InGaAs detector", x: 900, y: 330, rotation: 0, color: "#16846b", bandwidthHz: 1e9 },
-  { id: "daq-1", kind: "daq", label: "DAQ", x: 900, y: 535, rotation: 0, color: "#242a35" },
+  { id: "laser-1", kind: "laser", label: "1550 nm laser", x: 180, y: 330, rotation: 0, color: defaultColor("laser"), powerDbm: 10, wavelengthNm: 1550 },
+  { id: "lens-1", kind: "lens", label: "L1", x: 420, y: 330, rotation: 0, color: defaultColor("lens"), lossDb: 0.2 },
+  { id: "sample-1", kind: "sample", label: "Device under test", x: 650, y: 330, rotation: 0, color: defaultColor("sample"), lossDb: 1 },
+  { id: "detector-1", kind: "detector", label: "InGaAs detector", x: 900, y: 330, rotation: 0, color: defaultColor("detector"), bandwidthHz: 1e9 },
+  { id: "daq-1", kind: "daq", label: "DAQ", x: 900, y: 535, rotation: 0, color: defaultColor("daq") },
 ];
 
 const initialConnections: Connection[] = [
-  { id: "c1", from: "laser-1", to: "lens-1", color: "#e84d3c", type: "beam", portType: "optical-free-space", fromPort: "right", toPort: "left" },
-  { id: "c2", from: "lens-1", to: "sample-1", color: "#e84d3c", type: "beam", portType: "optical-free-space", fromPort: "right", toPort: "left" },
-  { id: "c3", from: "sample-1", to: "detector-1", color: "#e84d3c", type: "beam", portType: "optical-free-space", fromPort: "right", toPort: "left" },
-  { id: "c4", from: "detector-1", to: "daq-1", color: "#242a35", type: "signal", portType: "rf", fromPort: "right", toPort: "input" },
+  { id: "c1", from: "laser-1", to: "lens-1", color: portTypeColors["optical-free-space"], type: "beam", portType: "optical-free-space", fromPort: "right", toPort: "left" },
+  { id: "c2", from: "lens-1", to: "sample-1", color: portTypeColors["optical-free-space"], type: "beam", portType: "optical-free-space", fromPort: "right", toPort: "left" },
+  { id: "c3", from: "sample-1", to: "detector-1", color: portTypeColors["optical-free-space"], type: "beam", portType: "optical-free-space", fromPort: "right", toPort: "left" },
+  { id: "c4", from: "detector-1", to: "daq-1", color: portTypeColors.rf, type: "signal", portType: "rf", fromPort: "right", toPort: "input" },
 ];
 
 const cloneSnapshot = (
@@ -307,8 +302,8 @@ const connectionPath = (connection: Connection, from: DiagramElement, to: Diagra
   const sourcePort = portsFor(from).find((port) => port.id === connection.fromPort) ?? nearest.source;
   const targetPort = portsFor(to).find((port) => port.id === connection.toPort) ?? nearest.target;
   const centerOpticalAnchor = getConnectionDomain(connection, from) === "optical-free-space";
-  const source = centerOpticalAnchor && centeredOpticalKinds.has(from.kind) ? { x: from.x, y: from.y } : sourcePort;
-  const target = centerOpticalAnchor && centeredOpticalKinds.has(to.kind) ? { x: to.x, y: to.y } : targetPort;
+  const source = centerOpticalAnchor ? { x: from.x, y: from.y } : sourcePort;
+  const target = centerOpticalAnchor ? { x: to.x, y: to.y } : targetPort;
   if (connection.waypoints?.length) {
     if (connection.routing !== "orthogonal") return [source, ...connection.waypoints, target];
     const points: Point[] = [source];
@@ -346,42 +341,60 @@ const svgDataUri = (source: string) => {
   return `data:image/svg+xml;base64,${btoa(binary)}`;
 };
 
-function ComponentShape({ element }: { element: DiagramElement }) {
-  const common = { stroke: element.color, strokeWidth: 4, fill: "#ffffff", vectorEffect: "non-scaling-stroke" as const };
+function ElectronicPortStubs({ element }: { element: DiagramElement }) {
+  if (!electronicKinds.has(element.kind)) return null;
+  const layout = componentByKind.get(element.kind)?.ports ?? "lr";
+  return <>{componentPortLayouts[layout].map((port) => (
+    <line
+      key={port.id}
+      x1={port.x * 0.72}
+      y1={port.y * 0.72}
+      x2={port.x}
+      y2={port.y}
+      stroke={element.color}
+      strokeWidth="3.2"
+      strokeLinecap="round"
+      vectorEffect="non-scaling-stroke"
+    />
+  ))}</>;
+}
+
+function ComponentShape({ element, monochrome = false }: { element: DiagramElement; monochrome?: boolean }) {
+  const common = { stroke: element.color, strokeWidth: 3.4, fill: "#ffffff", vectorEffect: "non-scaling-stroke" as const };
 
   switch (element.kind) {
     case "laser":
-      return <><rect x="-48" y="-25" width="82" height="50" rx="4" {...common} /><circle cx="16" cy="0" r="8" fill="none" stroke={element.color} strokeWidth="3" /><path d="M-32 0H8M34 0H52M-37 -13L-27 -6M-37 13L-27 6" stroke={element.color} strokeWidth="3" strokeLinecap="round" /></>;
+      return <><path d="M-46 -25H28L39 -14V14L28 25H-46Z" {...common} /><circle cx="28" cy="0" r="8" fill="none" stroke={element.color} strokeWidth="2.6" /><path d="M-34 0H17M39 0H52M-38 -13L-27 -7M-38 13L-27 7" fill="none" stroke={element.color} strokeWidth="2.8" strokeLinecap="round" /><path d="M-38 31H30" stroke={element.color} strokeWidth="3.4" strokeLinecap="round" /></>;
     case "mirror":
       return <><path d="M-32 30L32 -30" stroke={element.color} strokeWidth="8" strokeLinecap="round" /><path d="M-25 35L39 -29" stroke="#b8c0cc" strokeWidth="3" /></>;
     case "curvedmirror":
       return <><path d="M12 -42Q-22 0 12 42" fill="none" stroke={element.color} strokeWidth="8" strokeLinecap="round" /><path d="M20 -39Q-10 0 20 39" fill="none" stroke="#b8c0cc" strokeWidth="3" /></>;
     case "beamsplitter":
-      return <><rect x="-34" y="-34" width="68" height="68" rx="3" {...common} /><path d="M-34 34L34 -34" stroke={element.color} strokeWidth="4" /><path d="M-22 34L34 -22" stroke="#b8c0cc" strokeWidth="2" /></>;
+      return <><rect x="-34" y="-34" width="68" height="68" rx="3" {...common} /><path d="M-34 34L34 -34" stroke={element.color} strokeWidth="4.2" /><path d="M-24 34L34 -24" stroke={element.color} strokeWidth="1.8" opacity="0.35" /><path d="M-34 -34L-25 -43H43V25L34 34M34 -34L43 -43" fill="none" stroke={element.color} strokeWidth="1.7" opacity="0.55" /></>;
     case "lens":
-      return <><path d="M0 -42C-22 -27 -22 27 0 42C22 27 22 -27 0 -42Z" {...common} /><path d="M-8 -25Q0 0 -8 25" fill="none" stroke="#9fc7ff" strokeWidth="3" /></>;
+      return <><path d="M0 -42C-22 -27 -22 27 0 42C22 27 22 -27 0 -42Z" {...common} /><path d="M-8 -27Q0 0 -8 27M8 -27Q0 0 8 27" fill="none" stroke={element.color} strokeWidth="1.8" opacity="0.36" /></>;
     case "waveplate":
-      return <><rect x="-9" y="-42" width="18" height="84" rx="2" {...common} /><path d="M-9 25L9 -25M-16 14L-9 25L2 18" fill="none" stroke={element.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></>;
+      return <><rect x="-9" y="-42" width="18" height="84" rx="2" {...common} /><path d="M-14 28L14 -28M7 -27L14 -28L13 -21M-7 27L-14 28L-13 21" fill="none" stroke={element.color} strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round" /><path d="M-3 -34V34" stroke={element.color} strokeWidth="1.5" opacity="0.35" /></>;
     case "dichroic":
-      return <><path d="M-26 40L26 -40" stroke="#b8c0cc" strokeWidth="12" strokeLinecap="round" /><path d="M-26 40L26 -40" stroke={element.color} strokeWidth="5" strokeLinecap="round" /><path d="M-42 0H42M0 -42V42" stroke="#e84d3c" strokeWidth="2.5" opacity="0.8" /></>;
+      return <><path d="M-26 40L26 -40" stroke="#c7ccd3" strokeWidth="12" strokeLinecap="round" /><path d="M-26 40L26 -40" stroke={element.color} strokeWidth="4.2" strokeLinecap="round" /><path d="M-18 34L34 -18" stroke={element.color} strokeWidth="1.6" strokeDasharray="5 4" opacity="0.55" /></>;
     case "grating":
-      return <><rect x="-40" y="-32" width="80" height="64" rx="4" {...common} /><path d="M-28 -31v62M-18 -31v62M-8 -31v62M2 -31v62M12 -31v62M22 -31v62M32 -31v62" stroke={element.color} strokeWidth="2" /></>;
+      return <><path d="M-34 35L5 -35H35L-4 35Z" {...common} /><path d="M-25 34L14 -35M-15 34L24 -35M-5 34L34 -35M5 17L34 -35" stroke={element.color} strokeWidth="2.1" opacity="0.72" /></>;
     case "beamdump":
       return <><path d="M-42 -34L42 -20L42 20L-42 34Z" {...common} /><path d="M-29 -27L-5 26M-12 -24L12 23M5 -21L29 26" stroke={element.color} strokeWidth="3" /></>;
     case "crystal":
       return <><path d="M-42 -24L25 -32L43 -14L43 24L-25 32L-42 14Z" {...common} /><path d="M-42 -24L-25 -6L43 -14M-25 -6V32" fill="none" stroke={element.color} strokeWidth="2" opacity="0.7" /></>;
     case "sample":
-      return <><rect x="-48" y="-28" width="96" height="56" rx="3" {...common} /><path d="M-34 14H34M-25 -14H25" stroke={element.color} strokeWidth="3" /><circle r="8" fill="none" stroke={element.color} strokeWidth="3" /></>;
+      return <><rect x="-48" y="-28" width="96" height="56" rx="3" {...common} /><path d="M-36 -13H36V13H-36Z" fill={element.color} fillOpacity="0.08" stroke={element.color} strokeWidth="2" /><circle r="8" fill="#fff" stroke={element.color} strokeWidth="2.6" /><path d="M-28 -19H28M-28 19H28" stroke={element.color} strokeWidth="1.7" opacity="0.55" /></>;
     case "detector":
-      return <><path d="M-38 -34H8A34 34 0 010 34H-38Z" {...common} /><path d="M-22 -16L6 0L-22 16Z" fill={element.color} stroke="none" /></>;
+      return <><path d="M-42 -32H20L36 -18V18L20 32H-42Z" {...common} /><circle cx="-16" cy="0" r="15" fill="none" stroke={element.color} strokeWidth="3" /><circle cx="-16" cy="0" r="6" fill={element.color} /><path d="M36 0H52M25 -12V12" stroke={element.color} strokeWidth="3" strokeLinecap="round" /></>;
     case "fiber":
       return <><path d="M-50 16C-20 -34 20 34 50 -16" fill="none" stroke={element.color} strokeWidth="7" strokeLinecap="round" /><circle cx="-50" cy="16" r="6" fill="#fff" stroke={element.color} strokeWidth="3" /><circle cx="50" cy="-16" r="6" fill="#fff" stroke={element.color} strokeWidth="3" /></>;
     case "fibercoupler":
       return <><path d="M-52 -23C-24 -23 -22 21 3 21S25 -23 52 -23M-52 23C-24 23 -22 -21 3 -21S25 23 52 23" fill="none" stroke={element.color} strokeWidth="5" strokeLinecap="round" /><path d="M-13 -8C-5 -3 -5 3 -13 8M13 -8C5 -3 5 3 13 8" fill="none" stroke={element.color} strokeWidth="2.5" opacity="0.7" /></>;
     case "aom":
-      return <><rect x="-43" y="-31" width="86" height="62" rx="4" {...common} /><text y="7" textAnchor="middle" fill={element.color} fontSize="22" fontWeight="700" fontFamily="Arial, sans-serif">AOM</text><path d="M-52 0H-43M43 0H52" stroke="#e84d3c" strokeWidth="3" /></>;
+      return <><rect x="-43" y="-31" width="86" height="62" rx="4" {...common} /><path d="M-27 22L7 -22M-15 24L19 -20M-3 24L31 -20" stroke={element.color} strokeWidth="2" opacity="0.62" /><path d="M0 -51V-31M-9 -44Q0 -52 9 -44M-13 -36Q0 -48 13 -36" fill="none" stroke={element.color} strokeWidth="2.4" strokeLinecap="round" /><text x="27" y="24" textAnchor="middle" fill={element.color} fontSize="11" fontWeight="700" fontFamily="Arial, sans-serif">AOM</text></>;
     case "eom":
-      return <><rect x="-43" y="-31" width="86" height="62" rx="4" {...common} /><text y="7" textAnchor="middle" fill={element.color} fontSize="22" fontWeight="700" fontFamily="Arial, sans-serif">EOM</text><path d="M-52 0H-43M43 0H52" stroke="#e84d3c" strokeWidth="3" /></>;
+      return <><rect x="-43" y="-31" width="86" height="62" rx="4" {...common} /><rect x="-24" y="-20" width="48" height="40" rx="2" fill={element.color} fillOpacity="0.07" stroke={element.color} strokeWidth="1.8" /><path d="M-31 -24H31M-31 24H31M0 -51V-31M-8 -12V12M-13 -7L-8 -12L-3 -7M-13 7L-8 12L-3 7" fill="none" stroke={element.color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /><text x="28" y="17" textAnchor="middle" fill={element.color} fontSize="10" fontWeight="700" fontFamily="Arial, sans-serif">EOM</text></>;
     case "isolator":
       return <><circle r="37" {...common} /><path d="M-22 0H20M8 -13L22 0L8 13" fill="none" stroke={element.color} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /><path d="M-28 29L28 -29" stroke={element.color} strokeWidth="3" opacity="0.55" /></>;
     case "cavity":
@@ -423,11 +436,11 @@ function ComponentShape({ element }: { element: DiagramElement }) {
     case "brace":
       return <><path d={`M${-(element.width ?? 180) / 2} 0C${-(element.width ?? 180) / 4} 0 ${-(element.width ?? 180) / 4} -18 0 -18C${(element.width ?? 180) / 4} -18 ${(element.width ?? 180) / 4} 0 ${(element.width ?? 180) / 2} 0`} fill="none" stroke={element.color} strokeWidth="3" /><text y="-29" textAnchor="middle" fill={element.color} fontSize="14" fontFamily="Arial, sans-serif">{element.label}</text></>;
     case "legend":
-      return <><rect x="-90" y="-50" width="180" height="100" rx="5" fill="#fff" stroke={element.color} strokeWidth="2" /><text x="-74" y="-27" fill={element.color} fontSize="14" fontWeight="700" fontFamily="Arial, sans-serif">{element.label}</text><path d="M-72 -5H-22" stroke="#e84d3c" strokeWidth="4" /><text x="-10" y="0" fill={element.color} fontSize="12" fontFamily="Arial, sans-serif">Optical beam</text><path d="M-72 25H-22" stroke={element.color} strokeWidth="3" strokeDasharray="7 4" /><text x="-10" y="30" fill={element.color} fontSize="12" fontFamily="Arial, sans-serif">Signal path</text></>;
+      return <><rect x="-90" y="-50" width="180" height="100" rx="5" fill="#fff" stroke={element.color} strokeWidth="2" /><text x="-74" y="-27" fill={element.color} fontSize="14" fontWeight="700" fontFamily="Arial, sans-serif">{element.label}</text><path d="M-72 -5H-22" stroke={monochrome ? element.color : portTypeColors["optical-free-space"]} strokeWidth="4" /><text x="-10" y="0" fill={element.color} fontSize="12" fontFamily="Arial, sans-serif">Optical beam</text><path d="M-72 25H-22" stroke={element.color} strokeWidth="3" strokeDasharray="7 4" /><text x="-10" y="30" fill={element.color} fontSize="12" fontFamily="Arial, sans-serif">Signal path</text></>;
     case "source":
       return <><circle r="36" {...common} /><path d="M-24 0C-18 -22 -10 -22 -4 0S10 22 16 0S25 -22 29 0" fill="none" stroke={element.color} strokeWidth="4" /></>;
     case "oscilloscope":
-      return <><rect x="-52" y="-34" width="104" height="68" rx="7" {...common} /><path d="M-38 4C-27 -24 -15 25 -3 0S21 -24 38 2" fill="none" stroke={element.color} strokeWidth="4" /></>;
+      return <><rect x="-52" y="-35" width="104" height="70" rx="6" {...common} /><rect x="-41" y="-24" width="60" height="44" rx="2" fill={element.color} fillOpacity="0.05" stroke={element.color} strokeWidth="2.5" /><path d="M-35 4C-28 -17 -20 17 -11 0S3 -17 12 1" fill="none" stroke={element.color} strokeWidth="2.8" /><circle cx="35" cy="-16" r="7" fill="none" stroke={element.color} strokeWidth="2.5" /><circle cx="31" cy="13" r="5" fill="#fff" stroke={element.color} strokeWidth="2.4" /><circle cx="44" cy="13" r="5" fill="#fff" stroke={element.color} strokeWidth="2.4" /></>;
     case "amplifier":
       return <><path d="M-42 -36L45 0L-42 36Z" {...common} /><path d="M-27 0h18M-18 -9v18" stroke={element.color} strokeWidth="3" /></>;
     case "hvamplifier":
@@ -445,9 +458,9 @@ function ComponentShape({ element }: { element: DiagramElement }) {
     case "servo":
       return <><rect x="-48" y="-31" width="96" height="62" rx="5" {...common} /><text y="8" textAnchor="middle" fill={element.color} fontSize="23" fontWeight="700" fontFamily="Arial, sans-serif">PID</text></>;
     case "spectrum":
-      return <><rect x="-51" y="-34" width="102" height="68" rx="7" {...common} /><path d="M-37 22V8M-24 22V-2M-11 22V-20M2 22V10M15 22V-12M28 22V2M39 22V-25" stroke={element.color} strokeWidth="5" /></>;
+      return <><rect x="-52" y="-35" width="104" height="70" rx="6" {...common} /><rect x="-41" y="-24" width="65" height="45" rx="2" fill={element.color} fillOpacity="0.05" stroke={element.color} strokeWidth="2.5" /><path d="M-35 15V8M-26 15V-3M-17 15V5M-8 15V-16M1 15V3M10 15V-8M19 15V9" stroke={element.color} strokeWidth="3.2" /><circle cx="38" cy="-14" r="7" fill="none" stroke={element.color} strokeWidth="2.5" /><circle cx="38" cy="14" r="5" fill="#fff" stroke={element.color} strokeWidth="2.4" /></>;
     case "daq":
-      return <><rect x="-48" y="-31" width="96" height="62" rx="7" {...common} /><path d="M-29 10v-20M-12 10V0M5 10v-30M22 10v-12" stroke={element.color} strokeWidth="5" /><circle cx="34" cy="-18" r="4" fill={element.color} /></>;
+      return <><rect x="-49" y="-32" width="98" height="64" rx="6" {...common} /><rect x="-35" y="-20" width="52" height="40" rx="2" fill={element.color} fillOpacity="0.05" stroke={element.color} strokeWidth="2.4" /><path d="M-28 10V-8M-17 10V1M-6 10V-14M5 10V-3M25 -16H39M25 -5H39M25 6H39M25 17H39" stroke={element.color} strokeWidth="2.8" strokeLinecap="round" /><circle cx="34" cy="-24" r="3.5" fill={element.color} /></>;
     case "attenuator":
       return <><path d="M-53 0H-43M43 0H53" stroke={element.color} strokeWidth="4" /><rect x="-43" y="-27" width="86" height="54" rx="5" {...common} /><text y="8" textAnchor="middle" fill={element.color} fontSize="22" fontWeight="700" fontFamily="Arial, sans-serif">ATT</text></>;
     case "splitter":
@@ -461,7 +474,7 @@ function ComponentShape({ element }: { element: DiagramElement }) {
     case "bandpass":
       return <><rect x="-49" y="-31" width="98" height="62" rx="6" {...common} /><path d="M-35 18H-22C-13 18 -13 -18 -4 -18H13C22 -18 22 18 35 18" fill="none" stroke={element.color} strokeWidth="4" strokeLinecap="round" /></>;
     case "vco":
-      return <><circle r="36" {...common} /><path d="M-23 1C-16 -17 -9 -17 -2 1S12 19 20 1" fill="none" stroke={element.color} strokeWidth="4" /><path d="M0 -52V-36M-6 -44L0 -36L6 -44" fill="none" stroke={element.color} strokeWidth="3" /></>;
+      return <><circle r="36" {...common} /><path d="M-23 1C-16 -17 -9 -17 -2 1S12 19 20 1" fill="none" stroke={element.color} strokeWidth="3.2" /><path d="M-30 29L30 -29M21 -29H30V-20" fill="none" stroke={element.color} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" /></>;
     case "termination":
       return <><path d="M-53 0H-38" stroke={element.color} strokeWidth="4" /><rect x="-38" y="-26" width="76" height="52" rx="5" {...common} /><text y="8" textAnchor="middle" fill={element.color} fontSize="19" fontWeight="700" fontFamily="Arial, sans-serif">50 Ω</text></>;
     case "balun":
@@ -481,7 +494,7 @@ function ComponentShape({ element }: { element: DiagramElement }) {
     case "hybridcoupler":
       return <><rect x="-43" y="-32" width="86" height="64" rx="5" {...common} /><path d="M-54 -16H-43M-54 16H-43M43 -16H54M43 16H54M-27 -16H27M-27 16H27M-27 -16V16M27 -16V16" fill="none" stroke={element.color} strokeWidth="3" /><text y="6" textAnchor="middle" fill={element.color} fontSize="17" fontWeight="700" fontFamily="Arial, sans-serif">90°</text></>;
     case "networkanalyzer":
-      return <><rect x="-53" y="-35" width="106" height="70" rx="6" {...common} /><rect x="-40" y="-23" width="57" height="38" rx="2" fill="none" stroke={element.color} strokeWidth="3" /><path d="M-34 8C-25 -15 -17 -15 -8 8S9 25 12 -13" fill="none" stroke={element.color} strokeWidth="3" /><circle cx="34" cy="-15" r="6" {...common} /><circle cx="28" cy="18" r="5" {...common} /><circle cx="43" cy="18" r="5" {...common} /></>;
+      return <><rect x="-53" y="-35" width="106" height="70" rx="6" {...common} /><rect x="-41" y="-24" width="62" height="42" rx="2" fill={element.color} fillOpacity="0.05" stroke={element.color} strokeWidth="2.5" /><path d="M-35 10C-27 -13 -18 -13 -10 7S5 21 14 -12" fill="none" stroke={element.color} strokeWidth="2.7" /><circle cx="37" cy="-16" r="7" fill="none" stroke={element.color} strokeWidth="2.5" /><circle cx="31" cy="16" r="5" fill="#fff" stroke={element.color} strokeWidth="2.4" /><circle cx="45" cy="16" r="5" fill="#fff" stroke={element.color} strokeWidth="2.4" /><text x="37" y="3" textAnchor="middle" fill={element.color} fontSize="8" fontWeight="700" fontFamily="Arial, sans-serif">VNA</text></>;
     case "dmm":
       return <><rect x="-48" y="-35" width="96" height="70" rx="6" {...common} /><rect x="-35" y="-23" width="49" height="20" rx="2" fill="none" stroke={element.color} strokeWidth="3" /><text x="-10" y="-8" textAnchor="middle" fill={element.color} fontSize="12" fontWeight="700" fontFamily="Arial, sans-serif">0.000</text><circle cx="27" cy="11" r="13" fill="none" stroke={element.color} strokeWidth="3" /><path d="M27 11L35 3" stroke={element.color} strokeWidth="3" /></>;
     case "powersupply":
@@ -491,7 +504,7 @@ function ComponentShape({ element }: { element: DiagramElement }) {
     case "electronicload":
       return <><rect x="-50" y="-35" width="100" height="70" rx="6" {...common} /><rect x="-38" y="-23" width="52" height="22" rx="2" fill="none" stroke={element.color} strokeWidth="3" /><text x="-12" y="-8" textAnchor="middle" fill={element.color} fontSize="12" fontWeight="700" fontFamily="Arial, sans-serif">LOAD</text><path d="M24 -20V20L38 13L24 6L38 -1L24 -8L38 -15Z" fill="none" stroke={element.color} strokeWidth="3" /></>;
     case "waveformgenerator":
-      return <><rect x="-52" y="-35" width="104" height="70" rx="6" {...common} /><rect x="-40" y="-23" width="61" height="40" rx="2" fill="none" stroke={element.color} strokeWidth="3" /><path d="M-34 -2C-27 -18 -20 -18 -13 -2S1 14 8 -2M32 -18V17" fill="none" stroke={element.color} strokeWidth="3" /><circle cx="37" cy="17" r="6" {...common} /></>;
+      return <><rect x="-52" y="-35" width="104" height="70" rx="6" {...common} /><rect x="-41" y="-24" width="61" height="43" rx="2" fill={element.color} fillOpacity="0.05" stroke={element.color} strokeWidth="2.5" /><path d="M-35 -2C-28 -17 -21 -17 -14 -2S0 13 8 -2" fill="none" stroke={element.color} strokeWidth="2.8" /><circle cx="37" cy="-15" r="7" fill="none" stroke={element.color} strokeWidth="2.5" /><circle cx="37" cy="16" r="6" fill="#fff" stroke={element.color} strokeWidth="2.4" /><path d="M30 3H44" stroke={element.color} strokeWidth="2.3" strokeLinecap="round" /></>;
     case "lcrmeter":
       return <><rect x="-50" y="-35" width="100" height="70" rx="6" {...common} /><rect x="-38" y="-23" width="54" height="25" rx="2" fill="none" stroke={element.color} strokeWidth="3" /><text x="-11" y="-6" textAnchor="middle" fill={element.color} fontSize="15" fontWeight="700" fontFamily="Arial, sans-serif">LCR</text><path d="M26 -19C39 -19 39 -5 26 -5S13 9 26 9S39 23 26 23" fill="none" stroke={element.color} strokeWidth="3" /><circle cx="-25" cy="20" r="5" {...common} /><circle cx="-8" cy="20" r="5" {...common} /></>;
     case "rfpowermeter":
@@ -1424,6 +1437,7 @@ export default function Home() {
                   <div className="component-card" key={`${group.title}-${item.kind}`}>
                     <button className="component-add" onClick={() => addElement(item.kind, item.label)}>
                       <svg className="library-icon" viewBox="-60 -55 120 110" aria-hidden="true">
+                        <ElectronicPortStubs element={{ id: "preview", kind: item.kind, label: "", x: 0, y: 0, rotation: 0, color: defaultColor(item.kind) }} />
                         <ComponentShape element={{ id: "preview", kind: item.kind, label: "", x: 0, y: 0, rotation: 0, color: defaultColor(item.kind) }} />
                       </svg>
                       {item.label}
@@ -1531,7 +1545,8 @@ export default function Home() {
                 >
                   {selection.has(element.id) && <rect className="selection-outline" x={-Math.max(64, (element.width ?? 120) * (element.scale ?? 1) / 2 + 6)} y={-Math.max(58, (element.height ?? 100) * (element.scale ?? 1) / 2 + 6)} width={Math.max(128, (element.width ?? 120) * (element.scale ?? 1) + 12)} height={Math.max(116, (element.height ?? 100) * (element.scale ?? 1) + 12)} rx="9" fill="none" stroke="#1665d8" strokeWidth="2" strokeDasharray="6 5" />}
                   <g transform={`scale(${(element.scale ?? 1) * (element.flipX ? -1 : 1)} ${(element.scale ?? 1) * (element.flipY ? -1 : 1)})`}>
-                    <ComponentShape element={publication.monochrome ? { ...element, color: "#20242a" } : element} />
+                    <ElectronicPortStubs element={publication.monochrome ? { ...element, color: "#20242a" } : element} />
+                    <ComponentShape element={publication.monochrome ? { ...element, color: "#20242a" } : element} monochrome={publication.monochrome} />
                   </g>
                   <rect x={-Math.max(66, (element.width ?? 120) * (element.scale ?? 1) / 2)} y={-Math.max(54, (element.height ?? 100) * (element.scale ?? 1) / 2)} width={Math.max(132, (element.width ?? 120) * (element.scale ?? 1))} height={Math.max(108, (element.height ?? 100) * (element.scale ?? 1))} fill="transparent" />
                   {(selection.has(element.id) || connectMode) && portsFor(element).map((port) => {

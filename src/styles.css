@@ -106,7 +106,7 @@ button.danger { color: var(--danger); }
 .diagram-element { cursor: grab; }
 .diagram-element:active { cursor: grabbing; }
 .diagram-element.locked { cursor: default; }
-.diagram-element.connection-source .selection-outline { stroke: #e84d3c; stroke-width: 4; }
+.diagram-element.connection-source .selection-outline { stroke: #d55e00; stroke-width: 4; }
 .connection-hit { cursor: pointer; }
 .bend-handle { cursor: move; }
 .port-marker { pointer-events: none; }

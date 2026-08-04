@@ -1,16 +1,16 @@
 export type ConnectionType = "beam" | "signal";
 export type PortType = "optical-free-space" | "fiber" | "rf" | "dc" | "trigger" | "digital";
 
-const BLUE = "#2263d4";
-const PURPLE = "#7253cf";
-const GREEN = "#16846b";
-const DARK = "#303844";
+const BLUE = "#0072b2";
+const PURPLE = "#cc79a7";
+const GREEN = "#009e73";
+const DARK = "#30343b";
 
 export const componentGroups = [
   {
     title: "Optics & photonics",
     items: [
-      { kind: "laser", label: "Laser", layer: "optics", color: "#e84d3c", ports: "lr" },
+      { kind: "laser", label: "Laser", layer: "optics", color: "#d55e00", ports: "lr" },
       { kind: "mirror", label: "Mirror", layer: "optics", color: BLUE, ports: "cross" },
       { kind: "curvedmirror", label: "Curved mirror", layer: "optics", color: BLUE, ports: "cross" },
       { kind: "beamsplitter", label: "Beam splitter", layer: "optics", color: BLUE, ports: "cross" },
@@ -178,12 +178,12 @@ export const portTypeLabels: Record<PortType, string> = {
 };
 
 export const portTypeColors: Record<PortType, string> = {
-  "optical-free-space": "#e84d3c",
-  fiber: "#2263d4",
-  rf: "#303844",
-  dc: "#d17a12",
-  trigger: "#7253cf",
-  digital: "#16846b",
+  "optical-free-space": "#d55e00",
+  fiber: "#0072b2",
+  rf: "#30343b",
+  dc: "#e69f00",
+  trigger: "#cc79a7",
+  digital: "#009e73",
 };
 
 const fiberKinds = new Set<ElementKind>(["fiber", "fibercoupler"]);
