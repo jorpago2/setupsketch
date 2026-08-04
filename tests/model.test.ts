@@ -61,6 +61,12 @@ test("typed ports distinguish optical, fiber, RF, DC, trigger and digital domain
   assert.equal(portTypeFor("powersupply", "output"), "dc");
   assert.equal(portTypeFor("oscilloscope", "trigger"), "trigger");
   assert.equal(portTypeFor("daq", "digital"), "digital");
+  assert.equal(portTypeFor("mzm", "left"), "fiber");
+  assert.equal(portTypeFor("mzm", "top"), "rf");
+  assert.equal(portTypeFor("gratingcoupler", "left"), "fiber");
+  assert.equal(portTypeFor("gratingcoupler", "top"), "optical-free-space");
+  assert.equal(portTypeFor("opticalspectrumanalyzer", "input"), "fiber");
+  assert.equal(portTypeFor("camera", "input"), "optical-free-space");
   const issues = validateSetup(
     [
       { id: "laser", kind: "laser", label: "Laser", x: 0, y: 0 },

@@ -16,6 +16,9 @@ export const componentGroups = [
       { kind: "beamsplitter", label: "Beam splitter", layer: "optics", color: BLUE, ports: "cross" },
       { kind: "lens", label: "Lens", layer: "optics", color: BLUE, ports: "lr" },
       { kind: "waveplate", label: "Wave plate", layer: "optics", color: BLUE, ports: "lr" },
+      { kind: "polarizer", label: "Linear polarizer", layer: "optics", color: BLUE, ports: "lr" },
+      { kind: "pbs", label: "Polarizing beam splitter", layer: "optics", color: BLUE, ports: "cross" },
+      { kind: "ndfilter", label: "Neutral-density filter", layer: "optics", color: BLUE, ports: "lr" },
       { kind: "dichroic", label: "Dichroic mirror", layer: "optics", color: BLUE, ports: "cross" },
       { kind: "grating", label: "Diffraction grating", layer: "optics", color: BLUE, ports: "cross" },
       { kind: "beamdump", label: "Beam dump", layer: "optics", color: BLUE, ports: "input" },
@@ -33,9 +36,23 @@ export const componentGroups = [
     items: [
       { kind: "aom", label: "AOM", layer: "optics", color: PURPLE, ports: "lrt" },
       { kind: "eom", label: "EOM", layer: "optics", color: PURPLE, ports: "lrt" },
+      { kind: "faradayrotator", label: "Faraday rotator", layer: "optics", color: PURPLE, ports: "lr" },
+      { kind: "mzm", label: "Mach-Zehnder modulator", layer: "optics", color: PURPLE, ports: "lrt" },
       { kind: "isolator", label: "Optical isolator", layer: "optics", color: BLUE, ports: "lr" },
       { kind: "cavity", label: "Ring cavity", layer: "optics", color: PURPLE, ports: "cross" },
       { kind: "detector", label: "Detector", layer: "optics", color: GREEN, ports: "lr" },
+    ],
+  },
+  {
+    title: "Fiber & integrated photonics",
+    items: [
+      { kind: "opticalcirculator", label: "Optical circulator", layer: "optics", color: BLUE, ports: "lrb" },
+      { kind: "wdm", label: "WDM coupler", layer: "optics", color: BLUE, ports: "lrr" },
+      { kind: "fbg", label: "Fiber Bragg grating", layer: "optics", color: BLUE, ports: "lr" },
+      { kind: "edfa", label: "EDFA", layer: "optics", color: GREEN, ports: "lr" },
+      { kind: "ringresonator", label: "Ring resonator", layer: "optics", color: PURPLE, ports: "lr" },
+      { kind: "opticalswitch", label: "Optical switch", layer: "optics", color: BLUE, ports: "lrr" },
+      { kind: "gratingcoupler", label: "Grating coupler", layer: "optics", color: PURPLE, ports: "lt" },
     ],
   },
   {
@@ -95,6 +112,9 @@ export const componentGroups = [
       { kind: "electronicload", label: "Electronic load", layer: "electronics", color: DARK, ports: "input" },
       { kind: "lcrmeter", label: "LCR meter", layer: "electronics", color: DARK, ports: "quad" },
       { kind: "rfpowermeter", label: "RF power meter", layer: "electronics", color: DARK, ports: "input" },
+      { kind: "camera", label: "Scientific camera", layer: "electronics", color: DARK, ports: "input" },
+      { kind: "opticalspectrumanalyzer", label: "Optical spectrum analyzer", layer: "electronics", color: DARK, ports: "input" },
+      { kind: "opticalpowermeter", label: "Optical power meter", layer: "electronics", color: DARK, ports: "input" },
       { kind: "daq", label: "DAQ", layer: "electronics", color: DARK, ports: "instrument" },
     ],
   },
@@ -147,6 +167,7 @@ export const componentPortLayouts: Record<PortLayout, Array<{ id: string; x: num
   lrb: [
     { id: "left", x: -58, y: 0 }, { id: "right", x: 58, y: 0 }, { id: "bottom", x: 0, y: 58 },
   ],
+  lt: [{ id: "left", x: -58, y: 0 }, { id: "top", x: 0, y: -58 }],
   input: [{ id: "input", x: -58, y: 0 }],
   output: [{ id: "output", x: 58, y: 0 }],
   instrument: [
@@ -197,7 +218,7 @@ export const portTypeColors: Record<PortType, string> = {
   digital: "#009e73",
 };
 
-const fiberKinds = new Set<ElementKind>(["fiber", "fibercoupler"]);
+const fiberKinds = new Set<ElementKind>(["fiber", "fibercoupler", "opticalcirculator", "wdm", "fbg", "edfa", "ringresonator", "opticalswitch"]);
 const dcKinds = new Set<ElementKind>(["dmm", "powersupply", "smu", "electronicload", "lcrmeter"]);
 const digitalKinds = new Set<ElementKind>(["servo", "motorizedstage"]);
 const instrumentKinds = new Set<ElementKind>(["oscilloscope", "spectrum", "networkanalyzer", "waveformgenerator", "daq"]);
@@ -208,6 +229,10 @@ export const portTypeFor = (kind: ElementKind, portId: string): PortType => {
   if (kind === "laser") return portId === "left" ? "dc" : "optical-free-space";
   if (kind === "detector" || kind === "photodiode" || kind === "qpd") return portId === "left" ? "optical-free-space" : "rf";
   if (kind === "fibercollimator") return portId === "left" ? "fiber" : "optical-free-space";
+  if (kind === "mzm") return portId === "top" ? "rf" : "fiber";
+  if (kind === "gratingcoupler") return portId === "top" ? "optical-free-space" : "fiber";
+  if (kind === "opticalspectrumanalyzer") return "fiber";
+  if (kind === "camera" || kind === "opticalpowermeter") return "optical-free-space";
   if (kind === "biastee" && portId === "top") return "dc";
   if (fiberKinds.has(kind)) return "fiber";
   if (dcKinds.has(kind)) return "dc";

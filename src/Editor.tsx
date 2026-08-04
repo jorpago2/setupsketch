@@ -375,6 +375,12 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
       return <><path d="M0 -42C-22 -27 -22 27 0 42C22 27 22 -27 0 -42Z" {...common} /><path d="M-8 -27Q0 0 -8 27M8 -27Q0 0 8 27" fill="none" stroke={element.color} strokeWidth="1.8" opacity="0.36" /></>;
     case "waveplate":
       return <><rect x="-9" y="-42" width="18" height="84" rx="2" {...common} /><path d="M-14 28L14 -28M7 -27L14 -28L13 -21M-7 27L-14 28L-13 21" fill="none" stroke={element.color} strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round" /><path d="M-3 -34V34" stroke={element.color} strokeWidth="1.5" opacity="0.35" /></>;
+    case "polarizer":
+      return <><path d="M-58 0H-37M37 0H58" stroke={element.color} strokeWidth="3.4" /><circle r="37" {...common} /><path d="M-18 24L18 -24M10 -24H18V-16M-10 24H-18V16" fill="none" stroke={element.color} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" /></>;
+    case "pbs":
+      return <><path d="M-58 0H-34M34 0H58M0 -58V-34M0 34V58" stroke={element.color} strokeWidth="3.4" /><rect x="-34" y="-34" width="68" height="68" rx="3" {...common} /><path d="M-34 34L34 -34" stroke={element.color} strokeWidth="4" /><text x="-20" y="-13" textAnchor="middle" fill={element.color} fontSize="11" fontWeight="700" fontFamily="Arial, sans-serif">P</text><text x="20" y="22" textAnchor="middle" fill={element.color} fontSize="11" fontWeight="700" fontFamily="Arial, sans-serif">S</text></>;
+    case "ndfilter":
+      return <><path d="M-58 0H-12M12 0H58" stroke={element.color} strokeWidth="3.4" /><rect x="-12" y="-40" width="24" height="80" rx="2" {...common} /><path d="M-8 -27L8 -12M-8 -8L8 7M-8 12L8 27" stroke={element.color} strokeWidth="2.6" opacity="0.7" /><text x="0" y="4" textAnchor="middle" fill={element.color} fontSize="8" fontWeight="700" fontFamily="Arial, sans-serif">ND</text></>;
     case "dichroic":
       return <><path d="M-26 40L26 -40" stroke="#c7ccd3" strokeWidth="12" strokeLinecap="round" /><path d="M-26 40L26 -40" stroke={element.color} strokeWidth="4.2" strokeLinecap="round" /><path d="M-18 34L34 -18" stroke={element.color} strokeWidth="1.6" strokeDasharray="5 4" opacity="0.55" /></>;
     case "grating":
@@ -395,10 +401,28 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
       return <><rect x="-43" y="-31" width="86" height="62" rx="4" {...common} /><path d="M-27 22L7 -22M-15 24L19 -20M-3 24L31 -20" stroke={element.color} strokeWidth="2" opacity="0.62" /><path d="M0 -51V-31M-9 -44Q0 -52 9 -44M-13 -36Q0 -48 13 -36" fill="none" stroke={element.color} strokeWidth="2.4" strokeLinecap="round" /><text x="27" y="24" textAnchor="middle" fill={element.color} fontSize="11" fontWeight="700" fontFamily="Arial, sans-serif">AOM</text></>;
     case "eom":
       return <><rect x="-43" y="-31" width="86" height="62" rx="4" {...common} /><rect x="-24" y="-20" width="48" height="40" rx="2" fill={element.color} fillOpacity="0.07" stroke={element.color} strokeWidth="1.8" /><path d="M-31 -24H31M-31 24H31M0 -51V-31M-8 -12V12M-13 -7L-8 -12L-3 -7M-13 7L-8 12L-3 7" fill="none" stroke={element.color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /><text x="28" y="17" textAnchor="middle" fill={element.color} fontSize="10" fontWeight="700" fontFamily="Arial, sans-serif">EOM</text></>;
+    case "faradayrotator":
+      return <><path d="M-58 0H-37M37 0H58" stroke={element.color} strokeWidth="3.4" /><circle r="37" {...common} /><path d="M-17 15A23 23 0 1120 9M20 9L20 -1M20 9L10 9" fill="none" stroke={element.color} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" /><text x="0" y="6" textAnchor="middle" fill={element.color} fontSize="11" fontWeight="700" fontFamily="Arial, sans-serif">45°</text></>;
+    case "mzm":
+      return <><path d="M-58 0H-42M42 0H58M0 -58V-31" stroke={element.color} strokeWidth="3.4" /><rect x="-42" y="-31" width="84" height="62" rx="3" {...common} /><path d="M-42 0H-27C-17 0 -17 -16 -7 -16H15C25 -16 25 0 42 0M-27 0C-17 0 -17 16 -7 16H15C25 16 25 0 42 0M-13 -24H21M-13 24H21" fill="none" stroke={element.color} strokeWidth="2.8" strokeLinecap="round" /></>;
     case "isolator":
       return <><circle r="37" {...common} /><path d="M-22 0H20M8 -13L22 0L8 13" fill="none" stroke={element.color} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /><path d="M-28 29L28 -29" stroke={element.color} strokeWidth="3" opacity="0.55" /></>;
     case "cavity":
       return <><path d="M-38 25L0 -34L40 25Z" fill="none" stroke={element.color} strokeWidth="4" /><path d="M-48 22L-30 32M-9 -38L9 -30M31 32L49 22" stroke={element.color} strokeWidth="7" strokeLinecap="round" /></>;
+    case "opticalcirculator":
+      return <><path d="M-58 0H-36M36 0H58M0 36V58" stroke={element.color} strokeWidth="3.4" /><circle r="36" {...common} /><path d="M-18 18A25 25 0 1120 13M20 13L20 2M20 13L9 13" fill="none" stroke={element.color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /></>;
+    case "wdm":
+      return <><path d="M-58 0H-42M42 -21H58M42 21H58" stroke={element.color} strokeWidth="3.4" /><rect x="-42" y="-31" width="84" height="62" rx="3" {...common} /><path d="M-42 0H-20L25 -21H42M-20 0L25 21H42" fill="none" stroke={element.color} strokeWidth="3" strokeLinecap="round" /><text x="20" y="-10" fill={element.color} fontSize="10" fontFamily="serif">λ₁</text><text x="20" y="25" fill={element.color} fontSize="10" fontFamily="serif">λ₂</text></>;
+    case "fbg":
+      return <><path d="M-58 0H58" stroke={element.color} strokeWidth="5" strokeLinecap="round" /><path d="M-24 -20V20M-16 -20V20M-8 -20V20M0 -20V20M8 -20V20M16 -20V20M24 -20V20" stroke="#fff" strokeWidth="2.6" /><path d="M-27 -24H27M-27 24H27" stroke={element.color} strokeWidth="2" opacity="0.55" /></>;
+    case "edfa":
+      return <><path d="M-58 0H-42M45 0H58" stroke={element.color} strokeWidth="3.4" /><path d="M-42 -36L45 0L-42 36Z" {...common} /><text x="-8" y="6" textAnchor="middle" fill={element.color} fontSize="14" fontWeight="700" fontFamily="Arial, sans-serif">EDFA</text></>;
+    case "ringresonator":
+      return <><path d="M-58 12H58" stroke={element.color} strokeWidth="5" strokeLinecap="round" /><circle cx="0" cy="-17" r="24" fill="#fff" stroke={element.color} strokeWidth="4" /><path d="M-16 -33A22 22 0 0120 -21" fill="none" stroke={element.color} strokeWidth="2" opacity="0.45" /></>;
+    case "opticalswitch":
+      return <><path d="M-58 0H-42M42 -21H58M42 21H58" stroke={element.color} strokeWidth="3.4" /><rect x="-42" y="-31" width="84" height="62" rx="3" {...common} /><path d="M-42 0H-17L23 -19M23 -19H42M23 20H42" fill="none" stroke={element.color} strokeWidth="3.4" strokeLinecap="round" /><circle cx="-17" r="4.5" fill={element.color} /><circle cx="23" cy="-19" r="4.5" fill={element.color} /><circle cx="23" cy="20" r="4.5" fill={element.color} /></>;
+    case "gratingcoupler":
+      return <><path d="M-58 0H-22M0 -58V-31" stroke={element.color} strokeWidth="3.4" /><path d="M-22 -24H30L42 24H-22Z" {...common} /><path d="M-12 -18V18M-3 -18V18M6 -17V18M15 -15V18M24 -12V18" stroke={element.color} strokeWidth="2.2" /><path d="M0 -31C8 -23 14 -18 24 -14" fill="none" stroke={element.color} strokeWidth="2.4" strokeDasharray="4 3" /></>;
     case "kinematicmount":
       return <><circle cx="-8" r="29" {...common} /><path d="M20 -32L43 -18V25L20 34M-8 29V43M-27 43H28" fill="none" stroke={element.color} strokeWidth="4" strokeLinecap="round" /><circle cx="34" cy="-25" r="6" {...common} /><circle cx="34" cy="25" r="6" {...common} /></>;
     case "translationstage":
@@ -525,6 +549,12 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
       return <><rect x="-50" y="-35" width="100" height="70" rx="6" {...common} /><rect x="-38" y="-23" width="54" height="25" rx="2" fill="none" stroke={element.color} strokeWidth="3" /><text x="-11" y="-6" textAnchor="middle" fill={element.color} fontSize="15" fontWeight="700" fontFamily="Arial, sans-serif">LCR</text><path d="M26 -19C39 -19 39 -5 26 -5S13 9 26 9S39 23 26 23" fill="none" stroke={element.color} strokeWidth="3" /><circle cx="-25" cy="20" r="5" {...common} /><circle cx="-8" cy="20" r="5" {...common} /></>;
     case "rfpowermeter":
       return <><rect x="-50" y="-35" width="100" height="70" rx="6" {...common} /><path d="M-34 8A25 25 0 0116 8M-9 8L7 -10" fill="none" stroke={element.color} strokeWidth="3" /><path d="M-34 8H16" stroke={element.color} strokeWidth="3" /><text x="-9" y="26" textAnchor="middle" fill={element.color} fontSize="11" fontWeight="700" fontFamily="Arial, sans-serif">dBm</text><circle cx="34" cy="16" r="7" {...common} /></>;
+    case "camera":
+      return <><rect x="-33" y="-32" width="80" height="64" rx="5" {...common} /><path d="M-33 -22L-48 -15V15L-33 22" {...common} /><circle cx="12" r="17" fill="none" stroke={element.color} strokeWidth="3" /><rect x="1" y="-11" width="22" height="22" fill={element.color} fillOpacity="0.08" stroke={element.color} strokeWidth="2" /></>;
+    case "opticalspectrumanalyzer":
+      return <><rect x="-52" y="-35" width="104" height="70" rx="6" {...common} /><rect x="-41" y="-24" width="65" height="45" rx="2" fill={element.color} fillOpacity="0.05" stroke={element.color} strokeWidth="2.5" /><path d="M-35 15V10L-27 7L-20 12L-12 -17L-4 9L4 5L12 14L19 11" fill="none" stroke={element.color} strokeWidth="2.7" strokeLinejoin="round" /><text x="38" y="-8" textAnchor="middle" fill={element.color} fontSize="10" fontWeight="700" fontFamily="Arial, sans-serif">OSA</text><circle cx="38" cy="14" r="6" fill="#fff" stroke={element.color} strokeWidth="2.4" /></>;
+    case "opticalpowermeter":
+      return <><rect x="-50" y="-35" width="100" height="70" rx="6" {...common} /><path d="M-35 9A25 25 0 0115 9M-10 9L5 -10M-35 9H15" fill="none" stroke={element.color} strokeWidth="3" /><text x="-10" y="27" textAnchor="middle" fill={element.color} fontSize="11" fontWeight="700" fontFamily="Arial, sans-serif">mW</text><circle cx="34" cy="16" r="7" {...common} /></>;
   }
 }
 
