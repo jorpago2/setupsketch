@@ -38,6 +38,16 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   for (const feature of ["portTypeLabels", "Path budgets", "Traceability", "Experiment", "exportTikz", "exportPowerPoint", "exportNetlist"]) {
     assert.match(editor, new RegExp(feature));
   }
+  for (const feature of [
+    'id="app-title"',
+    'href="#diagram-workspace"',
+    'id="diagram-workspace"',
+    'aria-label="Search components"',
+    'aria-label="Edit actions"',
+    'aria-label="File actions"',
+    'className="toolbar-export-mobile"',
+  ]) assert.match(editor, new RegExp(feature));
+  assert.doesNotMatch(editor, /ref=\{(?:fileRef|bomRef)\} className="sr-only"/);
   assert.match(model, /calculateBudgets/);
   assert.equal(packageJson.dependencies.pptxgenjs, "^4.0.1");
 });

@@ -1406,8 +1406,21 @@ export default function Home() {
     } : connection));
   };
 
+  const renderExportActions = () => <>
+    <button onClick={exportSvg}>SVG</button>
+    <button onClick={exportPng}>PNG</button>
+    <button onClick={exportTikz}>TeX</button>
+    <button onClick={exportPowerPoint}>PPTX</button>
+    <button onClick={exportNetlist}>NET</button>
+    <button onClick={exportBom} title="Export bill of materials">BOM↓</button>
+    <button onClick={() => bomRef.current?.click()} title="Import bill of materials">BOM↑</button>
+    <button className="primary" onClick={exportPdf}>PDF</button>
+  </>;
+
   return (
-    <main className="app-shell">
+    <main className="app-shell" aria-labelledby="app-title">
+      <a className="skip-link" href="#diagram-workspace">Skip to diagram workspace</a>
+      <h1 className="sr-only" id="app-title">SetupSketch scientific diagram editor</h1>
       <style>{`@media print { @page { size: ${publication.pagePreset === "a3" ? "A3 landscape" : "A4 landscape"}; margin: 8mm; } }`}</style>
       <header className="topbar">
         <div className="brand" aria-label="SetupSketch">
@@ -1419,41 +1432,47 @@ export default function Home() {
           <input value={title} onChange={(event) => setTitle(event.target.value)} />
         </label>
         <div className="toolbar" aria-label="Diagram actions">
-          <button onClick={undo} disabled={!past.length} title="Undo (Ctrl+Z)">Undo</button>
-          <button onClick={redo} disabled={!future.length} title="Redo (Ctrl+Y)">Redo</button>
-          <button className={connectMode ? "active" : ""} onClick={() => { setConnectMode(!connectMode); setConnectFrom(null); }}>
-            {connectFrom ? "Choose target" : "Connect"}
-          </button>
-          <label className="connection-type">
-            <span className="sr-only">Connection domain</span>
-            <select value={connectionDomain} onChange={(event) => setConnectionDomain(event.target.value as PortType)}>
-              {(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <option value={type} key={type}>{label}</option>)}
-            </select>
-          </label>
-          <label className="connection-type">
-            <span className="sr-only">Setup template</span>
-            <select defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; }}>
-              <option value="" disabled>Template</option>
-              {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
-            </select>
-          </label>
-          <span className="toolbar-divider" />
-          <button onClick={saveJson}>JSON</button>
-          <button onClick={() => fileRef.current?.click()}>Open</button>
-          <input ref={fileRef} className="sr-only" type="file" accept="application/json,.json" onChange={loadJson} />
-          <button onClick={exportSvg}>SVG</button>
-          <button onClick={exportPng}>PNG</button>
-          <button onClick={exportTikz}>TeX</button>
-          <button onClick={exportPowerPoint}>PPTX</button>
-          <button onClick={exportNetlist}>NET</button>
-          <button onClick={exportBom} title="Export bill of materials">BOM↓</button>
-          <button onClick={() => bomRef.current?.click()} title="Import bill of materials">BOM↑</button>
-          <input ref={bomRef} className="sr-only" type="file" accept="text/csv,.csv" onChange={loadBom} />
-          <button className="primary" onClick={exportPdf}>PDF</button>
+          <div className="toolbar-group" role="group" aria-label="Edit actions">
+            <button onClick={undo} disabled={!past.length} title="Undo (Ctrl+Z)">Undo</button>
+            <button onClick={redo} disabled={!future.length} title="Redo (Ctrl+Y)">Redo</button>
+            <button className={connectMode ? "active" : ""} onClick={() => { setConnectMode(!connectMode); setConnectFrom(null); }}>
+              {connectFrom ? "Choose target" : "Connect"}
+            </button>
+          </div>
+          <div className="toolbar-group" role="group" aria-label="Connection and template settings">
+            <label className="connection-type">
+              <span className="sr-only">Connection domain</span>
+              <select value={connectionDomain} onChange={(event) => setConnectionDomain(event.target.value as PortType)}>
+                {(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <option value={type} key={type}>{label}</option>)}
+              </select>
+            </label>
+            <label className="connection-type">
+              <span className="sr-only">Setup template</span>
+              <select defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; }}>
+                <option value="" disabled>Template</option>
+                {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
+              </select>
+            </label>
+          </div>
+          <div className="toolbar-group" role="group" aria-label="File actions">
+            <button onClick={saveJson}>JSON</button>
+            <button onClick={() => fileRef.current?.click()}>Open</button>
+            <input ref={fileRef} hidden aria-label="Open diagram JSON" type="file" accept="application/json,.json" onChange={loadJson} />
+          </div>
+          <div className="toolbar-group toolbar-export-desktop" role="group" aria-label="Export actions">
+            {renderExportActions()}
+          </div>
+          <details className="toolbar-export-mobile">
+            <summary>Export</summary>
+            <div className="toolbar-export-actions" role="group" aria-label="Export actions">
+              {renderExportActions()}
+            </div>
+          </details>
+          <input ref={bomRef} hidden aria-label="Import bill of materials" type="file" accept="text/csv,.csv" onChange={loadBom} />
         </div>
       </header>
 
-      <section className="workspace">
+      <section className="workspace" id="diagram-workspace" tabIndex={-1}>
         <aside className="library" aria-label="Component library">
           <div className="panel-heading">
             <span>Library</span>
@@ -1462,6 +1481,7 @@ export default function Home() {
           <input
             className="library-search"
             type="search"
+            aria-label="Search components"
             placeholder="Search components"
             value={libraryQuery}
             onChange={(event) => setLibraryQuery(event.target.value)}
