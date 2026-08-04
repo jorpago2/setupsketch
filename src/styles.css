@@ -49,7 +49,7 @@ button.danger { color: var(--danger); }
   border: 0;
 }
 
-.app-shell { min-width: 1080px; min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
+.app-shell { min-width: 1080px; height: 100vh; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
 
 .topbar {
   display: grid;
@@ -163,7 +163,7 @@ button.danger { color: var(--danger); }
 }
 
 @media (max-width: 900px) {
-  .app-shell { min-width: 0; display: block; }
+  .app-shell { min-width: 0; height: auto; min-height: 100vh; display: block; overflow: visible; }
   .topbar { grid-template-columns: 1fr; gap: 5px; padding: 10px 12px; }
   .brand, .project-title { justify-content: center; }
   .toolbar { justify-content: center; }
