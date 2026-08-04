@@ -8,6 +8,8 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   const editor = await readFile(new URL("../src/Editor.tsx", import.meta.url), "utf8");
   const catalog = await readFile(new URL("../src/componentCatalog.ts", import.meta.url), "utf8");
   const templates = await readFile(new URL("../src/templates.ts", import.meta.url), "utf8");
+  const model = await readFile(new URL("../src/editorModel.ts", import.meta.url), "utf8");
+  const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   assert.match(html, /SetupSketch/);
   assert.ok(assets.some((name) => name.endsWith(".js")));
   assert.ok(assets.some((name) => name.endsWith(".css")));
@@ -29,4 +31,9 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   }
   assert.match(templates, /mach-zehnder/);
   assert.match(templates, /vna-chain/);
+  for (const feature of ["portTypeLabels", "Path budgets", "Traceability", "Experiment", "exportTikz", "exportPowerPoint", "exportNetlist"]) {
+    assert.match(editor, new RegExp(feature));
+  }
+  assert.match(model, /calculateBudgets/);
+  assert.equal(packageJson.dependencies.pptxgenjs, "^4.0.1");
 });

@@ -1,4 +1,5 @@
 export type ConnectionType = "beam" | "signal";
+export type PortType = "optical-free-space" | "fiber" | "rf" | "dc" | "trigger" | "digital";
 
 const BLUE = "#2263d4";
 const PURPLE = "#7253cf";
@@ -30,8 +31,8 @@ export const componentGroups = [
   {
     title: "Modulation & compound",
     items: [
-      { kind: "aom", label: "AOM", layer: "optics", color: PURPLE, ports: "lr" },
-      { kind: "eom", label: "EOM", layer: "optics", color: PURPLE, ports: "lr" },
+      { kind: "aom", label: "AOM", layer: "optics", color: PURPLE, ports: "lrt" },
+      { kind: "eom", label: "EOM", layer: "optics", color: PURPLE, ports: "lrt" },
       { kind: "isolator", label: "Optical isolator", layer: "optics", color: BLUE, ports: "lr" },
       { kind: "cavity", label: "Ring cavity", layer: "optics", color: PURPLE, ports: "cross" },
       { kind: "detector", label: "Detector", layer: "optics", color: GREEN, ports: "lr" },
@@ -76,17 +77,17 @@ export const componentGroups = [
   {
     title: "Test instruments",
     items: [
-      { kind: "oscilloscope", label: "Oscilloscope", layer: "electronics", color: DARK, ports: "input" },
-      { kind: "spectrum", label: "Spectrum analyzer", layer: "electronics", color: DARK, ports: "input" },
-      { kind: "networkanalyzer", label: "Vector network analyzer", layer: "electronics", color: DARK, ports: "quad" },
-      { kind: "waveformgenerator", label: "Waveform generator", layer: "electronics", color: DARK, ports: "output" },
+      { kind: "oscilloscope", label: "Oscilloscope", layer: "electronics", color: DARK, ports: "instrument" },
+      { kind: "spectrum", label: "Spectrum analyzer", layer: "electronics", color: DARK, ports: "instrument" },
+      { kind: "networkanalyzer", label: "Vector network analyzer", layer: "electronics", color: DARK, ports: "instrument" },
+      { kind: "waveformgenerator", label: "Waveform generator", layer: "electronics", color: DARK, ports: "instrument" },
       { kind: "dmm", label: "Digital multimeter", layer: "electronics", color: DARK, ports: "input" },
       { kind: "powersupply", label: "DC power supply", layer: "electronics", color: DARK, ports: "output" },
       { kind: "smu", label: "Source measure unit", layer: "electronics", color: DARK, ports: "quad" },
       { kind: "electronicload", label: "Electronic load", layer: "electronics", color: DARK, ports: "input" },
       { kind: "lcrmeter", label: "LCR meter", layer: "electronics", color: DARK, ports: "quad" },
       { kind: "rfpowermeter", label: "RF power meter", layer: "electronics", color: DARK, ports: "input" },
-      { kind: "daq", label: "DAQ", layer: "electronics", color: DARK, ports: "input" },
+      { kind: "daq", label: "DAQ", layer: "electronics", color: DARK, ports: "instrument" },
     ],
   },
   {
@@ -141,3 +142,41 @@ export const annotationKinds = new Set<ElementKind>(
   componentDefinitions.filter((component) => component.layer === "annotations").map((component) => component.kind),
 );
 export const defaultColor = (kind: ElementKind) => componentByKind.get(kind)?.color ?? DARK;
+
+export const portTypeLabels: Record<PortType, string> = {
+  "optical-free-space": "Free-space optical",
+  fiber: "Optical fiber",
+  rf: "RF / analog",
+  dc: "DC",
+  trigger: "Trigger / sync",
+  digital: "Digital data",
+};
+
+export const portTypeColors: Record<PortType, string> = {
+  "optical-free-space": "#e84d3c",
+  fiber: "#2263d4",
+  rf: "#303844",
+  dc: "#d17a12",
+  trigger: "#7253cf",
+  digital: "#16846b",
+};
+
+const fiberKinds = new Set<ElementKind>(["fiber", "fibercoupler"]);
+const dcKinds = new Set<ElementKind>(["dmm", "powersupply", "smu", "electronicload", "lcrmeter"]);
+const digitalKinds = new Set<ElementKind>(["servo", "motorizedstage"]);
+const instrumentKinds = new Set<ElementKind>(["oscilloscope", "spectrum", "networkanalyzer", "waveformgenerator", "daq"]);
+
+export const portTypeFor = (kind: ElementKind, portId: string): PortType => {
+  if (portId === "trigger" || portId === "top" && (kind === "aom" || kind === "eom")) return portId === "top" ? "rf" : "trigger";
+  if (portId === "digital") return "digital";
+  if (kind === "laser") return portId === "left" ? "dc" : "optical-free-space";
+  if (kind === "detector" || kind === "photodiode" || kind === "qpd") return portId === "left" ? "optical-free-space" : "rf";
+  if (kind === "fibercollimator") return portId === "left" ? "fiber" : "optical-free-space";
+  if (kind === "biastee" && portId === "top") return "dc";
+  if (fiberKinds.has(kind)) return "fiber";
+  if (dcKinds.has(kind)) return "dc";
+  if (digitalKinds.has(kind)) return "digital";
+  if (instrumentKinds.has(kind)) return portId === "output" && kind !== "waveformgenerator" && kind !== "networkanalyzer" ? "digital" : "rf";
+  const layer = componentByKind.get(kind)?.layer;
+  return layer === "optics" ? "optical-free-space" : layer === "electronics" ? "rf" : "digital";
+};

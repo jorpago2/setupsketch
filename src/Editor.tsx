@@ -15,11 +15,15 @@ import {
   defaultColor,
   electronicKinds,
   elementKinds,
+  portTypeColors,
+  portTypeFor,
+  portTypeLabels,
   type ConnectionType,
   type ElementKind,
   type PortLayout,
+  type PortType,
 } from "./componentCatalog";
-import { moveElements, parseCsv, routeOrthogonal, validateSetup } from "./editorModel";
+import { calculateBudgets, moveElements, parseCsv, routeOrthogonal, validateSetup } from "./editorModel";
 import { setupTemplates } from "./templates";
 
 type LayerVisibility = {
@@ -63,6 +67,17 @@ type DiagramElement = {
   locked?: boolean;
   width?: number;
   height?: number;
+  powerDbm?: number;
+  gainDb?: number;
+  lossDb?: number;
+  noiseFigureDb?: number;
+  bandwidthHz?: number;
+  wavelengthNm?: number;
+  serialNumber?: string;
+  calibrationDate?: string;
+  calibrationDueDate?: string;
+  uncertainty?: string;
+  datasheetUrl?: string;
 };
 
 type Connection = {
@@ -75,12 +90,19 @@ type Connection = {
   toPort?: string;
   routing?: Routing;
   waypoints?: Point[];
+  portType?: PortType;
+  lossDb?: number;
+  bandwidthHz?: number;
 };
+
+type ChecklistItem = { id: string; text: string; done: boolean };
+type ExperimentRecord = { procedure: string; checklist: ChecklistItem[] };
 
 type Snapshot = {
   elements: DiagramElement[];
   connections: Connection[];
   publication: PublicationSettings;
+  experiment: ExperimentRecord;
 };
 
 type SavedModule = {
@@ -113,6 +135,8 @@ const defaultPublication: PublicationSettings = {
   cropToContent: false,
 };
 
+const defaultExperiment: ExperimentRecord = { procedure: "", checklist: [] };
+
 const portLayouts: Record<PortLayout, Array<{ id: string; x: number; y: number }>> = {
   lr: [{ id: "left", x: -58, y: 0 }, { id: "right", x: 58, y: 0 }],
   cross: [
@@ -132,6 +156,10 @@ const portLayouts: Record<PortLayout, Array<{ id: string; x: number; y: number }
   ],
   input: [{ id: "input", x: -58, y: 0 }],
   output: [{ id: "output", x: 58, y: 0 }],
+  instrument: [
+    { id: "input", x: -58, y: 0 }, { id: "output", x: 58, y: 0 },
+    { id: "trigger", x: 0, y: -58 }, { id: "digital", x: 0, y: 58 },
+  ],
 };
 
 const rotatePoint = (point: Point, angle: number): Point => {
@@ -151,41 +179,46 @@ const portsFor = (element: DiagramElement) => {
       y: port.y * scale * (element.flipY ? -1 : 1),
     };
     const rotated = rotatePoint(transformed, element.rotation);
-    return { ...port, x: element.x + rotated.x, y: element.y + rotated.y };
+    return { ...port, type: portTypeFor(element.kind, port.id), x: element.x + rotated.x, y: element.y + rotated.y };
   });
 };
 
-const closestPortPair = (from: DiagramElement, to: DiagramElement) => {
+const closestPortPair = (from: DiagramElement, to: DiagramElement, requestedType?: PortType) => {
   const pairs = portsFor(from).flatMap((source) => portsFor(to).map((target) => ({
     source,
     target,
     distance: Math.hypot(target.x - source.x, target.y - source.y),
   })));
-  return pairs.reduce((best, pair) => pair.distance < best.distance ? pair : best);
+  const compatible = pairs.filter((pair) => pair.source.type === pair.target.type && (!requestedType || pair.source.type === requestedType));
+  return (compatible.length ? compatible : pairs).reduce((best, pair) => pair.distance < best.distance ? pair : best);
 };
 
 const getConnectionType = (connection: Connection): ConnectionType =>
   connection.type ?? (connection.color.toLowerCase() === "#e84d3c" ? "beam" : "signal");
 
+const getConnectionDomain = (connection: Connection, from?: DiagramElement): PortType =>
+  connection.portType ?? (from && connection.fromPort ? portTypeFor(from.kind, connection.fromPort) : getConnectionType(connection) === "beam" ? "optical-free-space" : "rf");
+
 const initialElements: DiagramElement[] = [
-  { id: "laser-1", kind: "laser", label: "1550 nm laser", x: 180, y: 330, rotation: 0, color: "#e84d3c" },
-  { id: "lens-1", kind: "lens", label: "L1", x: 420, y: 330, rotation: 0, color: "#2263d4" },
-  { id: "sample-1", kind: "sample", label: "Device under test", x: 650, y: 330, rotation: 0, color: "#7253cf" },
-  { id: "detector-1", kind: "detector", label: "InGaAs detector", x: 900, y: 330, rotation: 0, color: "#16846b" },
+  { id: "laser-1", kind: "laser", label: "1550 nm laser", x: 180, y: 330, rotation: 0, color: "#e84d3c", powerDbm: 10, wavelengthNm: 1550 },
+  { id: "lens-1", kind: "lens", label: "L1", x: 420, y: 330, rotation: 0, color: "#2263d4", lossDb: 0.2 },
+  { id: "sample-1", kind: "sample", label: "Device under test", x: 650, y: 330, rotation: 0, color: "#7253cf", lossDb: 1 },
+  { id: "detector-1", kind: "detector", label: "InGaAs detector", x: 900, y: 330, rotation: 0, color: "#16846b", bandwidthHz: 1e9 },
   { id: "daq-1", kind: "daq", label: "DAQ", x: 900, y: 535, rotation: 0, color: "#242a35" },
 ];
 
 const initialConnections: Connection[] = [
-  { id: "c1", from: "laser-1", to: "lens-1", color: "#e84d3c", type: "beam" },
-  { id: "c2", from: "lens-1", to: "sample-1", color: "#e84d3c", type: "beam" },
-  { id: "c3", from: "sample-1", to: "detector-1", color: "#e84d3c", type: "beam" },
-  { id: "c4", from: "detector-1", to: "daq-1", color: "#242a35", type: "signal" },
+  { id: "c1", from: "laser-1", to: "lens-1", color: "#e84d3c", type: "beam", portType: "optical-free-space", fromPort: "right", toPort: "left" },
+  { id: "c2", from: "lens-1", to: "sample-1", color: "#e84d3c", type: "beam", portType: "optical-free-space", fromPort: "right", toPort: "left" },
+  { id: "c3", from: "sample-1", to: "detector-1", color: "#e84d3c", type: "beam", portType: "optical-free-space", fromPort: "right", toPort: "left" },
+  { id: "c4", from: "detector-1", to: "daq-1", color: "#242a35", type: "signal", portType: "rf", fromPort: "right", toPort: "input" },
 ];
 
 const cloneSnapshot = (
   elements: DiagramElement[],
   connections: Connection[],
   publication: PublicationSettings = defaultPublication,
+  experiment: ExperimentRecord = defaultExperiment,
 ): Snapshot => ({
   elements: elements.map((element) => ({ ...element })),
   connections: connections.map((connection) => ({
@@ -193,6 +226,7 @@ const cloneSnapshot = (
     waypoints: connection.waypoints?.map((point) => ({ ...point })),
   })),
   publication: { ...publication },
+  experiment: { procedure: experiment.procedure, checklist: experiment.checklist.map((item) => ({ ...item })) },
 });
 
 const download = (blob: Blob, filename: string) => {
@@ -212,6 +246,17 @@ type DiagramFile = {
   elements: DiagramElement[];
   connections: Connection[];
   publication?: PublicationSettings;
+  experiment?: ExperimentRecord;
+};
+
+const isExperimentRecord = (value: unknown): value is ExperimentRecord => {
+  if (!value || typeof value !== "object") return false;
+  const experiment = value as Record<string, unknown>;
+  return typeof experiment.procedure === "string" && Array.isArray(experiment.checklist) && experiment.checklist.every((item) => {
+    if (!item || typeof item !== "object") return false;
+    const candidate = item as Record<string, unknown>;
+    return typeof candidate.id === "string" && typeof candidate.text === "string" && typeof candidate.done === "boolean";
+  });
 };
 
 const isPublicationSettings = (value: unknown): value is PublicationSettings => {
@@ -229,6 +274,7 @@ const isDiagramFile = (value: unknown): value is DiagramFile => {
   const diagram = value as Record<string, unknown>;
   if (diagram.title !== undefined && typeof diagram.title !== "string") return false;
   if (diagram.publication !== undefined && !isPublicationSettings(diagram.publication)) return false;
+  if (diagram.experiment !== undefined && !isExperimentRecord(diagram.experiment)) return false;
   if (!Array.isArray(diagram.elements) || !Array.isArray(diagram.connections)) return false;
   const ids = new Set<string>();
   for (const candidate of diagram.elements) {
@@ -243,8 +289,10 @@ const isDiagramFile = (value: unknown): value is DiagramFile => {
       typeof element.rotation !== "number" || !Number.isFinite(element.rotation) ||
       ["manufacturer", "model", "specs", "notes", "groupId"].some((key) =>
         element[key] !== undefined && typeof element[key] !== "string") ||
+      ["serialNumber", "calibrationDate", "calibrationDueDate", "uncertainty", "datasheetUrl"].some((key) =>
+        element[key] !== undefined && typeof element[key] !== "string") ||
       ["flipX", "flipY", "locked"].some((key) => element[key] !== undefined && typeof element[key] !== "boolean") ||
-      ["scale", "width", "height"].some((key) => element[key] !== undefined &&
+      ["scale", "width", "height", "powerDbm", "gainDb", "lossDb", "noiseFigureDb", "bandwidthHz", "wavelengthNm"].some((key) => element[key] !== undefined &&
         (typeof element[key] !== "number" || !Number.isFinite(element[key] as number)))
     ) return false;
     ids.add(element.id);
@@ -258,6 +306,9 @@ const isDiagramFile = (value: unknown): value is DiagramFile => {
       (connection.routing === undefined || connection.routing === "straight" || connection.routing === "orthogonal") &&
       (connection.fromPort === undefined || typeof connection.fromPort === "string") &&
       (connection.toPort === undefined || typeof connection.toPort === "string") &&
+      (connection.portType === undefined || Object.hasOwn(portTypeLabels, connection.portType as PortType)) &&
+      ["lossDb", "bandwidthHz"].every((key) => connection[key] === undefined ||
+        typeof connection[key] === "number" && Number.isFinite(connection[key] as number)) &&
       (connection.waypoints === undefined || Array.isArray(connection.waypoints) && connection.waypoints.every((point) =>
         point && typeof point === "object" && Number.isFinite((point as Point).x) && Number.isFinite((point as Point).y))) &&
       ids.has(connection.from) && ids.has(connection.to);
@@ -292,6 +343,25 @@ const connectionPath = (connection: Connection, from: DiagramElement, to: Diagra
 };
 
 const csvCell = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
+const optionalNumber = (value: string) => {
+  if (value === "") return undefined;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
+};
+const escapeLatex = (value: string) => value.replace(/([\\{}%$#&_])/g, "\\$1").replaceAll("~", "\\textasciitilde{}").replaceAll("^", "\\textasciicircum{}");
+const formatBandwidth = (value?: number) => {
+  if (!value) return "—";
+  const units = [[1e9, "GHz"], [1e6, "MHz"], [1e3, "kHz"]] as const;
+  const unit = units.find(([scale]) => value >= scale);
+  return unit ? `${(value / unit[0]).toPrecision(3)} ${unit[1]}` : `${value.toPrecision(3)} Hz`;
+};
+
+const svgDataUri = (source: string) => {
+  const bytes = new TextEncoder().encode(source);
+  let binary = "";
+  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+  return `data:image/svg+xml;base64,${btoa(binary)}`;
+};
 
 function ComponentShape({ element }: { element: DiagramElement }) {
   const common = { stroke: element.color, strokeWidth: 4, fill: "#ffffff", vectorEffect: "non-scaling-stroke" as const };
@@ -454,7 +524,7 @@ export default function Home() {
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
   const [connectMode, setConnectMode] = useState(false);
-  const [connectionType, setConnectionType] = useState<ConnectionType>("beam");
+  const [connectionDomain, setConnectionDomain] = useState<PortType>("optical-free-space");
   const [layers, setLayers] = useState<LayerVisibility>({
     grid: true,
     labels: true,
@@ -468,6 +538,7 @@ export default function Home() {
   const [future, setFuture] = useState<Snapshot[]>([]);
   const [notice, setNotice] = useState("Autosaved locally");
   const [publication, setPublication] = useState(defaultPublication);
+  const [experiment, setExperiment] = useState(defaultExperiment);
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [libraryQuery, setLibraryQuery] = useState("");
   const [favoriteKinds, setFavoriteKinds] = useState<ElementKind[]>([]);
@@ -475,6 +546,7 @@ export default function Home() {
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
   const [savedModules, setSavedModules] = useState<SavedModule[]>([]);
   const [endpointPreview, setEndpointPreview] = useState<Point | null>(null);
+  const [checklistDraft, setChecklistDraft] = useState("");
   const svgRef = useRef<SVGSVGElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bomRef = useRef<HTMLInputElement>(null);
@@ -494,7 +566,14 @@ export default function Home() {
   const selected = selectedIds.length === 1 ? elements.find((element) => element.id === selectedIds[0]) ?? null : null;
   const selectedConnection = connections.find((connection) => connection.id === selectedConnectionId) ?? null;
   const selection = new Set(selectedIds);
-  const validationIssues = validateSetup(elements, connections, electronicKinds, annotationKinds);
+  const validationIssues = validateSetup(
+    elements,
+    connections,
+    electronicKinds,
+    annotationKinds,
+    (kind, portId) => elementKinds.has(kind as ElementKind) ? portTypeFor(kind as ElementKind, portId) : undefined,
+  );
+  const budgets = calculateBudgets(elements, connections);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -506,6 +585,7 @@ export default function Home() {
           setElements(parsed.elements);
           setConnections(parsed.connections);
           if (parsed.publication) setPublication({ ...defaultPublication, ...parsed.publication });
+          if (parsed.experiment) setExperiment(parsed.experiment);
         }
       } catch {
         setNotice("Local draft could not be read");
@@ -528,8 +608,8 @@ export default function Home() {
 
   useEffect(() => {
     if (!hydrated.current) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 3, title, elements, connections, publication }));
-  }, [title, elements, connections, publication]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 4, title, elements, connections, publication, experiment }));
+  }, [title, elements, connections, publication, experiment]);
 
   useEffect(() => {
     localStorage.setItem(FAVORITES_KEY, JSON.stringify(favoriteKinds));
@@ -549,7 +629,7 @@ export default function Home() {
   };
 
   const commit = (nextElements: DiagramElement[], nextConnections = connections) => {
-    const before = editBefore.current ?? cloneSnapshot(elements, connections, publication);
+    const before = editBefore.current ?? cloneSnapshot(elements, connections, publication, experiment);
     editBefore.current = null;
     setPast((items) => [...items.slice(-39), before]);
     setFuture([]);
@@ -558,20 +638,26 @@ export default function Home() {
   };
 
   const commitPublication = (next: PublicationSettings) => {
-    setPast((items) => [...items.slice(-39), cloneSnapshot(elements, connections, publication)]);
+    setPast((items) => [...items.slice(-39), cloneSnapshot(elements, connections, publication, experiment)]);
     setFuture([]);
     setPublication(next);
   };
 
+  const commitExperiment = (next: ExperimentRecord) => {
+    setPast((items) => [...items.slice(-39), cloneSnapshot(elements, connections, publication, experiment)]);
+    setFuture([]);
+    setExperiment(next);
+  };
+
   const beginPropertyEdit = () => {
-    if (!editBefore.current) editBefore.current = cloneSnapshot(elements, connections, publication);
+    if (!editBefore.current) editBefore.current = cloneSnapshot(elements, connections, publication, experiment);
   };
 
   const finishPropertyEdit = (nextTarget: EventTarget | null, container: HTMLElement) => {
     if (nextTarget instanceof Node && container.contains(nextTarget)) return;
     const before = editBefore.current;
     editBefore.current = null;
-    if (!before || JSON.stringify(before) === JSON.stringify(cloneSnapshot(elements, connections, publication))) return;
+    if (!before || JSON.stringify(before) === JSON.stringify(cloneSnapshot(elements, connections, publication, experiment))) return;
     setPast((items) => [...items.slice(-39), before]);
     setFuture([]);
   };
@@ -579,11 +665,12 @@ export default function Home() {
   const undo = () => {
     const previous = past.at(-1);
     if (!previous) return;
-    setFuture((items) => [cloneSnapshot(elements, connections, publication), ...items]);
+    setFuture((items) => [cloneSnapshot(elements, connections, publication, experiment), ...items]);
     setPast((items) => items.slice(0, -1));
     setElements(previous.elements);
     setConnections(previous.connections);
     setPublication(previous.publication);
+    setExperiment(previous.experiment);
     setSelectedIds([]);
     setSelectedConnectionId(null);
   };
@@ -591,11 +678,12 @@ export default function Home() {
   const redo = () => {
     const next = future[0];
     if (!next) return;
-    setPast((items) => [...items, cloneSnapshot(elements, connections, publication)]);
+    setPast((items) => [...items, cloneSnapshot(elements, connections, publication, experiment)]);
     setFuture((items) => items.slice(1));
     setElements(next.elements);
     setConnections(next.connections);
     setPublication(next.publication);
+    setExperiment(next.experiment);
     setSelectedIds([]);
     setSelectedConnectionId(null);
   };
@@ -637,6 +725,9 @@ export default function Home() {
   const changeSelected = (changes: Partial<DiagramElement>) =>
     commit(elements.map((element) => selection.has(element.id) ? { ...element, ...changes } : element));
 
+  const updateSelectedConnection = (changes: Partial<Connection>) =>
+    setConnections((items) => items.map((connection) => connection.id === selectedConnectionId ? { ...connection, ...changes } : connection));
+
   const duplicateSelected = () => {
     if (!selectedIds.length) return;
     const stamp = Date.now();
@@ -670,13 +761,19 @@ export default function Home() {
         const from = elements.find((element) => element.id === connectFrom);
         const to = elements.find((element) => element.id === id);
         if (!from || !to) return;
-        const ports = closestPortPair(from, to);
+        if (!portsFor(from).some((port) => port.type === connectionDomain) || !portsFor(to).some((port) => port.type === connectionDomain)) {
+          setNotice(`Both components need a ${portTypeLabels[connectionDomain]} port`);
+          return;
+        }
+        const ports = closestPortPair(from, to, connectionDomain);
+        const connectionType: ConnectionType = connectionDomain === "optical-free-space" || connectionDomain === "fiber" ? "beam" : "signal";
         const connection: Connection = {
           id: `connection-${Date.now()}`,
           from: connectFrom,
           to: id,
-          color: connectionType === "beam" ? "#e84d3c" : "#303844",
+          color: portTypeColors[connectionDomain],
           type: connectionType,
+          portType: connectionDomain,
           fromPort: ports.source.id,
           toPort: ports.target.id,
           routing: connectionType === "beam" ? "straight" : "orthogonal",
@@ -704,7 +801,7 @@ export default function Home() {
       ids: nextIds,
       start: point,
       origins: elements.filter((element) => nextIds.includes(element.id) && !element.locked).map(({ id: elementId, x, y }) => ({ id: elementId, x, y })),
-      before: cloneSnapshot(elements, connections, publication),
+      before: cloneSnapshot(elements, connections, publication, experiment),
       moved: false,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -769,8 +866,10 @@ export default function Home() {
     const connection = connections.find((item) => item.id === active.connectionId);
     if (connection) {
       const oppositeId = active.end === "from" ? connection.to : connection.from;
+      const from = elements.find((element) => element.id === connection.from);
+      const domain = getConnectionDomain(connection, from);
       const choices = elements.filter((element) => element.id !== oppositeId).flatMap((element) =>
-        portsFor(element).map((port) => ({ element, port, distance: Math.hypot(port.x - point.x, port.y - point.y) })),
+        portsFor(element).filter((port) => port.type === domain).map((port) => ({ element, port, distance: Math.hypot(port.x - point.x, port.y - point.y) })),
       );
       const nearest = choices.sort((a, b) => a.distance - b.distance)[0];
       if (nearest && nearest.distance <= 90) {
@@ -922,23 +1021,130 @@ export default function Home() {
     window.setTimeout(() => popup.print(), 250);
   };
 
+  const exportTikz = () => {
+    const lines = [
+      "% SetupSketch TikZ export — requires \\usepackage{tikz}",
+      "\\begin{tikzpicture}[x=0.01cm,y=-0.01cm, every node/.style={font=\\sffamily\\small}]",
+      ...connections.map((connection) => {
+        const from = elements.find((element) => element.id === connection.from);
+        const to = elements.find((element) => element.id === connection.to);
+        if (!from || !to) return "";
+        const path = connectionPath(connection, from, to, elements).map((point) => `(${point.x.toFixed(1)},${point.y.toFixed(1)})`).join(" -- ");
+        const style = getConnectionType(connection) === "beam" ? "red,line width=1.2pt" : "black,dashed,-stealth";
+        return `  \\draw[${style}] ${path};`;
+      }).filter(Boolean),
+      ...elements.map((element, index) => `  \\node[draw,rounded corners=2pt,fill=white,minimum width=1.5cm,minimum height=0.7cm] (n${index}) at (${element.x.toFixed(1)},${element.y.toFixed(1)}) {${escapeLatex(element.label)}};`),
+      "\\end{tikzpicture}",
+    ];
+    download(new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" }), `${safeFilename(title)}.tex`);
+  };
+
+  const exportNetlist = () => {
+    const quote = (value: string) => `"${value.replaceAll('"', '\\"')}"`;
+    const lines = [
+      "* SetupSketch research netlist v1",
+      `TITLE ${quote(title)}`,
+      experiment.procedure ? `PROCEDURE ${quote(experiment.procedure)}` : "",
+      ...experiment.checklist.map((item) => `CHECK ${item.id} ${item.done ? "DONE" : "OPEN"} ${quote(item.text)}`),
+      ...elements.filter((element) => !annotationKinds.has(element.kind)).map((element) => [
+        "COMP", element.id, element.kind, quote(element.label),
+        element.manufacturer ? `MFR=${quote(element.manufacturer)}` : "",
+        element.model ? `PART=${quote(element.model)}` : "",
+        element.serialNumber ? `SERIAL=${quote(element.serialNumber)}` : "",
+        element.calibrationDate ? `CAL_DATE=${element.calibrationDate}` : "",
+        element.calibrationDueDate ? `CAL_DUE=${element.calibrationDueDate}` : "",
+        element.uncertainty ? `UNCERTAINTY=${quote(element.uncertainty)}` : "",
+        element.datasheetUrl ? `DATASHEET=${quote(element.datasheetUrl)}` : "",
+        element.powerDbm !== undefined ? `POWER_DBM=${element.powerDbm}` : "",
+        element.gainDb !== undefined ? `GAIN_DB=${element.gainDb}` : "",
+        element.lossDb !== undefined ? `LOSS_DB=${element.lossDb}` : "",
+        element.noiseFigureDb !== undefined ? `NF_DB=${element.noiseFigureDb}` : "",
+        element.bandwidthHz !== undefined ? `BW_HZ=${element.bandwidthHz}` : "",
+        element.wavelengthNm !== undefined ? `WAVELENGTH_NM=${element.wavelengthNm}` : "",
+      ].filter(Boolean).join(" ")),
+      ...connections.map((connection) => [
+        "NET", connection.id, getConnectionDomain(connection, elements.find((element) => element.id === connection.from)),
+        `${connection.from}:${connection.fromPort ?? "auto"}`, `${connection.to}:${connection.toPort ?? "auto"}`,
+        connection.lossDb !== undefined ? `LOSS_DB=${connection.lossDb}` : "",
+        connection.bandwidthHz !== undefined ? `BW_HZ=${connection.bandwidthHz}` : "",
+      ].filter(Boolean).join(" ")),
+    ].filter(Boolean);
+    download(new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" }), `${safeFilename(title)}.net`);
+  };
+
+  const exportPowerPoint = async () => {
+    try {
+      const { default: PptxGenJS } = await import("pptxgenjs");
+    const presentation = new PptxGenJS();
+    presentation.layout = "LAYOUT_WIDE";
+    presentation.author = "SetupSketch";
+    presentation.subject = "Scientific setup diagram";
+    presentation.title = title;
+    presentation.company = "SetupSketch";
+    const slide = presentation.addSlide();
+    slide.background = { color: "F7F8FA" };
+    slide.addText(title, { x: 0.5, y: 0.18, w: 12.33, h: 0.5, fontFace: "Arial", fontSize: 35, bold: true, color: "171B22", margin: 0, breakLine: false, fit: "shrink" });
+    const frame = exportFrame();
+    const maxWidth = 12.3;
+    const maxHeight = 6.25;
+    const ratio = frame.width / frame.height;
+    const width = Math.min(maxWidth, maxHeight * ratio);
+    const height = width / ratio;
+    slide.addImage({ data: svgDataUri(svgSource()), x: (13.333 - width) / 2, y: 0.88 + (maxHeight - height) / 2, w: width, h: height });
+    if (budgets.length) {
+      const summary = presentation.addSlide();
+      summary.background = { color: "FFFFFF" };
+      summary.addText("Calculated path budgets", { x: 0.55, y: 0.25, w: 12.2, h: 0.5, fontFace: "Arial", fontSize: 35, bold: true, color: "171B22", margin: 0, fit: "shrink" });
+      summary.addText("Path", { x: 0.55, y: 1.05, w: 5.6, h: 0.35, fontSize: 18, bold: true, color: "68717D", margin: 0 });
+      summary.addText("Input", { x: 6.45, y: 1.05, w: 1.25, h: 0.35, fontSize: 18, bold: true, color: "68717D", margin: 0 });
+      summary.addText("Output", { x: 7.8, y: 1.05, w: 1.25, h: 0.35, fontSize: 18, bold: true, color: "68717D", margin: 0 });
+      summary.addText("Loss", { x: 9.15, y: 1.05, w: 1.1, h: 0.35, fontSize: 18, bold: true, color: "68717D", margin: 0 });
+      summary.addText("Bandwidth", { x: 10.4, y: 1.05, w: 2.3, h: 0.35, fontSize: 18, bold: true, color: "68717D", margin: 0 });
+      budgets.slice(0, 8).forEach((budget, index) => {
+        const y = 1.55 + index * 0.66;
+        summary.addText(budget.labels.join(" → "), { x: 0.55, y, w: 5.6, h: 0.4, fontSize: 16, color: "303844", margin: 0, fit: "shrink" });
+        summary.addText(`${budget.inputPowerDbm.toFixed(2)} dBm`, { x: 6.45, y, w: 1.25, h: 0.4, fontSize: 16, color: "303844", margin: 0 });
+        summary.addText(`${budget.outputPowerDbm.toFixed(2)} dBm`, { x: 7.8, y, w: 1.25, h: 0.4, fontSize: 16, color: "303844", margin: 0 });
+        summary.addText(`${budget.totalLossDb.toFixed(2)} dB`, { x: 9.15, y, w: 1.1, h: 0.4, fontSize: 16, color: "303844", margin: 0 });
+        summary.addText(formatBandwidth(budget.bandwidthHz), { x: 10.4, y, w: 2.3, h: 0.4, fontSize: 16, color: "303844", margin: 0 });
+      });
+    }
+    if (experiment.procedure || experiment.checklist.length) {
+      const procedureSlide = presentation.addSlide();
+      procedureSlide.background = { color: "FFFFFF" };
+      procedureSlide.addText("Experimental procedure", { x: 0.55, y: 0.25, w: 12.2, h: 0.5, fontFace: "Arial", fontSize: 35, bold: true, color: "171B22", margin: 0, fit: "shrink" });
+      if (experiment.procedure) procedureSlide.addText(experiment.procedure, { x: 0.55, y: 1.05, w: 7.1, h: 5.8, fontFace: "Arial", fontSize: 18, color: "303844", margin: 0.05, breakLine: false, valign: "top", fit: "shrink" });
+      if (experiment.checklist.length) procedureSlide.addText(
+        experiment.checklist.slice(0, 12).map((item) => `${item.done ? "✓" : "☐"} ${item.text}`).join("\n"),
+        { x: 8, y: 1.05, w: 4.75, h: 5.8, fontFace: "Arial", fontSize: 18, color: "303844", margin: 0.05, breakLine: false, valign: "top", fit: "shrink" },
+      );
+    }
+      await presentation.writeFile({ fileName: `${safeFilename(title)}.pptx` });
+      setNotice("PowerPoint exported");
+    } catch {
+      setNotice("PowerPoint export failed");
+    }
+  };
+
   const saveJson = () => download(
-    new Blob([JSON.stringify({ version: 3, title, elements, connections, publication }, null, 2)], { type: "application/json" }),
+    new Blob([JSON.stringify({ version: 4, title, elements, connections, publication, experiment }, null, 2)], { type: "application/json" }),
     `${safeFilename(title)}.json`,
   );
 
   const exportBom = () => {
     const rows = new Map<string, { quantity: number; element: DiagramElement }>();
     for (const element of elements) {
-      const key = [element.kind, element.manufacturer, element.model, element.specs].join("|");
+      const key = [element.kind, element.manufacturer, element.model, element.serialNumber, element.specs].join("|");
       const row = rows.get(key);
       if (row) row.quantity += 1;
       else rows.set(key, { quantity: 1, element });
     }
-    const header = ["Quantity", "Kind", "Component", "Manufacturer", "Part number", "Specifications", "Notes"];
+    const header = ["Quantity", "Kind", "Component", "Manufacturer", "Part number", "Serial number", "Calibration date", "Calibration due", "Uncertainty", "Datasheet URL", "Power dBm", "Gain dB", "Loss dB", "Noise figure dB", "Bandwidth Hz", "Wavelength nm", "Specifications", "Notes"];
     const lines = [header, ...[...rows.values()].map(({ quantity, element }) => [
       quantity, element.kind, componentByKind.get(element.kind)?.label ?? element.kind, element.manufacturer ?? "",
-      element.model ?? "", element.specs ?? "", element.notes ?? "",
+      element.model ?? "", element.serialNumber ?? "", element.calibrationDate ?? "", element.calibrationDueDate ?? "",
+      element.uncertainty ?? "", element.datasheetUrl ?? "", element.powerDbm ?? "", element.gainDb ?? "", element.lossDb ?? "",
+      element.noiseFigureDb ?? "", element.bandwidthHz ?? "", element.wavelengthNm ?? "", element.specs ?? "", element.notes ?? "",
     ])].map((row) => row.map(csvCell).join(","));
     download(new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" }), `${safeFilename(title)}-bom.csv`);
   };
@@ -968,6 +1174,17 @@ export default function Home() {
             color: defaultColor(kind),
             manufacturer: row[columns.get("manufacturer") ?? -1] || undefined,
             model: row[columns.get("part number") ?? columns.get("model") ?? -1] || undefined,
+            serialNumber: row[columns.get("serial number") ?? -1] || undefined,
+            calibrationDate: row[columns.get("calibration date") ?? -1] || undefined,
+            calibrationDueDate: row[columns.get("calibration due") ?? -1] || undefined,
+            uncertainty: row[columns.get("uncertainty") ?? -1] || undefined,
+            datasheetUrl: row[columns.get("datasheet url") ?? -1] || undefined,
+            powerDbm: optionalNumber(row[columns.get("power dbm") ?? -1] ?? ""),
+            gainDb: optionalNumber(row[columns.get("gain db") ?? -1] ?? ""),
+            lossDb: optionalNumber(row[columns.get("loss db") ?? -1] ?? ""),
+            noiseFigureDb: optionalNumber(row[columns.get("noise figure db") ?? -1] ?? ""),
+            bandwidthHz: optionalNumber(row[columns.get("bandwidth hz") ?? -1] ?? ""),
+            wavelengthNm: optionalNumber(row[columns.get("wavelength nm") ?? -1] ?? ""),
             specs: row[columns.get("specifications") ?? -1] || undefined,
             notes: row[columns.get("notes") ?? -1] || undefined,
           });
@@ -990,11 +1207,12 @@ export default function Home() {
     try {
       const parsed: unknown = JSON.parse(await file.text());
       if (!isDiagramFile(parsed)) throw new Error("Invalid diagram");
-      setPast((items) => [...items, cloneSnapshot(elements, connections, publication)]);
+      setPast((items) => [...items, cloneSnapshot(elements, connections, publication, experiment)]);
       setTitle(parsed.title || "Untitled setup");
       setElements(parsed.elements);
       setConnections(parsed.connections);
       setPublication(parsed.publication ? { ...defaultPublication, ...parsed.publication } : defaultPublication);
+      setExperiment(parsed.experiment ?? defaultExperiment);
       setFuture([]);
       setSelectedIds([]);
       setNotice("Diagram loaded");
@@ -1008,6 +1226,7 @@ export default function Home() {
   const clearDiagram = () => {
     if ((elements.length || connections.length) && !window.confirm("Clear the current diagram? You can still undo this action.")) return;
     commit([], []);
+    setExperiment(defaultExperiment);
     setSelectedIds([]);
     setSelectedConnectionId(null);
   };
@@ -1026,13 +1245,15 @@ export default function Home() {
     const nextConnections: Connection[] = template.connections.map((connection, index) => {
       const from = byId.get(prefix + connection.from)!;
       const to = byId.get(prefix + connection.to)!;
-      const ports = closestPortPair(from, to);
+      const domain: PortType = connection.type === "beam" ? "optical-free-space" : "rf";
+      const ports = closestPortPair(from, to, domain);
       return {
         id: `${prefix}connection-${index}`,
         from: from.id,
         to: to.id,
         type: connection.type,
-        color: connection.type === "beam" ? "#e84d3c" : "#303844",
+        portType: domain,
+        color: portTypeColors[domain],
         routing: connection.type === "beam" ? "straight" : "orthogonal",
         fromPort: ports.source.id,
         toPort: ports.target.id,
@@ -1117,6 +1338,28 @@ export default function Home() {
     } : connection));
   };
 
+  const changeConnectionDomain = (domain: PortType) => {
+    if (!selectedConnection) return;
+    const from = elements.find((element) => element.id === selectedConnection.from);
+    const to = elements.find((element) => element.id === selectedConnection.to);
+    if (!from || !to || !portsFor(from).some((port) => port.type === domain) || !portsFor(to).some((port) => port.type === domain)) {
+      setNotice(`The selected endpoints do not share ${portTypeLabels[domain]} ports`);
+      return;
+    }
+    const pair = closestPortPair(from, to, domain);
+    const connectionType: ConnectionType = domain === "optical-free-space" || domain === "fiber" ? "beam" : "signal";
+    commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? {
+      ...connection,
+      portType: domain,
+      type: connectionType,
+      color: portTypeColors[domain],
+      routing: connectionType === "beam" ? "straight" : "orthogonal",
+      fromPort: pair.source.id,
+      toPort: pair.target.id,
+      waypoints: undefined,
+    } : connection));
+  };
+
   return (
     <main className="app-shell">
       <style>{`@media print { @page { size: ${publication.pagePreset === "a3" ? "A3 landscape" : "A4 landscape"}; margin: 8mm; } }`}</style>
@@ -1136,10 +1379,9 @@ export default function Home() {
             {connectFrom ? "Choose target" : "Connect"}
           </button>
           <label className="connection-type">
-            <span className="sr-only">Connection type</span>
-            <select value={connectionType} onChange={(event) => setConnectionType(event.target.value as ConnectionType)}>
-              <option value="beam">Beam</option>
-              <option value="signal">Signal</option>
+            <span className="sr-only">Connection domain</span>
+            <select value={connectionDomain} onChange={(event) => setConnectionDomain(event.target.value as PortType)}>
+              {(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <option value={type} key={type}>{label}</option>)}
             </select>
           </label>
           <label className="connection-type">
@@ -1155,6 +1397,9 @@ export default function Home() {
           <input ref={fileRef} className="sr-only" type="file" accept="application/json,.json" onChange={loadJson} />
           <button onClick={exportSvg}>SVG</button>
           <button onClick={exportPng}>PNG</button>
+          <button onClick={exportTikz}>TeX</button>
+          <button onClick={exportPowerPoint}>PPTX</button>
+          <button onClick={exportNetlist}>NET</button>
           <button onClick={exportBom} title="Export bill of materials">BOM↓</button>
           <button onClick={() => bomRef.current?.click()} title="Import bill of materials">BOM↑</button>
           <input ref={bomRef} className="sr-only" type="file" accept="text/csv,.csv" onChange={loadBom} />
@@ -1215,7 +1460,7 @@ export default function Home() {
         <section className="stage-wrap" aria-label="Diagram workspace">
           <div className="stage-meta">
             <span>{elements.length} components · {connections.length} connections</span>
-            <span className={connectMode ? "mode-note active" : "mode-note"} aria-live="polite">{connectMode ? (connectFrom ? `Select ${connectionType} destination` : `Select ${connectionType} source`) : notice}</span>
+            <span className={connectMode ? "mode-note active" : "mode-note"} aria-live="polite">{connectMode ? (connectFrom ? `Select ${portTypeLabels[connectionDomain]} destination` : `Select ${portTypeLabels[connectionDomain]} source`) : notice}</span>
           </div>
           <div className="stage">
             <svg
@@ -1277,7 +1522,7 @@ export default function Home() {
                         cx={point.x} cy={point.y} r="7" fill="#fff" stroke="#1665d8" strokeWidth="3"
                         onPointerDown={(event) => {
                           event.stopPropagation();
-                          bendDrag.current = { connectionId: connection.id, index, before: cloneSnapshot(elements, connections, publication), moved: false };
+                          bendDrag.current = { connectionId: connection.id, index, before: cloneSnapshot(elements, connections, publication, experiment), moved: false };
                           event.currentTarget.setPointerCapture(event.pointerId);
                         }}
                         onPointerMove={moveBend}
@@ -1306,7 +1551,7 @@ export default function Home() {
                   <rect x={-Math.max(66, (element.width ?? 120) * (element.scale ?? 1) / 2)} y={-Math.max(54, (element.height ?? 100) * (element.scale ?? 1) / 2)} width={Math.max(132, (element.width ?? 120) * (element.scale ?? 1))} height={Math.max(108, (element.height ?? 100) * (element.scale ?? 1))} fill="transparent" />
                   {(selection.has(element.id) || connectMode) && portsFor(element).map((port) => {
                     const local = rotatePoint({ x: port.x - element.x, y: port.y - element.y }, -element.rotation);
-                    return <circle className="port-marker" key={port.id} cx={local.x} cy={local.y} r="5" fill="#fff" stroke="#1665d8" strokeWidth="2" />;
+                    return <circle className="port-marker" key={port.id} cx={local.x} cy={local.y} r="5" fill="#fff" stroke={portTypeColors[port.type]} strokeWidth="2"><title>{port.id}: {portTypeLabels[port.type]}</title></circle>;
                   })}
                   {layers.labels && !annotationKinds.has(element.kind) && <text className="labels-layer" y={70 * (element.scale ?? 1)} textAnchor="middle" fill="#252b33" fontSize={14 * publication.labelScale} fontWeight="600" fontFamily="Arial, sans-serif" transform={`rotate(${-element.rotation})`}>{element.label}</text>}
                 </g>
@@ -1323,7 +1568,7 @@ export default function Home() {
                     cx={point.x} cy={point.y} r="8" fill="#1665d8" stroke="#fff" strokeWidth="3"
                     onPointerDown={(event) => {
                       event.stopPropagation();
-                      endpointDrag.current = { connectionId: selectedConnection.id, end: index === 0 ? "from" : "to", before: cloneSnapshot(elements, connections, publication) };
+                      endpointDrag.current = { connectionId: selectedConnection.id, end: index === 0 ? "from" : "to", before: cloneSnapshot(elements, connections, publication, experiment) };
                       setEndpointPreview(point);
                       event.currentTarget.setPointerCapture(event.pointerId);
                     }}
@@ -1354,10 +1599,31 @@ export default function Home() {
                 <label>Height<input type="number" min="30" max="500" value={selected.height ?? (selected.kind === "region" ? 150 : 70)} onChange={(event) => updateSelected({ height: Number(event.target.value) })} /></label>
               </div>}
               <label>Color<input className="color-input" type="color" value={selected.color} onChange={(event) => updateSelected({ color: event.target.value })} /></label>
+              <p className="property-subheading">Engineering parameters</p>
+              <div className="property-row">
+                <label>Source power (dBm)<input type="number" step="0.1" value={selected.powerDbm ?? ""} onChange={(event) => updateSelected({ powerDbm: optionalNumber(event.target.value) })} /></label>
+                <label>Gain (dB)<input type="number" step="0.1" value={selected.gainDb ?? ""} onChange={(event) => updateSelected({ gainDb: optionalNumber(event.target.value) })} /></label>
+              </div>
+              <div className="property-row">
+                <label>Loss (dB)<input type="number" min="0" step="0.1" value={selected.lossDb ?? ""} onChange={(event) => updateSelected({ lossDb: optionalNumber(event.target.value) })} /></label>
+                <label>Noise figure (dB)<input type="number" min="0" step="0.1" value={selected.noiseFigureDb ?? ""} onChange={(event) => updateSelected({ noiseFigureDb: optionalNumber(event.target.value) })} /></label>
+              </div>
+              <div className="property-row">
+                <label>Bandwidth (Hz)<input type="number" min="0" step="any" value={selected.bandwidthHz ?? ""} onChange={(event) => updateSelected({ bandwidthHz: optionalNumber(event.target.value) })} /></label>
+                <label>Wavelength (nm)<input type="number" min="0" step="any" value={selected.wavelengthNm ?? ""} onChange={(event) => updateSelected({ wavelengthNm: optionalNumber(event.target.value) })} /></label>
+              </div>
+              <p className="property-subheading">Traceability</p>
               <label>Manufacturer<input list="manufacturers" value={selected.manufacturer ?? ""} onChange={(event) => updateSelected({ manufacturer: event.target.value })} placeholder="e.g. Thorlabs" /></label>
               <datalist id="manufacturers"><option value="Thorlabs" /><option value="Mini-Circuits" /><option value="Keysight" /></datalist>
               <label>Part number<input value={selected.model ?? ""} onChange={(event) => updateSelected({ model: event.target.value })} placeholder="Vendor model / part number" /></label>
               <label>Specifications<input value={selected.specs ?? ""} onChange={(event) => updateSelected({ specs: event.target.value })} placeholder="Wavelength, bandwidth…" /></label>
+              <label>Serial number<input value={selected.serialNumber ?? ""} onChange={(event) => updateSelected({ serialNumber: event.target.value })} /></label>
+              <div className="property-row">
+                <label>Calibrated<input type="date" value={selected.calibrationDate ?? ""} onChange={(event) => updateSelected({ calibrationDate: event.target.value })} /></label>
+                <label>Calibration due<input type="date" value={selected.calibrationDueDate ?? ""} onChange={(event) => updateSelected({ calibrationDueDate: event.target.value })} /></label>
+              </div>
+              <label>Uncertainty<input value={selected.uncertainty ?? ""} onChange={(event) => updateSelected({ uncertainty: event.target.value })} placeholder="e.g. ±0.2 dB (k=2)" /></label>
+              <label>Datasheet URL<input type="url" value={selected.datasheetUrl ?? ""} onChange={(event) => updateSelected({ datasheetUrl: event.target.value })} placeholder="https://…" /></label>
               <label>Notes<textarea value={selected.notes ?? ""} onChange={(event) => updateSelected({ notes: event.target.value })} /></label>
               <div className="compact-actions">
                 <button onClick={() => changeSelected({ flipX: !selected.flipX })}>Flip horizontal</button>
@@ -1387,15 +1653,23 @@ export default function Home() {
               </div>
             </div>
           ) : selectedConnection ? (
-            <div className="property-form">
+            <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
+              <label>Connection domain<select value={getConnectionDomain(selectedConnection, elements.find((element) => element.id === selectedConnection.from))} onChange={(event) => changeConnectionDomain(event.target.value as PortType)}>
+                {(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <option value={type} key={type}>{label}</option>)}
+              </select></label>
               {(() => {
                 const from = elements.find((element) => element.id === selectedConnection.from);
                 const to = elements.find((element) => element.id === selectedConnection.to);
+                const domain = getConnectionDomain(selectedConnection, from);
                 return <>
-                  {from && <label>Source port<select value={selectedConnection.fromPort ?? closestPortPair(from, to ?? from).source.id} onChange={(event) => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, fromPort: event.target.value, waypoints: undefined } : connection))}>{portsFor(from).map((port) => <option key={port.id} value={port.id}>{from.label}: {port.id}</option>)}</select></label>}
-                  {to && <label>Target port<select value={selectedConnection.toPort ?? closestPortPair(from ?? to, to).target.id} onChange={(event) => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, toPort: event.target.value, waypoints: undefined } : connection))}>{portsFor(to).map((port) => <option key={port.id} value={port.id}>{to.label}: {port.id}</option>)}</select></label>}
+                  {from && <label>Source port<select value={selectedConnection.fromPort ?? closestPortPair(from, to ?? from, domain).source.id} onChange={(event) => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, fromPort: event.target.value, waypoints: undefined } : connection))}>{portsFor(from).filter((port) => port.type === domain).map((port) => <option key={port.id} value={port.id}>{from.label}: {port.id} · {portTypeLabels[port.type]}</option>)}</select></label>}
+                  {to && <label>Target port<select value={selectedConnection.toPort ?? closestPortPair(from ?? to, to, domain).target.id} onChange={(event) => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, toPort: event.target.value, waypoints: undefined } : connection))}>{portsFor(to).filter((port) => port.type === domain).map((port) => <option key={port.id} value={port.id}>{to.label}: {port.id} · {portTypeLabels[port.type]}</option>)}</select></label>}
                 </>;
               })()}
+              <div className="property-row">
+                <label>Path loss (dB)<input type="number" min="0" step="0.1" value={selectedConnection.lossDb ?? ""} onChange={(event) => updateSelectedConnection({ lossDb: optionalNumber(event.target.value) })} /></label>
+                <label>Bandwidth (Hz)<input type="number" min="0" step="any" value={selectedConnection.bandwidthHz ?? ""} onChange={(event) => updateSelectedConnection({ bandwidthHz: optionalNumber(event.target.value) })} /></label>
+              </div>
               <label>Routing<select value={selectedConnection.routing ?? (getConnectionType(selectedConnection) === "signal" ? "orthogonal" : "straight")} onChange={(event) => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, routing: event.target.value as Routing, waypoints: undefined } : connection))}>
                 <option value="straight">Straight</option><option value="orthogonal">Orthogonal</option>
               </select></label>
@@ -1409,6 +1683,39 @@ export default function Home() {
           <section className="layers-panel" aria-labelledby="layout-title">
             <div className="panel-heading"><span id="layout-title">Layout</span></div>
             <label className="layer-toggle"><input type="checkbox" checked={snapEnabled} onChange={(event) => setSnapEnabled(event.target.checked)} /><span>Snap to grid</span></label>
+            <div className="port-legend">{(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <span key={type}><i style={{ background: portTypeColors[type] }} />{label}</span>)}</div>
+          </section>
+          <section className="layers-panel budget-panel" aria-labelledby="budget-title">
+            <div className="panel-heading"><span id="budget-title">Path budgets</span><span>{budgets.length}</span></div>
+            {budgets.length ? budgets.slice(0, 5).map((budget) => <article className="budget-result" key={budget.id}>
+              <strong>{budget.labels.join(" → ")}</strong>
+              <span>{portTypeLabels[budget.domain]} · {budget.inputPowerDbm.toFixed(2)} → {budget.outputPowerDbm.toFixed(2)} dBm</span>
+              <span>Gain {budget.totalGainDb.toFixed(2)} dB · loss {budget.totalLossDb.toFixed(2)} dB</span>
+              <span>BW {formatBandwidth(budget.bandwidthHz)}{budget.noiseFigureDb !== undefined ? ` · NF ${budget.noiseFigureDb.toFixed(2)} dB` : ""}</span>
+              {budget.outputNoiseDbm !== undefined && <span>Noise {budget.outputNoiseDbm.toFixed(2)} dBm · SNR {budget.snrDb?.toFixed(2)} dB</span>}
+            </article>) : <p className="validation-more">Set source power on a component to calculate directed paths.</p>}
+            <p className="model-note">Cascaded dB budget; RF noise uses Friis and −174 dBm/Hz at 290 K. Reflections, mismatch and coherent interference are not included.</p>
+          </section>
+          <section className="layers-panel experiment-panel" aria-labelledby="experiment-title">
+            <div className="panel-heading"><span id="experiment-title">Experiment</span></div>
+            <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
+              <label>Procedure<textarea value={experiment.procedure} onChange={(event) => setExperiment((current) => ({ ...current, procedure: event.target.value }))} placeholder="Alignment, warm-up, acquisition and shutdown procedure…" /></label>
+            </div>
+            <form className="checklist-add" onSubmit={(event) => {
+              event.preventDefault();
+              const text = checklistDraft.trim();
+              if (!text) return;
+              commitExperiment({ ...experiment, checklist: [...experiment.checklist, { id: `check-${Date.now()}`, text, done: false }] });
+              setChecklistDraft("");
+            }}>
+              <label className="sr-only" htmlFor="checklist-draft">New checklist item</label>
+              <input id="checklist-draft" value={checklistDraft} onChange={(event) => setChecklistDraft(event.target.value)} placeholder="Add checklist item" />
+              <button type="submit">Add</button>
+            </form>
+            {experiment.checklist.map((item) => <div className="checklist-row" key={item.id}>
+              <label><input type="checkbox" checked={item.done} onChange={(event) => commitExperiment({ ...experiment, checklist: experiment.checklist.map((candidate) => candidate.id === item.id ? { ...candidate, done: event.target.checked } : candidate) })} /><span>{item.text}</span></label>
+              <button className="danger" aria-label={`Delete ${item.text}`} onClick={() => commitExperiment({ ...experiment, checklist: experiment.checklist.filter((candidate) => candidate.id !== item.id) })}>×</button>
+            </div>)}
           </section>
           <section className="layers-panel validation-panel" aria-labelledby="validation-title">
             <div className="panel-heading"><span id="validation-title">Setup checks</span><span>{validationIssues.length}</span></div>

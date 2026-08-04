@@ -10,6 +10,12 @@ export type ModelElement = {
   height?: number;
   scale?: number;
   locked?: boolean;
+  powerDbm?: number;
+  gainDb?: number;
+  lossDb?: number;
+  noiseFigureDb?: number;
+  bandwidthHz?: number;
+  calibrationDueDate?: string;
 };
 
 export type ModelConnection = {
@@ -19,6 +25,23 @@ export type ModelConnection = {
   type?: "beam" | "signal";
   fromPort?: string;
   toPort?: string;
+  portType?: "optical-free-space" | "fiber" | "rf" | "dc" | "trigger" | "digital";
+  lossDb?: number;
+  bandwidthHz?: number;
+};
+
+export type BudgetResult = {
+  id: string;
+  labels: string[];
+  domain: NonNullable<ModelConnection["portType"]>;
+  inputPowerDbm: number;
+  outputPowerDbm: number;
+  totalGainDb: number;
+  totalLossDb: number;
+  noiseFigureDb?: number;
+  outputNoiseDbm?: number;
+  snrDb?: number;
+  bandwidthHz?: number;
 };
 
 export type ValidationIssue = {
@@ -38,6 +61,76 @@ export const moveElements = <T extends ModelElement>(
   x: Math.max(60, Math.min(bounds.width - 60, element.x + dx)),
   y: Math.max(60, Math.min(bounds.height - 60, element.y + dy)),
 } : element);
+
+export const calculateBudgets = (
+  elements: ModelElement[],
+  connections: ModelConnection[],
+): BudgetResult[] => {
+  const byId = new Map(elements.map((element) => [element.id, element]));
+  const outgoing = new Map<string, ModelConnection[]>();
+  for (const connection of connections) outgoing.set(connection.from, [...(outgoing.get(connection.from) ?? []), connection]);
+  const results: BudgetResult[] = [];
+  const summarize = (path: ModelElement[], links: ModelConnection[], domain: BudgetResult["domain"]) => {
+    const sourcePower = path[0].powerDbm;
+    if (sourcePower === undefined || path.length < 2) return;
+    const totalGainDb = path.reduce((sum, element) => sum + (element.gainDb ?? 0), 0);
+    const totalLossDb = path.reduce((sum, element) => sum + (element.lossDb ?? 0), 0) + links.reduce((sum, link) => sum + (link.lossDb ?? 0), 0);
+    const bandwidths = [...path.map((element) => element.bandwidthHz), ...links.map((link) => link.bandwidthHz)]
+      .filter((value): value is number => typeof value === "number" && value > 0);
+    let totalNoiseFactor = 1;
+    let precedingGain = 1;
+    if (domain === "rf") {
+      const stages = path.flatMap((element, index) => {
+        const elementStage = { gainDb: (element.gainDb ?? 0) - (element.lossDb ?? 0), noiseFigureDb: element.noiseFigureDb ?? element.lossDb ?? 0 };
+        const link = links[index];
+        return link ? [elementStage, { gainDb: -(link.lossDb ?? 0), noiseFigureDb: link.lossDb ?? 0 }] : [elementStage];
+      });
+      stages.forEach((stage, index) => {
+        const factor = 10 ** (stage.noiseFigureDb / 10);
+        totalNoiseFactor = index === 0 ? factor : totalNoiseFactor + (factor - 1) / Math.max(precedingGain, 1e-12);
+        precedingGain *= 10 ** (stage.gainDb / 10);
+      });
+    }
+    const noiseFigureDb = domain === "rf" ? 10 * Math.log10(Math.max(totalNoiseFactor, 1)) : undefined;
+    const bandwidthHz = bandwidths.length ? Math.min(...bandwidths) : undefined;
+    const outputPowerDbm = sourcePower + totalGainDb - totalLossDb;
+    const outputNoiseDbm = domain === "rf" && bandwidthHz && noiseFigureDb !== undefined
+      ? -174 + 10 * Math.log10(bandwidthHz) + noiseFigureDb + totalGainDb - totalLossDb
+      : undefined;
+    results.push({
+      id: links.map((link) => link.id).join("-"),
+      labels: path.map((element) => element.label),
+      domain,
+      inputPowerDbm: sourcePower,
+      outputPowerDbm,
+      totalGainDb,
+      totalLossDb,
+      noiseFigureDb,
+      outputNoiseDbm,
+      snrDb: outputNoiseDbm !== undefined ? outputPowerDbm - outputNoiseDbm : undefined,
+      bandwidthHz,
+    });
+  };
+  const walk = (path: ModelElement[], links: ModelConnection[], domain?: BudgetResult["domain"]) => {
+    if (results.length >= 40) return;
+    const last = path.at(-1)!;
+    const nextLinks = (outgoing.get(last.id) ?? []).filter((link) => !domain || (link.portType ?? "rf") === domain);
+    if (!nextLinks.length) {
+      if (domain) summarize(path, links, domain);
+      return;
+    }
+    for (const link of nextLinks) {
+      const next = byId.get(link.to);
+      if (!next || path.some((element) => element.id === next.id)) {
+        if (domain) summarize(path, links, domain);
+        continue;
+      }
+      walk([...path, next], [...links, link], domain ?? link.portType ?? (link.type === "beam" ? "optical-free-space" : "rf"));
+    }
+  };
+  elements.filter((element) => element.powerDbm !== undefined).forEach((source) => walk([source], []));
+  return results;
+};
 
 const compactPoints = (points: ModelPoint[]) => points.filter((point, index) => {
   const previous = points[index - 1];
@@ -126,6 +219,8 @@ export const validateSetup = (
   connections: ModelConnection[],
   electronicKinds: Set<string>,
   annotationKinds: Set<string>,
+  resolvePortType?: (kind: string, portId: string) => ModelConnection["portType"],
+  today = new Date().toISOString().slice(0, 10),
 ): ValidationIssue[] => {
   const issues: ValidationIssue[] = [];
   const byId = new Map(elements.map((element) => [element.id, element]));
@@ -142,6 +237,15 @@ export const validateSetup = (
     const expected = minimumDegree.get(element.kind);
     if (expected && (degree.get(element.id) ?? 0) > 0 && (degree.get(element.id) ?? 0) < expected) {
       issues.push({ severity: "warning", message: `${element.label} has an incomplete ${expected}-port path`, elementIds: [element.id] });
+    }
+    if (element.calibrationDueDate && element.calibrationDueDate < today) {
+      issues.push({ severity: "error", message: `${element.label} calibration expired on ${element.calibrationDueDate}`, elementIds: [element.id] });
+    }
+    if (element.bandwidthHz !== undefined && element.bandwidthHz <= 0) {
+      issues.push({ severity: "error", message: `${element.label} bandwidth must be positive`, elementIds: [element.id] });
+    }
+    if (element.lossDb !== undefined && element.lossDb < 0) {
+      issues.push({ severity: "warning", message: `${element.label} uses negative loss; enter gain separately`, elementIds: [element.id] });
     }
   }
   const labels = new Map<string, string[]>();
@@ -161,6 +265,12 @@ export const validateSetup = (
       issues.push({ severity: "warning", message: `Optical beam reaches an electronic-only component`, elementIds: [from.id, to.id] });
     } else if (annotationKinds.has(from.kind) || annotationKinds.has(to.kind)) {
       issues.push({ severity: "warning", message: `A signal path is attached to an annotation`, elementIds: [from.id, to.id] });
+    } else if (resolvePortType && connection.portType && connection.fromPort && connection.toPort &&
+      (resolvePortType(from.kind, connection.fromPort) !== connection.portType || resolvePortType(to.kind, connection.toPort) !== connection.portType)) {
+      issues.push({ severity: "error", message: `${connection.portType} path uses an incompatible port`, elementIds: [from.id, to.id] });
+    }
+    if (connection.bandwidthHz !== undefined && connection.bandwidthHz <= 0) {
+      issues.push({ severity: "error", message: `Connection ${connection.id} bandwidth must be positive`, elementIds: [connection.from, connection.to] });
     }
   }
   const occupiedPorts = new Map<string, string[]>();
