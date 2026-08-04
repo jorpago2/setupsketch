@@ -30,7 +30,7 @@ button {
 }
 
 button:hover { border-color: #aab3bf; background: #f8fafc; }
-button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid rgba(22, 101, 216, .25); outline-offset: 2px; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .suite-link:focus-visible { outline: 3px solid rgba(22, 101, 216, .25); outline-offset: 2px; }
 button:disabled { cursor: not-allowed; opacity: .4; }
 button.active { border-color: var(--blue); background: var(--blue-soft); color: var(--blue); }
 button.primary { border-color: var(--blue); background: var(--blue); color: #fff; }
@@ -88,6 +88,8 @@ button.danger { color: var(--danger); }
 
 .toolbar, .toolbar-group, .toolbar-export-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .toolbar { justify-content: flex-end; padding: 4px 0; }
+.suite-link { min-height: 36px; display: inline-flex; align-items: center; padding: 0 8px; border: 1px solid var(--line); border-radius: 7px; color: var(--blue); background: #fff; font-size: 10px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.suite-link:hover { border-color: #aab3bf; background: #f8fafc; }
 .toolbar-group + .toolbar-group { padding-left: 6px; border-left: 1px solid var(--line); }
 .toolbar button, .toolbar-export-mobile summary { min-height: 36px; padding: 0 8px; font-size: 10px; font-weight: 700; }
 .toolbar-export-mobile { display: none; }
@@ -184,7 +186,7 @@ button.danger { color: var(--danger); }
   .app-shell { min-width: 0; }
   .topbar { grid-template-columns: 150px minmax(300px, 1fr); }
   .toolbar { grid-column: 1 / -1; justify-content: center; }
-  .toolbar button, .toolbar-export-mobile summary, .connection-type select { min-height: 44px; }
+  .toolbar button, .toolbar-export-mobile summary, .connection-type select, .suite-link { min-height: 44px; }
   .toolbar-export-desktop { display: none; }
   .toolbar-export-mobile { position: relative; display: block; }
   .toolbar-export-mobile summary { display: flex; align-items: center; cursor: pointer; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
@@ -201,7 +203,7 @@ button.danger { color: var(--danger); }
   .topbar { grid-template-columns: 1fr; gap: 5px; padding: 10px 12px; }
   .brand, .project-title { justify-content: center; }
   .toolbar { justify-content: center; }
-  .toolbar button, .toolbar-export-mobile summary, .connection-type select { min-height: 44px; }
+  .toolbar button, .toolbar-export-mobile summary, .connection-type select, .suite-link { min-height: 44px; }
   .toolbar-group + .toolbar-group { padding-left: 0; border-left: 0; }
   .toolbar-export-desktop { display: none; }
   .toolbar-export-mobile { position: relative; display: block; }

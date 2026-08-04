@@ -1432,6 +1432,7 @@ export default function Home() {
           <input value={title} onChange={(event) => setTitle(event.target.value)} />
         </label>
         <div className="toolbar" aria-label="Diagram actions">
+          <a className="suite-link" href="https://jorpago2.github.io/" aria-label="Online Simulators & Tools">All tools</a>
           <div className="toolbar-group" role="group" aria-label="Edit actions">
             <button onClick={undo} disabled={!past.length} title="Undo (Ctrl+Z)">Undo</button>
             <button onClick={redo} disabled={!future.length} title="Redo (Ctrl+Y)">Redo</button>
