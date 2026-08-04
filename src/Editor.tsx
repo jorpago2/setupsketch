@@ -347,8 +347,8 @@ function ElectronicPortStubs({ element }: { element: DiagramElement }) {
   return <>{componentPortLayouts[layout].map((port) => (
     <line
       key={port.id}
-      x1={port.x * 0.72}
-      y1={port.y * 0.72}
+      x1={port.x * 0.58}
+      y1={port.y * 0.58}
       x2={port.x}
       y2={port.y}
       stroke={element.color}
@@ -467,12 +467,28 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
       return <><rect x="-43" y="-32" width="86" height="64" rx="3" {...common} /><path d="M-43 0H-23L26 -20H43M-23 0L26 20H43" fill="none" stroke={element.color} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" /><text x="10" y="5" textAnchor="middle" fill={element.color} fontSize="12" fontWeight="700" fontFamily="Arial, sans-serif">−3 dB</text></>;
     case "directionalcoupler":
       return <><rect x="-46" y="-31" width="92" height="62" rx="5" {...common} /><path d="M-54 -14H54M-54 14H54M-22 -14L-8 -14M-14 -21L-7 -14L-14 -7M8 14H22M14 7L21 14L14 21" fill="none" stroke={element.color} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" /></>;
+    case "circulator":
+      return <><circle r="36" {...common} /><path d="M-18 18A25 25 0 1120 13M20 13L20 2M20 13L9 13" fill="none" stroke={element.color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /></>;
+    case "rfisolator":
+      return <><rect x="-43" y="-28" width="86" height="56" rx="3" {...common} /><path d="M-27 0H24M11 -13L26 0L11 13" fill="none" stroke={element.color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /><path d="M-22 21L22 -21" stroke={element.color} strokeWidth="2.5" opacity="0.65" /></>;
+    case "diplexer":
+      return <><rect x="-43" y="-32" width="86" height="64" rx="3" {...common} /><path d="M-43 0H-22L22 -20H43M-22 0L22 20H43" fill="none" stroke={element.color} strokeWidth="3.2" strokeLinecap="round" /><text x="20" y="-10" textAnchor="middle" fill={element.color} fontSize="10" fontWeight="700" fontFamily="Arial, sans-serif">LP</text><text x="20" y="25" textAnchor="middle" fill={element.color} fontSize="10" fontWeight="700" fontFamily="Arial, sans-serif">HP</text></>;
     case "biastee":
       return <><rect x="-43" y="-31" width="86" height="62" rx="5" {...common} /><path d="M-54 0H-25M-25 -18V18M-14 -18V18M-14 0H54M10 0V-7C22 -7 22 -17 10 -17S-2 -27 10 -27S22 -37 10 -37V-52" fill="none" stroke={element.color} strokeWidth="3.5" strokeLinecap="round" /><circle cx="10" r="4" fill={element.color} /><text x="10" y="-40" textAnchor="middle" fill={element.color} fontSize="9" fontWeight="700" fontFamily="Arial, sans-serif">DC</text></>;
     case "rfswitch":
       return <><rect x="-45" y="-32" width="90" height="64" rx="5" {...common} /><path d="M-54 0H-18L22 -18M22 -18H54M22 18H54" fill="none" stroke={element.color} strokeWidth="4" strokeLinecap="round" /><circle cx="-18" r="5" fill={element.color} /><circle cx="22" cy="-18" r="5" fill={element.color} /><circle cx="22" cy="18" r="5" fill={element.color} /></>;
     case "bandpass":
       return <><rect x="-49" y="-31" width="98" height="62" rx="3" {...common} /><path d="M-34 -20V20H36M-31 16H-22C-13 16 -13 -16 -4 -16H13C22 -16 22 16 33 16" fill="none" stroke={element.color} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" /></>;
+    case "bandstop":
+      return <><rect x="-49" y="-31" width="98" height="62" rx="3" {...common} /><path d="M-34 -20V20H36M-31 -15H-20C-11 -15 -11 16 -2 16H9C18 16 18 -15 33 -15" fill="none" stroke={element.color} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" /></>;
+    case "delayline":
+      return <><rect x="-43" y="-28" width="86" height="56" rx="3" {...common} /><path d="M-43 0H-25C-18 -17 -10 -17 -3 0S12 17 20 0H43" fill="none" stroke={element.color} strokeWidth="3.2" strokeLinecap="round" /><text x="25" y="-10" textAnchor="middle" fill={element.color} fontSize="16" fontFamily="serif">τ</text></>;
+    case "lna":
+      return <><path d="M-42 -36L45 0L-42 36Z" {...common} /><text x="-8" y="6" textAnchor="middle" fill={element.color} fontSize="15" fontWeight="700" fontFamily="Arial, sans-serif">LNA</text></>;
+    case "poweramplifier":
+      return <><path d="M-42 -36L45 0L-42 36Z" {...common} /><text x="-8" y="6" textAnchor="middle" fill={element.color} fontSize="17" fontWeight="700" fontFamily="Arial, sans-serif">PA</text></>;
+    case "iqmixer":
+      return <><circle r="36" {...common} /><path d="M-17 -17L17 17M17 -17L-17 17" stroke={element.color} strokeWidth="4" strokeLinecap="round" /><text x="-29" y="-8" fill={element.color} fontSize="9" fontWeight="700" fontFamily="Arial, sans-serif">RF</text><text x="5" y="-24" fill={element.color} fontSize="9" fontWeight="700" fontFamily="Arial, sans-serif">LO</text><text x="25" y="-8" fill={element.color} fontSize="10" fontWeight="700" fontFamily="Arial, sans-serif">I</text><text x="7" y="31" fill={element.color} fontSize="10" fontWeight="700" fontFamily="Arial, sans-serif">Q</text></>;
     case "vco":
       return <><circle r="36" {...common} /><path d="M-23 1C-16 -17 -9 -17 -2 1S12 19 20 1" fill="none" stroke={element.color} strokeWidth="3.2" /><path d="M-30 29L30 -29M21 -29H30V-20" fill="none" stroke={element.color} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" /></>;
     case "termination":
