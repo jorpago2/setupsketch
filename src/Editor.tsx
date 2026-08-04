@@ -442,7 +442,7 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
     case "oscilloscope":
       return <><rect x="-52" y="-35" width="104" height="70" rx="6" {...common} /><rect x="-41" y="-24" width="60" height="44" rx="2" fill={element.color} fillOpacity="0.05" stroke={element.color} strokeWidth="2.5" /><path d="M-35 4C-28 -17 -20 17 -11 0S3 -17 12 1" fill="none" stroke={element.color} strokeWidth="2.8" /><circle cx="35" cy="-16" r="7" fill="none" stroke={element.color} strokeWidth="2.5" /><circle cx="31" cy="13" r="5" fill="#fff" stroke={element.color} strokeWidth="2.4" /><circle cx="44" cy="13" r="5" fill="#fff" stroke={element.color} strokeWidth="2.4" /></>;
     case "amplifier":
-      return <><path d="M-42 -36L45 0L-42 36Z" {...common} /><path d="M-27 0h18M-18 -9v18" stroke={element.color} strokeWidth="3" /></>;
+      return <path d="M-42 -36L45 0L-42 36Z" {...common} />;
     case "hvamplifier":
       return <><path d="M-42 -36L45 0L-42 36Z" {...common} /><path d="M-11 -21L-24 4H-8L-19 24L18 -8H1L12 -21Z" fill={element.color} /></>;
     case "photodiode":
@@ -452,9 +452,9 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
     case "mixer":
       return <><circle r="37" {...common} /><path d="M-18 -18L18 18M18 -18L-18 18" stroke={element.color} strokeWidth="5" strokeLinecap="round" /></>;
     case "lowpass":
-      return <><rect x="-49" y="-31" width="98" height="62" rx="6" {...common} /><path d="M-35 -18V5C-35 18 -20 18 -10 18H35" fill="none" stroke={element.color} strokeWidth="4" /></>;
+      return <><rect x="-49" y="-31" width="98" height="62" rx="3" {...common} /><path d="M-34 -20V20H36M-31 -15V4C-31 15 -18 16 -8 16H33" fill="none" stroke={element.color} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" /></>;
     case "highpass":
-      return <><rect x="-49" y="-31" width="98" height="62" rx="6" {...common} /><path d="M-35 18H-10C3 18 3 3 3 -6V-18H35" fill="none" stroke={element.color} strokeWidth="4" /></>;
+      return <><rect x="-49" y="-31" width="98" height="62" rx="3" {...common} /><path d="M-34 -20V20H36M-31 16H-8C3 16 3 4 3 -5V-16H33" fill="none" stroke={element.color} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" /></>;
     case "servo":
       return <><rect x="-48" y="-31" width="96" height="62" rx="5" {...common} /><text y="8" textAnchor="middle" fill={element.color} fontSize="23" fontWeight="700" fontFamily="Arial, sans-serif">PID</text></>;
     case "spectrum":
@@ -462,9 +462,9 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
     case "daq":
       return <><rect x="-49" y="-32" width="98" height="64" rx="6" {...common} /><rect x="-35" y="-20" width="52" height="40" rx="2" fill={element.color} fillOpacity="0.05" stroke={element.color} strokeWidth="2.4" /><path d="M-28 10V-8M-17 10V1M-6 10V-14M5 10V-3M25 -16H39M25 -5H39M25 6H39M25 17H39" stroke={element.color} strokeWidth="2.8" strokeLinecap="round" /><circle cx="34" cy="-24" r="3.5" fill={element.color} /></>;
     case "attenuator":
-      return <><path d="M-53 0H-43M43 0H53" stroke={element.color} strokeWidth="4" /><rect x="-43" y="-27" width="86" height="54" rx="5" {...common} /><text y="8" textAnchor="middle" fill={element.color} fontSize="22" fontWeight="700" fontFamily="Arial, sans-serif">ATT</text></>;
+      return <><rect x="-43" y="-27" width="86" height="54" rx="3" {...common} /><path d="M-27 16V-13H27V16" fill="none" stroke={element.color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /></>;
     case "splitter":
-      return <><path d="M-52 0H-20M-20 0L28 -23H52M-20 0L28 23H52" fill="none" stroke={element.color} strokeWidth="5" strokeLinecap="round" /><circle cx="-20" r="7" fill="#fff" stroke={element.color} strokeWidth="3" /></>;
+      return <><rect x="-43" y="-32" width="86" height="64" rx="3" {...common} /><path d="M-43 0H-23L26 -20H43M-23 0L26 20H43" fill="none" stroke={element.color} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" /><text x="10" y="5" textAnchor="middle" fill={element.color} fontSize="12" fontWeight="700" fontFamily="Arial, sans-serif">−3 dB</text></>;
     case "directionalcoupler":
       return <><rect x="-46" y="-31" width="92" height="62" rx="5" {...common} /><path d="M-54 -14H54M-54 14H54M-22 -14L-8 -14M-14 -21L-7 -14L-14 -7M8 14H22M14 7L21 14L14 21" fill="none" stroke={element.color} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" /></>;
     case "biastee":
@@ -472,7 +472,7 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
     case "rfswitch":
       return <><rect x="-45" y="-32" width="90" height="64" rx="5" {...common} /><path d="M-54 0H-18L22 -18M22 -18H54M22 18H54" fill="none" stroke={element.color} strokeWidth="4" strokeLinecap="round" /><circle cx="-18" r="5" fill={element.color} /><circle cx="22" cy="-18" r="5" fill={element.color} /><circle cx="22" cy="18" r="5" fill={element.color} /></>;
     case "bandpass":
-      return <><rect x="-49" y="-31" width="98" height="62" rx="6" {...common} /><path d="M-35 18H-22C-13 18 -13 -18 -4 -18H13C22 -18 22 18 35 18" fill="none" stroke={element.color} strokeWidth="4" strokeLinecap="round" /></>;
+      return <><rect x="-49" y="-31" width="98" height="62" rx="3" {...common} /><path d="M-34 -20V20H36M-31 16H-22C-13 16 -13 -16 -4 -16H13C22 -16 22 16 33 16" fill="none" stroke={element.color} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" /></>;
     case "vco":
       return <><circle r="36" {...common} /><path d="M-23 1C-16 -17 -9 -17 -2 1S12 19 20 1" fill="none" stroke={element.color} strokeWidth="3.2" /><path d="M-30 29L30 -29M21 -29H30V-20" fill="none" stroke={element.color} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" /></>;
     case "termination":
@@ -484,7 +484,7 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
     case "rftransformer":
       return <><rect x="-46" y="-31" width="92" height="62" rx="5" {...common} /><path d="M-54 -16H-31M-54 16H-31M31 -16H54M31 16H54M-31 -16V16M31 -16V16" stroke={element.color} strokeWidth="3.5" /><path d="M-21 -16C-9 -16 -9 -5 -21 -5S-33 6 -21 6S-9 16 -21 16M21 -16C9 -16 9 -5 21 -5S33 6 21 6S9 16 21 16" fill="none" stroke={element.color} strokeWidth="3" /></>;
     case "phaseshifter":
-      return <><path d="M-54 0H-43M43 0H54" stroke={element.color} strokeWidth="4" /><rect x="-43" y="-28" width="86" height="56" rx="5" {...common} /><text x="-7" y="10" textAnchor="middle" fill={element.color} fontSize="29" fontWeight="700" fontFamily="serif">φ</text><path d="M13 12L30 -12M21 -12H30V-3" fill="none" stroke={element.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></>;
+      return <><rect x="-43" y="-28" width="86" height="56" rx="3" {...common} /><text y="10" textAnchor="middle" fill={element.color} fontSize="30" fontFamily="serif">φ</text></>;
     case "frequencymultiplier":
       return <><path d="M-54 0H-43M43 0H54" stroke={element.color} strokeWidth="4" /><rect x="-43" y="-28" width="86" height="56" rx="5" {...common} /><text y="9" textAnchor="middle" fill={element.color} fontSize="25" fontWeight="700" fontFamily="Arial, sans-serif">×N</text></>;
     case "limiter":
