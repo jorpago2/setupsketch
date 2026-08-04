@@ -11,7 +11,7 @@
 
 * { box-sizing: border-box; }
 
-html, body { margin: 0; min-height: 100%; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
 
 body {
   background: var(--paper);
@@ -49,7 +49,7 @@ button.danger { color: var(--danger); }
   border: 0;
 }
 
-.app-shell { min-width: 1024px; height: 100vh; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
+.app-shell { position: fixed; inset: 0; min-width: 1024px; height: 100vh; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
 
 .topbar {
   display: grid;
@@ -162,8 +162,18 @@ button.danger { color: var(--danger); }
   .toolbar button { padding: 0 6px; }
 }
 
-@media (max-width: 900px) {
-  .app-shell { min-width: 0; height: auto; min-height: 100vh; display: block; overflow: visible; }
+@media (min-width: 641px) and (max-width: 900px) {
+  .app-shell { min-width: 0; }
+  .topbar { grid-template-columns: 150px minmax(300px, 1fr); }
+  .toolbar { grid-column: 1 / -1; justify-content: center; }
+  .workspace { grid-template-columns: clamp(150px, 22vw, 170px) minmax(300px, 1fr) clamp(150px, 22vw, 170px); }
+  .library, .inspector { padding: 8px; }
+  .stage-wrap { padding: 0 8px 8px; }
+}
+
+@media (max-width: 640px) {
+  html, body { height: auto; min-height: 100%; overflow: visible; }
+  .app-shell { position: static; min-width: 0; height: auto; min-height: 100vh; display: block; overflow: visible; }
   .topbar { grid-template-columns: 1fr; gap: 5px; padding: 10px 12px; }
   .brand, .project-title { justify-content: center; }
   .toolbar { justify-content: center; }
@@ -181,9 +191,10 @@ button.danger { color: var(--danger); }
 
 @media print {
   @page { size: A4 landscape; margin: 8mm; }
+  html, body { height: auto; overflow: visible; }
   body { background: #fff; }
   .topbar, .library, .inspector, .stage-meta { display: none !important; }
-  .app-shell, .workspace, .stage-wrap, .stage { display: block; min-width: 0; min-height: 0; padding: 0; border: 0; background: #fff; box-shadow: none; }
+  .app-shell, .workspace, .stage-wrap, .stage { position: static; display: block; min-width: 0; min-height: 0; padding: 0; border: 0; background: #fff; box-shadow: none; }
   .diagram { width: 100%; max-height: none; box-shadow: none; }
   .grid-layer, .selection-outline, .connection-hit { display: none; }
 }
