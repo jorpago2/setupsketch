@@ -364,7 +364,7 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
 
   switch (element.kind) {
     case "laser":
-      return <><path d="M-58 0H-44" stroke={monochrome ? element.color : portTypeColors.dc} strokeWidth="3.4" /><rect x="-44" y="-28" width="88" height="56" rx="4" {...common} /><path d="M-27 -16V8M20 -16V8M-21 -4H14" fill="none" stroke={element.color} strokeWidth="2.6" /><circle cx="34" cy="0" r="5" fill="#fff" stroke={element.color} strokeWidth="2.4" /><path d="M44 0H58" stroke={monochrome ? element.color : portTypeColors["optical-free-space"]} strokeWidth="3.4" /><text x="-3" y="21" textAnchor="middle" fill={element.color} fontSize="9" fontWeight="700" fontFamily="Arial, sans-serif">LASER</text></>;
+      return <><path d="M-58 0H-29" stroke={monochrome ? element.color : portTypeColors.dc} strokeWidth="3.4" /><path d="M18 0H58" stroke={monochrome ? element.color : portTypeColors["optical-free-space"]} strokeWidth="4" /><circle r="10" {...common} /><circle r="4" fill={element.color} /><path d="M0 -30V-18M0 18V30M-21 -21L-13 -13M13 13L21 21M21 -21L13 -13M-13 13L-21 21M-29 0H-18" fill="none" stroke={element.color} strokeWidth="3.2" strokeLinecap="round" /></>;
     case "mirror":
       return <><path d="M-32 30L32 -30" stroke={element.color} strokeWidth="8" strokeLinecap="round" /><path d="M-25 35L39 -29" stroke="#b8c0cc" strokeWidth="3" /></>;
     case "curvedmirror":
