@@ -12,15 +12,16 @@ import {
   componentByKind,
   componentDefinitions,
   componentGroups,
+  componentPortLayouts,
   defaultColor,
   electronicKinds,
   elementKinds,
+  mechanicalKinds,
   portTypeColors,
   portTypeFor,
   portTypeLabels,
   type ConnectionType,
   type ElementKind,
-  type PortLayout,
   type PortType,
 } from "./componentCatalog";
 import { calculateBudgets, moveElements, parseCsv, routeOrthogonal, validateSetup } from "./editorModel";
@@ -136,31 +137,10 @@ const defaultPublication: PublicationSettings = {
 };
 
 const defaultExperiment: ExperimentRecord = { procedure: "", checklist: [] };
-
-const portLayouts: Record<PortLayout, Array<{ id: string; x: number; y: number }>> = {
-  lr: [{ id: "left", x: -58, y: 0 }, { id: "right", x: 58, y: 0 }],
-  cross: [
-    { id: "left", x: -58, y: 0 }, { id: "right", x: 58, y: 0 },
-    { id: "top", x: 0, y: -58 }, { id: "bottom", x: 0, y: 58 },
-  ],
-  quad: [
-    { id: "left-top", x: -58, y: -20 }, { id: "left-bottom", x: -58, y: 20 },
-    { id: "right-top", x: 58, y: -20 }, { id: "right-bottom", x: 58, y: 20 },
-  ],
-  lrr: [
-    { id: "left", x: -58, y: 0 },
-    { id: "right-top", x: 58, y: -22 }, { id: "right-bottom", x: 58, y: 22 },
-  ],
-  lrt: [
-    { id: "left", x: -58, y: 0 }, { id: "right", x: 58, y: 0 }, { id: "top", x: 0, y: -58 },
-  ],
-  input: [{ id: "input", x: -58, y: 0 }],
-  output: [{ id: "output", x: 58, y: 0 }],
-  instrument: [
-    { id: "input", x: -58, y: 0 }, { id: "output", x: 58, y: 0 },
-    { id: "trigger", x: 0, y: -58 }, { id: "digital", x: 0, y: 58 },
-  ],
-};
+const centeredOpticalKinds = new Set<ElementKind>([
+  "mirror", "curvedmirror", "beamsplitter", "lens", "waveplate", "dichroic", "grating", "crystal", "sample", "prism",
+  "objective", "shutter", "aom", "eom", "isolator", "cavity", "cagecube", "iris",
+]);
 
 const rotatePoint = (point: Point, angle: number): Point => {
   const radians = angle * Math.PI / 180;
@@ -172,7 +152,7 @@ const rotatePoint = (point: Point, angle: number): Point => {
 
 const portsFor = (element: DiagramElement) => {
   const layout = componentByKind.get(element.kind)?.ports ?? "lr";
-  return portLayouts[layout].map((port) => {
+  return componentPortLayouts[layout].map((port) => {
     const scale = element.scale ?? 1;
     const transformed = {
       x: port.x * scale * (element.flipX ? -1 : 1),
@@ -324,8 +304,11 @@ const isSavedModule = (value: unknown): value is SavedModule => {
 
 const connectionPath = (connection: Connection, from: DiagramElement, to: DiagramElement, elements: DiagramElement[]): Point[] => {
   const nearest = closestPortPair(from, to);
-  const source = portsFor(from).find((port) => port.id === connection.fromPort) ?? nearest.source;
-  const target = portsFor(to).find((port) => port.id === connection.toPort) ?? nearest.target;
+  const sourcePort = portsFor(from).find((port) => port.id === connection.fromPort) ?? nearest.source;
+  const targetPort = portsFor(to).find((port) => port.id === connection.toPort) ?? nearest.target;
+  const centerOpticalAnchor = getConnectionDomain(connection, from) === "optical-free-space";
+  const source = centerOpticalAnchor && centeredOpticalKinds.has(from.kind) ? { x: from.x, y: from.y } : sourcePort;
+  const target = centerOpticalAnchor && centeredOpticalKinds.has(to.kind) ? { x: to.x, y: to.y } : targetPort;
   if (connection.waypoints?.length) {
     if (connection.routing !== "orthogonal") return [source, ...connection.waypoints, target];
     const points: Point[] = [source];
@@ -571,6 +554,7 @@ export default function Home() {
     connections,
     electronicKinds,
     annotationKinds,
+    mechanicalKinds,
     (kind, portId) => elementKinds.has(kind as ElementKind) ? portTypeFor(kind as ElementKind, portId) : undefined,
   );
   const budgets = calculateBudgets(elements, connections);
@@ -1245,18 +1229,19 @@ export default function Home() {
     const nextConnections: Connection[] = template.connections.map((connection, index) => {
       const from = byId.get(prefix + connection.from)!;
       const to = byId.get(prefix + connection.to)!;
-      const domain: PortType = connection.type === "beam" ? "optical-free-space" : "rf";
-      const ports = closestPortPair(from, to, domain);
+      const domain = connection.portType;
+      const connectionType: ConnectionType = domain === "optical-free-space" || domain === "fiber" ? "beam" : "signal";
       return {
         id: `${prefix}connection-${index}`,
         from: from.id,
         to: to.id,
-        type: connection.type,
+        type: connectionType,
         portType: domain,
         color: portTypeColors[domain],
-        routing: connection.type === "beam" ? "straight" : "orthogonal",
-        fromPort: ports.source.id,
-        toPort: ports.target.id,
+        routing: connection.routing ?? (connectionType === "beam" ? "straight" : "orthogonal"),
+        fromPort: connection.fromPort,
+        toPort: connection.toPort,
+        waypoints: connection.waypoints,
       };
     });
     commit(nextElements, nextConnections);

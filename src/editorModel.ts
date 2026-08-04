@@ -219,6 +219,7 @@ export const validateSetup = (
   connections: ModelConnection[],
   electronicKinds: Set<string>,
   annotationKinds: Set<string>,
+  unconnectedAllowedKinds: Set<string> = new Set(),
   resolvePortType?: (kind: string, portId: string) => ModelConnection["portType"],
   today = new Date().toISOString().slice(0, 10),
 ): ValidationIssue[] => {
@@ -228,7 +229,7 @@ export const validateSetup = (
   const degree = new Map(elements.map((element) => [element.id, connections.filter((connection) => connection.from === element.id || connection.to === element.id).length]));
   const minimumDegree = new Map<string, number>([["splitter", 3], ["biastee", 3], ["mixer", 2], ["networkanalyzer", 2], ["cavity", 2]]);
   for (const element of elements) {
-    if (!annotationKinds.has(element.kind) && !connectedIds.has(element.id)) {
+    if (!annotationKinds.has(element.kind) && !unconnectedAllowedKinds.has(element.kind) && !connectedIds.has(element.id)) {
       issues.push({ severity: "warning", message: `${element.label} is not connected`, elementIds: [element.id] });
     }
     if (element.kind === "termination" && connections.filter((connection) => connection.from === element.id || connection.to === element.id).length !== 1) {

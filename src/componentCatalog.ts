@@ -20,7 +20,7 @@ export const componentGroups = [
       { kind: "grating", label: "Diffraction grating", layer: "optics", color: BLUE, ports: "cross" },
       { kind: "beamdump", label: "Beam dump", layer: "optics", color: BLUE, ports: "input" },
       { kind: "crystal", label: "Nonlinear crystal", layer: "optics", color: PURPLE, ports: "lr" },
-      { kind: "sample", label: "Sample", layer: "optics", color: PURPLE, ports: "lr" },
+      { kind: "sample", label: "Sample", layer: "optics", color: PURPLE, ports: "cross" },
       { kind: "fiber", label: "Optical fiber", layer: "optics", color: BLUE, ports: "lr" },
       { kind: "fibercoupler", label: "Fiber coupler", layer: "optics", color: BLUE, ports: "quad" },
       { kind: "prism", label: "Prism", layer: "optics", color: BLUE, ports: "cross" },
@@ -119,6 +119,30 @@ export const componentGroups = [
 
 export type ElementKind = (typeof componentGroups)[number]["items"][number]["kind"];
 export type PortLayout = (typeof componentGroups)[number]["items"][number]["ports"];
+export const componentPortLayouts: Record<PortLayout, Array<{ id: string; x: number; y: number }>> = {
+  lr: [{ id: "left", x: -58, y: 0 }, { id: "right", x: 58, y: 0 }],
+  cross: [
+    { id: "left", x: -58, y: 0 }, { id: "right", x: 58, y: 0 },
+    { id: "top", x: 0, y: -58 }, { id: "bottom", x: 0, y: 58 },
+  ],
+  quad: [
+    { id: "left-top", x: -58, y: -20 }, { id: "left-bottom", x: -58, y: 20 },
+    { id: "right-top", x: 58, y: -20 }, { id: "right-bottom", x: 58, y: 20 },
+  ],
+  lrr: [
+    { id: "left", x: -58, y: 0 },
+    { id: "right-top", x: 58, y: -22 }, { id: "right-bottom", x: 58, y: 22 },
+  ],
+  lrt: [
+    { id: "left", x: -58, y: 0 }, { id: "right", x: 58, y: 0 }, { id: "top", x: 0, y: -58 },
+  ],
+  input: [{ id: "input", x: -58, y: 0 }],
+  output: [{ id: "output", x: 58, y: 0 }],
+  instrument: [
+    { id: "input", x: -58, y: 0 }, { id: "output", x: 58, y: 0 },
+    { id: "trigger", x: 0, y: -58 }, { id: "digital", x: 0, y: 58 },
+  ],
+};
 export type ComponentDefinition = {
   readonly kind: ElementKind;
   readonly label: string;
@@ -141,6 +165,7 @@ export const electronicKinds = new Set<ElementKind>(
 export const annotationKinds = new Set<ElementKind>(
   componentDefinitions.filter((component) => component.layer === "annotations").map((component) => component.kind),
 );
+export const mechanicalKinds = new Set<ElementKind>(["kinematicmount", "translationstage", "rotationmount", "breadboard", "postholder", "flipmount"]);
 export const defaultColor = (kind: ElementKind) => componentByKind.get(kind)?.color ?? DARK;
 
 export const portTypeLabels: Record<PortType, string> = {

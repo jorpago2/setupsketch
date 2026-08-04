@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { calculateBudgets, moveElements, parseCsv, routeOrthogonal, validateSetup } from "../src/editorModel.ts";
-import { portTypeFor } from "../src/componentCatalog.ts";
+import { componentByKind, componentPortLayouts, portTypeFor } from "../src/componentCatalog.ts";
+import { setupTemplates } from "../src/templates.ts";
 
 test("orthogonal routing detours around a component", () => {
   const path = routeOrthogonal(
@@ -68,9 +69,30 @@ test("typed ports distinguish optical, fiber, RF, DC, trigger and digital domain
     [{ id: "bad", from: "laser", to: "scope", type: "signal", portType: "rf", fromPort: "right", toPort: "input" }],
     new Set(["oscilloscope"]),
     new Set(),
+    new Set(),
     (kind, port) => portTypeFor(kind as Parameters<typeof portTypeFor>[0], port),
   );
   assert.ok(issues.some((issue) => issue.message.includes("incompatible port")));
+});
+
+test("every template connects existing, compatible and unoccupied ports", () => {
+  for (const template of setupTemplates) {
+    const elements = new Map(template.elements.map((element) => [element.id, element]));
+    const occupied = new Set<string>();
+    for (const connection of template.connections) {
+      const from = elements.get(connection.from);
+      const to = elements.get(connection.to);
+      assert.ok(from && to, `${template.id}: missing endpoint`);
+      for (const [element, port] of [[from, connection.fromPort], [to, connection.toPort]] as const) {
+        const layout = componentByKind.get(element.kind)?.ports;
+        assert.ok(layout && componentPortLayouts[layout].some((candidate) => candidate.id === port), `${template.id}: ${element.id}.${port} does not exist`);
+        assert.equal(portTypeFor(element.kind, port), connection.portType, `${template.id}: ${element.id}.${port} has the wrong domain`);
+        const key = `${element.id}:${port}`;
+        assert.ok(!occupied.has(key), `${template.id}: ${key} is connected more than once`);
+        occupied.add(key);
+      }
+    }
+  }
 });
 
 test("path budgets combine dB values, bottleneck bandwidth and Friis noise", () => {
