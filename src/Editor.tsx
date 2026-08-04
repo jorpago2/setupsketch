@@ -382,7 +382,7 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
     case "ndfilter":
       return <><path d="M-58 0H-12M12 0H58" stroke={element.color} strokeWidth="3.4" /><rect x="-12" y="-40" width="24" height="80" rx="2" {...common} /><path d="M-8 -27L8 -12M-8 -8L8 7M-8 12L8 27" stroke={element.color} strokeWidth="2.6" opacity="0.7" /><text x="0" y="4" textAnchor="middle" fill={element.color} fontSize="8" fontWeight="700" fontFamily="Arial, sans-serif">ND</text></>;
     case "dichroic":
-      return <><path d="M-26 40L26 -40" stroke="#c7ccd3" strokeWidth="12" strokeLinecap="round" /><path d="M-26 40L26 -40" stroke={element.color} strokeWidth="4.2" strokeLinecap="round" /><path d="M-18 34L34 -18" stroke={element.color} strokeWidth="1.6" strokeDasharray="5 4" opacity="0.55" /></>;
+      return <><path d="M-26 40L26 -40" stroke="#c7ccd3" strokeWidth="12" strokeLinecap="round" /><path d="M-26 40L26 -40" stroke={element.color} strokeWidth="4.2" strokeLinecap="round" /><circle r="12" fill="#fff" stroke={element.color} strokeWidth="2.4" /><text x="0" y="5" textAnchor="middle" fill={element.color} fontSize="15" fontWeight="700" fontFamily="serif">λ</text></>;
     case "grating":
       return <g transform="rotate(25)"><rect x="-9" y="-42" width="18" height="84" rx="1" {...common} /><path d="M-18 -28H8M-18 -14H8M-18 0H8M-18 14H8M-18 28H8" stroke={element.color} strokeWidth="2.2" strokeLinecap="round" /></g>;
     case "beamdump":
@@ -406,7 +406,7 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
     case "mzm":
       return <><path d="M-58 0H-42M42 0H58M0 -58V-31" stroke={element.color} strokeWidth="3.4" /><rect x="-42" y="-31" width="84" height="62" rx="3" {...common} /><path d="M-42 0H-27C-17 0 -17 -16 -7 -16H15C25 -16 25 0 42 0M-27 0C-17 0 -17 16 -7 16H15C25 16 25 0 42 0M-13 -24H21M-13 24H21" fill="none" stroke={element.color} strokeWidth="2.8" strokeLinecap="round" /></>;
     case "isolator":
-      return <><circle r="37" {...common} /><path d="M-22 0H20M8 -13L22 0L8 13" fill="none" stroke={element.color} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /><path d="M-28 29L28 -29" stroke={element.color} strokeWidth="3" opacity="0.55" /></>;
+      return <><circle r="37" {...common} /><path d="M-23 0H17M4 -13L18 0L4 13M24 -18V18" fill="none" stroke={element.color} strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" /></>;
     case "cavity":
       return <><path d="M-38 25L0 -34L40 25Z" fill="none" stroke={element.color} strokeWidth="4" /><path d="M-48 22L-30 32M-9 -38L9 -30M31 32L49 22" stroke={element.color} strokeWidth="7" strokeLinecap="round" /></>;
     case "opticalcirculator":
@@ -486,7 +486,7 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
     case "daq":
       return <><rect x="-49" y="-32" width="98" height="64" rx="6" {...common} /><rect x="-35" y="-20" width="52" height="40" rx="2" fill={element.color} fillOpacity="0.05" stroke={element.color} strokeWidth="2.4" /><path d="M-28 10V-8M-17 10V1M-6 10V-14M5 10V-3M25 -16H39M25 -5H39M25 6H39M25 17H39" stroke={element.color} strokeWidth="2.8" strokeLinecap="round" /><circle cx="34" cy="-24" r="3.5" fill={element.color} /></>;
     case "attenuator":
-      return <><rect x="-43" y="-27" width="86" height="54" rx="3" {...common} /><path d="M-27 16V-13H27V16" fill="none" stroke={element.color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /></>;
+      return <><rect x="-43" y="-27" width="86" height="54" rx="3" {...common} /><text y="8" textAnchor="middle" fill={element.color} fontSize="20" fontWeight="700" fontFamily="Arial, sans-serif">−dB</text></>;
     case "splitter":
       return <><rect x="-43" y="-32" width="86" height="64" rx="3" {...common} /><path d="M-43 0H-23L26 -20H43M-23 0L26 20H43" fill="none" stroke={element.color} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" /><text x="10" y="5" textAnchor="middle" fill={element.color} fontSize="12" fontWeight="700" fontFamily="Arial, sans-serif">−3 dB</text></>;
     case "directionalcoupler":
@@ -494,7 +494,7 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
     case "circulator":
       return <><circle r="36" {...common} /><path d="M-18 18A25 25 0 1120 13M20 13L20 2M20 13L9 13" fill="none" stroke={element.color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /></>;
     case "rfisolator":
-      return <><rect x="-43" y="-28" width="86" height="56" rx="3" {...common} /><path d="M-27 0H24M11 -13L26 0L11 13" fill="none" stroke={element.color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /><path d="M-22 21L22 -21" stroke={element.color} strokeWidth="2.5" opacity="0.65" /></>;
+      return <><rect x="-43" y="-28" width="86" height="56" rx="3" {...common} /><path d="M-27 0H18M5 -13L19 0L5 13M26 -18V18" fill="none" stroke={element.color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /></>;
     case "diplexer":
       return <><rect x="-43" y="-32" width="86" height="64" rx="3" {...common} /><path d="M-43 0H-22L22 -20H43M-22 0L22 20H43" fill="none" stroke={element.color} strokeWidth="3.2" strokeLinecap="round" /><text x="20" y="-10" textAnchor="middle" fill={element.color} fontSize="10" fontWeight="700" fontFamily="Arial, sans-serif">LP</text><text x="20" y="25" textAnchor="middle" fill={element.color} fontSize="10" fontWeight="700" fontFamily="Arial, sans-serif">HP</text></>;
     case "biastee":
@@ -550,7 +550,7 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
     case "rfpowermeter":
       return <><rect x="-50" y="-35" width="100" height="70" rx="6" {...common} /><path d="M-34 8A25 25 0 0116 8M-9 8L7 -10" fill="none" stroke={element.color} strokeWidth="3" /><path d="M-34 8H16" stroke={element.color} strokeWidth="3" /><text x="-9" y="26" textAnchor="middle" fill={element.color} fontSize="11" fontWeight="700" fontFamily="Arial, sans-serif">dBm</text><circle cx="34" cy="16" r="7" {...common} /></>;
     case "camera":
-      return <><rect x="-33" y="-32" width="80" height="64" rx="5" {...common} /><path d="M-33 -22L-48 -15V15L-33 22" {...common} /><circle cx="12" r="17" fill="none" stroke={element.color} strokeWidth="3" /><rect x="1" y="-11" width="22" height="22" fill={element.color} fillOpacity="0.08" stroke={element.color} strokeWidth="2" /></>;
+      return <><rect x="-46" y="-30" width="92" height="60" rx="6" {...common} /><path d="M-24 -30L-16 -40H10L18 -30" {...common} /><circle r="18" fill="none" stroke={element.color} strokeWidth="3" /><circle r="7" fill={element.color} fillOpacity="0.12" stroke={element.color} strokeWidth="2.5" /><circle cx="32" cy="-17" r="3.5" fill={element.color} /></>;
     case "opticalspectrumanalyzer":
       return <><rect x="-52" y="-35" width="104" height="70" rx="6" {...common} /><rect x="-41" y="-24" width="65" height="45" rx="2" fill={element.color} fillOpacity="0.05" stroke={element.color} strokeWidth="2.5" /><path d="M-35 15V10L-27 7L-20 12L-12 -17L-4 9L4 5L12 14L19 11" fill="none" stroke={element.color} strokeWidth="2.7" strokeLinejoin="round" /><text x="38" y="-8" textAnchor="middle" fill={element.color} fontSize="10" fontWeight="700" fontFamily="Arial, sans-serif">OSA</text><circle cx="38" cy="14" r="6" fill="#fff" stroke={element.color} strokeWidth="2.4" /></>;
     case "opticalpowermeter":
