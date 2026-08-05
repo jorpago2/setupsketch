@@ -200,6 +200,10 @@ button.danger { color: var(--danger); }
 @media (max-width: 640px) {
   html, body { height: auto; min-height: 100%; overflow: visible; }
   .app-shell { position: static; min-width: 0; height: auto; min-height: 100vh; display: block; overflow: visible; }
+  button, [role="button"], select, textarea, input:not([type="checkbox"]):not([type="range"]):not([type="file"]), .suite-link { min-height: 44px; }
+  .toolbar button, .component-grid .favorite, .module-row button, .checklist-row button { min-width: 44px; }
+  .component-grid .favorite { width: 44px; height: 44px; min-height: 44px; padding: 0; }
+  .module-row, .checklist-row { grid-template-columns: 1fr 44px; }
   .topbar { grid-template-columns: 1fr; gap: 5px; padding: 10px 12px; }
   .brand, .project-title { justify-content: center; }
   .toolbar { justify-content: center; }
