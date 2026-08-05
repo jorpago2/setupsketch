@@ -11,6 +11,9 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   const model = await readFile(new URL("../src/editorModel.ts", import.meta.url), "utf8");
   const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   assert.match(html, /SetupSketch/);
+  for (const metadata of ["theme-color", "canonical", "og:site_name", "og:url", "og:image:alt", "twitter:title", "twitter:description", "twitter:image:alt"]) {
+    assert.match(html, new RegExp(metadata));
+  }
   assert.ok(assets.some((name) => name.endsWith(".js")));
   assert.ok(assets.some((name) => name.endsWith(".css")));
   assert.doesNotMatch(html, /_next|codex-preview/);
