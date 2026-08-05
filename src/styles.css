@@ -1,3 +1,4 @@
+/* Hallmark · P5 H5 E4 S5 R5 V4 · modern-minimal · technical-austere · blue · scientific diagram editor */
 :root {
   --ink: #171b22;
   --muted: #68717d;
@@ -11,7 +12,7 @@
 
 * { box-sizing: border-box; }
 
-html, body { margin: 0; height: 100%; overflow: hidden; }
+html, body { margin: 0; height: 100%; overflow-x: clip; overflow-y: hidden; }
 
 body {
   background: var(--paper);
@@ -30,7 +31,7 @@ button {
 }
 
 button:hover { border-color: #aab3bf; background: #f8fafc; }
-button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .suite-link:focus-visible { outline: 3px solid rgba(22, 101, 216, .25); outline-offset: 2px; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible, .suite-link:focus-visible { outline: 3px solid rgba(22, 101, 216, .25); outline-offset: 2px; }
 button:disabled { cursor: not-allowed; opacity: .4; }
 button.active { border-color: var(--blue); background: var(--blue-soft); color: var(--blue); }
 button.primary { border-color: var(--blue); background: var(--blue); color: #fff; }
@@ -92,9 +93,11 @@ button.danger { color: var(--danger); }
 .suite-link:hover { border-color: #aab3bf; background: #f8fafc; }
 .toolbar-group + .toolbar-group { padding-left: 6px; border-left: 1px solid var(--line); }
 .toolbar button, .toolbar-export-mobile summary { min-height: 36px; padding: 0 8px; font-size: 10px; font-weight: 700; }
-.toolbar-export-mobile { display: none; }
-.toolbar-export-mobile summary { list-style: none; }
+.toolbar-export-mobile { position: relative; display: block; }
+.toolbar-export-mobile summary { min-height: 36px; display: flex; align-items: center; padding: 0 8px; border: 1px solid var(--line); border-radius: 7px; background: #fff; cursor: pointer; list-style: none; }
 .toolbar-export-mobile summary::-webkit-details-marker { display: none; }
+.toolbar-export-mobile:not([open]) > .toolbar-export-actions { display: none; }
+.toolbar-export-mobile[open] > .toolbar-export-actions { position: absolute; z-index: 20; top: calc(100% + 4px); right: 0; width: 230px; display: grid; grid-template-columns: 1fr 1fr; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; box-shadow: 0 10px 24px rgba(23, 27, 34, .14); }
 .connection-type select { min-height: 36px; padding: 0 22px 0 7px; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); font-size: 10px; font-weight: 700; }
 
 .workspace { min-height: 0; display: grid; grid-template-columns: 210px minmax(580px, 1fr) 205px; }
@@ -122,7 +125,11 @@ button.danger { color: var(--danger); }
 .stage-meta { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 10px; }
 .mode-note.active { color: var(--blue); font-weight: 700; }
 .stage { min-height: 0; display: grid; place-items: center; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: #e7eaee; box-shadow: inset 0 0 24px rgba(24, 31, 43, .04); }
+.diagram, .stage-empty { grid-area: 1 / 1; }
 .diagram { display: block; width: min(100%, 1200px); height: auto; max-height: calc(100vh - 130px); aspect-ratio: 12 / 7; background: #fff; box-shadow: 0 7px 26px rgba(30, 39, 53, .12); touch-action: none; }
+.stage-empty { z-index: 2; max-width: 360px; padding: 24px; color: var(--muted); text-align: center; pointer-events: none; }
+.stage-empty strong { color: var(--ink); font-size: 15px; }
+.stage-empty p { margin: 7px 0 0; font-size: 11px; line-height: 1.5; }
 .diagram-element { cursor: grab; }
 .diagram-element:active { cursor: grabbing; }
 .diagram-element.locked { cursor: default; }
@@ -149,7 +156,9 @@ button.danger { color: var(--danger); }
 .empty-inspector p { margin: 0 0 10px; }
 .empty-inspector span { font-size: 10px; }
 .layers-panel { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
-.layers-panel .panel-heading { margin-bottom: 12px; }
+.layers-panel > summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; color: var(--ink); font-size: 10px; font-weight: 800; letter-spacing: .07em; list-style: none; text-transform: uppercase; }
+.layers-panel > summary::-webkit-details-marker { display: none; }
+.layers-panel[open] > summary { margin-bottom: 12px; }
 .layer-toggle { display: flex; align-items: center; gap: 9px; min-height: 32px; color: #414955; font-size: 11px; cursor: pointer; }
 .layer-toggle input { width: 16px; height: 16px; margin: 0; accent-color: var(--blue); }
 .validation-panel .panel-heading { margin-bottom: 9px; }
@@ -187,7 +196,6 @@ button.danger { color: var(--danger); }
   .topbar { grid-template-columns: 150px minmax(300px, 1fr); }
   .toolbar { grid-column: 1 / -1; justify-content: center; }
   .toolbar button, .toolbar-export-mobile summary, .connection-type select, .suite-link { min-height: 44px; }
-  .toolbar-export-desktop { display: none; }
   .toolbar-export-mobile { position: relative; display: block; }
   .toolbar-export-mobile summary { display: flex; align-items: center; cursor: pointer; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
   .toolbar-export-mobile:not([open]) > .toolbar-export-actions { display: none; }
@@ -198,7 +206,7 @@ button.danger { color: var(--danger); }
 }
 
 @media (max-width: 640px) {
-  html, body { height: auto; min-height: 100%; overflow: visible; }
+  html, body { height: auto; min-height: 100%; overflow-x: clip; overflow-y: visible; }
   .app-shell { position: static; min-width: 0; height: auto; min-height: 100vh; display: block; overflow: visible; }
   button, [role="button"], select, textarea, input:not([type="checkbox"]):not([type="range"]):not([type="file"]), .suite-link { min-height: 44px; }
   button, [role="button"] { min-width: 44px; }
@@ -210,7 +218,6 @@ button.danger { color: var(--danger); }
   .toolbar { justify-content: center; }
   .toolbar button, .toolbar-export-mobile summary, .connection-type select, .suite-link { min-height: 44px; }
   .toolbar-group + .toolbar-group { padding-left: 0; border-left: 0; }
-  .toolbar-export-desktop { display: none; }
   .toolbar-export-mobile { position: relative; display: block; }
   .toolbar-export-mobile summary { display: flex; align-items: center; cursor: pointer; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
   .toolbar-export-mobile:not([open]) > .toolbar-export-actions { display: none; }
@@ -230,7 +237,7 @@ button.danger { color: var(--danger); }
   @page { size: A4 landscape; margin: 8mm; }
   html, body { height: auto; overflow: visible; }
   body { background: #fff; }
-  .topbar, .library, .inspector, .stage-meta { display: none !important; }
+  .topbar, .library, .inspector, .stage-meta, .stage-empty { display: none !important; }
   .app-shell, .workspace, .stage-wrap, .stage { position: static; display: block; min-width: 0; min-height: 0; padding: 0; border: 0; background: #fff; box-shadow: none; }
   .diagram { width: 100%; max-height: none; box-shadow: none; }
   .grid-layer, .selection-outline, .connection-hit { display: none; }

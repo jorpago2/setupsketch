@@ -51,6 +51,11 @@ test("builds a static TypeScript, React, and Vite app", async () => {
     'className="toolbar-export-mobile"',
   ]) assert.match(editor, new RegExp(feature));
   assert.doesNotMatch(editor, /ref=\{(?:fileRef|bomRef)\} className="sr-only"/);
+  assert.match(editor, /useState<DiagramElement\[]>\(\[\]\)/);
+  assert.match(editor, /componentGroups\.map\(\(group\) => group\.title\)/);
+  assert.match(editor, /Start with a component/);
+  assert.match(editor, /<summary id="publication-title">Publication<\/summary>/);
+  assert.doesNotMatch(editor, /toolbar-export-desktop/);
   assert.match(editor, /href="https:\/\/jorpago2\.github\.io\/"/);
   assert.match(model, /calculateBudgets/);
   assert.equal(packageJson.dependencies.pptxgenjs, "^4.0.1");

@@ -174,21 +174,6 @@ const getConnectionType = (connection: Connection): ConnectionType =>
 const getConnectionDomain = (connection: Connection, from?: DiagramElement): PortType =>
   connection.portType ?? (from && connection.fromPort ? portTypeFor(from.kind, connection.fromPort) : getConnectionType(connection) === "beam" ? "optical-free-space" : "rf");
 
-const initialElements: DiagramElement[] = [
-  { id: "laser-1", kind: "laser", label: "1550 nm laser", x: 180, y: 330, rotation: 0, color: defaultColor("laser"), powerDbm: 10, wavelengthNm: 1550 },
-  { id: "lens-1", kind: "lens", label: "L1", x: 420, y: 330, rotation: 0, color: defaultColor("lens"), lossDb: 0.2 },
-  { id: "sample-1", kind: "sample", label: "Device under test", x: 650, y: 330, rotation: 0, color: defaultColor("sample"), lossDb: 1 },
-  { id: "detector-1", kind: "detector", label: "InGaAs detector", x: 900, y: 330, rotation: 0, color: defaultColor("detector"), bandwidthHz: 1e9 },
-  { id: "daq-1", kind: "daq", label: "DAQ", x: 900, y: 535, rotation: 0, color: defaultColor("daq") },
-];
-
-const initialConnections: Connection[] = [
-  { id: "c1", from: "laser-1", to: "lens-1", color: portTypeColors["optical-free-space"], type: "beam", portType: "optical-free-space", fromPort: "right", toPort: "left" },
-  { id: "c2", from: "lens-1", to: "sample-1", color: portTypeColors["optical-free-space"], type: "beam", portType: "optical-free-space", fromPort: "right", toPort: "left" },
-  { id: "c3", from: "sample-1", to: "detector-1", color: portTypeColors["optical-free-space"], type: "beam", portType: "optical-free-space", fromPort: "right", toPort: "left" },
-  { id: "c4", from: "detector-1", to: "daq-1", color: portTypeColors.rf, type: "signal", portType: "rf", fromPort: "right", toPort: "input" },
-];
-
 const cloneSnapshot = (
   elements: DiagramElement[],
   connections: Connection[],
@@ -559,9 +544,9 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
 }
 
 export default function Home() {
-  const [elements, setElements] = useState(initialElements);
-  const [connections, setConnections] = useState(initialConnections);
-  const [title, setTitle] = useState("Optical characterization setup");
+  const [elements, setElements] = useState<DiagramElement[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [title, setTitle] = useState("Untitled scientific setup");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
@@ -585,7 +570,7 @@ export default function Home() {
   const [libraryQuery, setLibraryQuery] = useState("");
   const [favoriteKinds, setFavoriteKinds] = useState<ElementKind[]>([]);
   const [recentKinds, setRecentKinds] = useState<ElementKind[]>([]);
-  const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
+  const [collapsedGroups, setCollapsedGroups] = useState<string[]>(() => componentGroups.map((group) => group.title));
   const [savedModules, setSavedModules] = useState<SavedModule[]>([]);
   const [endpointPreview, setEndpointPreview] = useState<Point | null>(null);
   const [checklistDraft, setChecklistDraft] = useState("");
@@ -1369,6 +1354,7 @@ export default function Home() {
     ...group,
     items: group.items.filter((item) => `${item.label} ${item.kind}`.toLowerCase().includes(libraryQuery.trim().toLowerCase())),
   })).filter((group) => group.items.length);
+  const searchIsActive = Boolean(libraryQuery.trim());
 
   const addConnectionBend = () => {
     if (!selectedConnection) return;
@@ -1460,9 +1446,6 @@ export default function Home() {
             <button onClick={() => fileRef.current?.click()}>Open</button>
             <input ref={fileRef} hidden aria-label="Open diagram JSON" type="file" accept="application/json,.json" onChange={loadJson} />
           </div>
-          <div className="toolbar-group toolbar-export-desktop" role="group" aria-label="Export actions">
-            {renderExportActions()}
-          </div>
           <details className="toolbar-export-mobile">
             <summary>Export</summary>
             <div className="toolbar-export-actions" role="group" aria-label="Export actions">
@@ -1499,9 +1482,9 @@ export default function Home() {
               <button
                 className="library-group-title"
                 onClick={() => setCollapsedGroups((items) => items.includes(group.title) ? items.filter((title) => title !== group.title) : [...items, group.title])}
-                aria-expanded={!collapsedGroups.includes(group.title)}
-              >{group.title}<span>{collapsedGroups.includes(group.title) ? "+" : "−"}</span></button>
-              {!collapsedGroups.includes(group.title) && <div className="component-grid">
+                aria-expanded={searchIsActive || !collapsedGroups.includes(group.title)}
+              >{group.title}<span>{searchIsActive || !collapsedGroups.includes(group.title) ? "−" : "+"}</span></button>
+              {(searchIsActive || !collapsedGroups.includes(group.title)) && <div className="component-grid">
                 {group.items.map((item) => (
                   <div className="component-card" key={`${group.title}-${item.kind}`}>
                     <button className="component-add" onClick={() => addElement(item.kind, item.label)}>
@@ -1531,6 +1514,7 @@ export default function Home() {
             <span className={connectMode ? "mode-note active" : "mode-note"} aria-live="polite">{connectMode ? (connectFrom ? `Select ${portTypeLabels[connectionDomain]} destination` : `Select ${portTypeLabels[connectionDomain]} source`) : notice}</span>
           </div>
           <div className="stage">
+            {elements.length === 0 && <div className="stage-empty"><strong>Start with a component</strong><p>Add one from the library or load a template from the toolbar.</p></div>}
             <svg
               ref={svgRef}
               className="diagram"
@@ -1749,13 +1733,13 @@ export default function Home() {
           ) : (
             <div className="empty-inspector"><p>Select a component to edit it. Shift-click selects several.</p><span>Arrow keys nudge; Shift moves one grid step.</span></div>
           )}
-          <section className="layers-panel" aria-labelledby="layout-title">
-            <div className="panel-heading"><span id="layout-title">Layout</span></div>
+          <details className="layers-panel">
+            <summary id="layout-title">Layout</summary>
             <label className="layer-toggle"><input type="checkbox" checked={snapEnabled} onChange={(event) => setSnapEnabled(event.target.checked)} /><span>Snap to grid</span></label>
             <div className="port-legend">{(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <span key={type}><i style={{ background: portTypeColors[type] }} />{label}</span>)}</div>
-          </section>
-          <section className="layers-panel budget-panel" aria-labelledby="budget-title">
-            <div className="panel-heading"><span id="budget-title">Path budgets</span><span>{budgets.length}</span></div>
+          </details>
+          <details className="layers-panel budget-panel">
+            <summary id="budget-title"><span>Path budgets</span><span>{budgets.length}</span></summary>
             {budgets.length ? budgets.slice(0, 5).map((budget) => <article className="budget-result" key={budget.id}>
               <strong>{budget.labels.join(" → ")}</strong>
               <span>{portTypeLabels[budget.domain]} · {budget.inputPowerDbm.toFixed(2)} → {budget.outputPowerDbm.toFixed(2)} dBm</span>
@@ -1764,9 +1748,9 @@ export default function Home() {
               {budget.outputNoiseDbm !== undefined && <span>Noise {budget.outputNoiseDbm.toFixed(2)} dBm · SNR {budget.snrDb?.toFixed(2)} dB</span>}
             </article>) : <p className="validation-more">Set source power on a component to calculate directed paths.</p>}
             <p className="model-note">Cascaded dB budget; RF noise uses Friis and −174 dBm/Hz at 290 K. Reflections, mismatch and coherent interference are not included.</p>
-          </section>
-          <section className="layers-panel experiment-panel" aria-labelledby="experiment-title">
-            <div className="panel-heading"><span id="experiment-title">Experiment</span></div>
+          </details>
+          <details className="layers-panel experiment-panel">
+            <summary id="experiment-title">Experiment</summary>
             <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
               <label>Procedure<textarea value={experiment.procedure} onChange={(event) => setExperiment((current) => ({ ...current, procedure: event.target.value }))} placeholder="Alignment, warm-up, acquisition and shutdown procedure…" /></label>
             </div>
@@ -1785,18 +1769,18 @@ export default function Home() {
               <label><input type="checkbox" checked={item.done} onChange={(event) => commitExperiment({ ...experiment, checklist: experiment.checklist.map((candidate) => candidate.id === item.id ? { ...candidate, done: event.target.checked } : candidate) })} /><span>{item.text}</span></label>
               <button className="danger" aria-label={`Delete ${item.text}`} onClick={() => commitExperiment({ ...experiment, checklist: experiment.checklist.filter((candidate) => candidate.id !== item.id) })}>×</button>
             </div>)}
-          </section>
-          <section className="layers-panel validation-panel" aria-labelledby="validation-title">
-            <div className="panel-heading"><span id="validation-title">Setup checks</span><span>{validationIssues.length}</span></div>
+          </details>
+          <details className="layers-panel validation-panel">
+            <summary id="validation-title"><span>Setup checks</span><span>{validationIssues.length}</span></summary>
             {validationIssues.length ? validationIssues.slice(0, 8).map((issue, index) => (
               <button className={`validation-issue ${issue.severity}`} key={`${issue.message}-${index}`} onClick={() => setSelectedIds(issue.elementIds)}>
                 <span>{issue.severity === "error" ? "Error" : "Check"}</span>{issue.message}
               </button>
             )) : <p className="validation-ok">No structural issues found.</p>}
             {validationIssues.length > 8 && <p className="validation-more">+{validationIssues.length - 8} more checks</p>}
-          </section>
-          <section className="layers-panel" aria-labelledby="publication-title">
-            <div className="panel-heading"><span id="publication-title">Publication</span></div>
+          </details>
+          <details className="layers-panel">
+            <summary id="publication-title">Publication</summary>
             <div className="property-form">
               <label>Page<select value={publication.pagePreset} onChange={(event) => commitPublication({ ...publication, pagePreset: event.target.value as PagePreset })}>
                 {(Object.entries(pagePresets) as Array<[PagePreset, typeof pagePresets[PagePreset]]>).map(([key, preset]) => <option key={key} value={key}>{preset.label}</option>)}
@@ -1806,9 +1790,9 @@ export default function Home() {
               <label className="layer-toggle"><input type="checkbox" checked={publication.showCredit} onChange={(event) => commitPublication({ ...publication, showCredit: event.target.checked })} /><span>Show credit</span></label>
               <label className="layer-toggle"><input type="checkbox" checked={publication.cropToContent} onChange={(event) => commitPublication({ ...publication, cropToContent: event.target.checked })} /><span>Crop exports to content</span></label>
             </div>
-          </section>
-          <section className="layers-panel" aria-labelledby="layers-title">
-            <div className="panel-heading"><span id="layers-title">Layers</span></div>
+          </details>
+          <details className="layers-panel">
+            <summary id="layers-title">Layers</summary>
             {([
               ["grid", "Grid"],
               ["labels", "Labels"],
@@ -1827,7 +1811,7 @@ export default function Home() {
                 <span>{label}</span>
               </label>
             ))}
-          </section>
+          </details>
         </aside>
       </section>
     </main>
