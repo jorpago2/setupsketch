@@ -1,4 +1,4 @@
-/* Hallmark · macrostructure: Split Studio · N9 knobs: cta=outlined, wordmark=sans, padding=tight · theme: custom · vibe: "layered technical calm" · axes: light / geometric-sans / chromatic-teal · pre-emit critique: P5 H5 E5 S5 R5 V5 · contrast: pass (40–41) · nav: N9 · footer: none (app) · slop: pass (42–49) · mobile: pass (34, 49, 50–57) · icons: pass (30) · studied: no · context: user-provided · v0.8.1 */
+/* Hallmark · macrostructure: Split Studio · N9 knobs: cta=outlined, wordmark=sans, padding=tight · theme: custom · vibe: "layered technical calm" · axes: light / geometric-sans / chromatic-teal · pre-emit critique: P5 H5 E5 S5 R5 V5 · contrast: pass (40–41) · nav: N9 · footer: none (app) · slop: pass (42–49) · mobile: pass (34, 49, 50–57) · icons: pass (30) · studied: no · context: user-provided · v0.8.2 */
 @import "../tokens.css";
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
@@ -656,16 +656,42 @@ summary:active,
 }
 
 .react-flow__controls {
-  overflow: hidden;
+  display: grid;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs);
+  overflow: visible;
   border: var(--rule-hair) solid var(--color-rule);
   border-radius: var(--radius-input);
+  background: var(--color-surface);
   box-shadow: var(--shadow-card);
 }
 
 .react-flow__controls-button {
-  border-color: var(--color-rule);
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--radius-input) - var(--space-3xs));
   background: var(--color-surface-raised);
+  color: var(--color-ink-2);
+}
+
+.react-flow__controls-button:hover {
+  background: var(--color-paper-2);
   color: var(--color-ink);
+}
+
+.react-flow__controls-button:active {
+  transform: none;
+}
+
+.react-flow__controls-button svg {
+  width: 18px;
+  height: 18px;
+  max-width: none;
+  fill: currentColor;
 }
 
 .react-flow__attribution {
@@ -797,6 +823,15 @@ summary:active,
   accent-color: var(--color-accent);
 }
 
+select {
+  color-scheme: light;
+}
+
+select option {
+  background: var(--color-surface-raised);
+  color: var(--color-ink);
+}
+
 .property-form label {
   gap: var(--space-2xs);
   color: var(--color-muted);
@@ -807,25 +842,64 @@ summary:active,
 }
 
 .property-section {
-  border-top: var(--rule-hair) solid var(--color-rule);
+  overflow: clip;
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-input);
+  background: var(--color-surface);
 }
 
-.property-section > summary {
-  display: flex;
+.property-section > summary,
+.layers-panel > summary {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
   align-items: center;
+  gap: var(--space-xs);
   min-height: 44px;
-  color: var(--color-ink-2);
+  padding-inline: var(--space-sm);
+  border: 0;
+  border-radius: 0;
+  background: var(--color-paper-2);
+  color: var(--color-ink);
   font-size: var(--text-sm);
   font-weight: 600;
+  line-height: 1;
   letter-spacing: 0;
+  list-style: none;
   text-transform: none;
   cursor: pointer;
+}
+
+.property-section > summary::-webkit-details-marker,
+.layers-panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.property-section > summary::before,
+.layers-panel > summary::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-inline-end: 2px solid currentColor;
+  border-block-end: 2px solid currentColor;
+  transform: rotate(-45deg);
+}
+
+.property-section[open] > summary,
+.layers-panel[open] > summary {
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+}
+
+.property-section[open] > summary::before,
+.layers-panel[open] > summary::before {
+  transform: rotate(45deg);
 }
 
 .property-section-content {
   display: grid;
   gap: var(--space-md);
-  padding-bottom: var(--space-xs);
+  padding: var(--space-sm);
 }
 
 .property-row,
@@ -839,9 +913,25 @@ summary:active,
   border-color: var(--color-rule);
 }
 
+.layers-panel {
+  margin-top: var(--space-xs);
+  padding: 0 var(--space-sm);
+  overflow: clip;
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-input);
+  background: var(--color-surface);
+}
+
 .layers-panel > summary {
-  min-height: 44px;
-  color: var(--color-ink-2);
+  margin-inline: calc(-1 * var(--space-sm));
+}
+
+.layers-panel[open] {
+  padding-bottom: var(--space-sm);
+}
+
+.layers-panel[open] > summary {
+  margin-bottom: var(--space-xs);
 }
 
 .layer-toggle {

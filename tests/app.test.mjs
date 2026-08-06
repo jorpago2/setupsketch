@@ -73,6 +73,8 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.doesNotMatch(editor, /stroke="#1665d8"|BOM↓|BOM↑/);
   assert.doesNotMatch(styles, /100vw|#[0-9a-fA-F]{3,8}|font-family:\s*Arial/);
   assert.doesNotMatch(styles, /@media\s*\(max-width/);
+  assert.match(styles, /\.react-flow__controls-button\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;/s);
+  assert.match(styles, /\.layers-panel\[open\] > summary\s*\{/);
   assert.match(editor, /href="https:\/\/jorpago2\.github\.io\/"/);
   assert.match(styles, /tailwindcss\/theme\.css/);
   assert.match(styles, /tailwindcss\/utilities\.css/);

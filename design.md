@@ -32,6 +32,7 @@ SetupSketch uses a modern-minimal, technical-austere system shared with the scie
 - Motion is cut to state colour changes and native disclosure behaviour. Reduced motion collapses all optional transitions.
 - Components and Properties are keyboard-accessible disclosure buttons with `aria-expanded` state. Repeating the active control, pressing Escape, or using the panel close button returns to the canvas.
 - Universal actions and destructive text buttons use the same 16 px outline icon language. Domain-specific operations and file formats remain text-first; icon-only controls always keep an accessible name and title.
+- React Flow viewer controls form one compact surface with square 44 px targets. Inspector disclosures use a tinted closed row, chevron, and stronger open state so their hierarchy does not depend on whitespace alone.
 
 ## Responsive contract
 
