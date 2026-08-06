@@ -63,6 +63,10 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /aria-controls="component-library" aria-expanded=/);
   assert.match(editor, /aria-controls="property-inspector" aria-expanded=/);
   assert.doesNotMatch(editor, />Canvas<\/button>/);
+  for (const icon of ["undo", "redo", "link", "project", "export", "components", "properties", "delete"]) {
+    assert.match(editor, new RegExp(`<UiIcon name="${icon}"`));
+  }
+  assert.doesNotMatch(editor, /↶|↷|toolbar-label-compact/);
   assert.match(editor, /nodes: modelFlowNodes\.filter\(\(node\) => node\.id !== "__paper__"\)/);
   assert.match(editor, /const \[notice, setNotice\] = useState\("Saved"\)/);
   for (const feature of ['ReactFlow', 'ConnectionMode.Loose', 'diagram-export', 'role="group"', 'className="property-section"', 'BOM CSV', 'Import BOM', 'Arrange overlaps']) assert.match(editor, new RegExp(feature));

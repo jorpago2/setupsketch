@@ -31,6 +31,7 @@ SetupSketch uses a modern-minimal, technical-austere system shared with the scie
 - Touch targets are at least 44 × 44 px below 60 rem.
 - Motion is cut to state colour changes and native disclosure behaviour. Reduced motion collapses all optional transitions.
 - Components and Properties are keyboard-accessible disclosure buttons with `aria-expanded` state. Repeating the active control, pressing Escape, or using the panel close button returns to the canvas.
+- Universal actions and destructive text buttons use the same 16 px outline icon language. Domain-specific operations and file formats remain text-first; icon-only controls always keep an accessible name and title.
 
 ## Responsive contract
 

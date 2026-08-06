@@ -65,6 +65,21 @@ type Point = { x: number; y: number };
 type Routing = "straight" | "orthogonal";
 type PagePreset = "canvas" | "a4" | "a3" | "single" | "double";
 
+const uiIconPaths = {
+  undo: "M9 14 4 9l5-5M4 9h10a6 6 0 0 1 6 6v1",
+  redo: "m15 14 5-5-5-5m5 5H10a6 6 0 0 0-6 6v1",
+  link: "M10 13a5 5 0 0 0 7.1 0l2-2A5 5 0 0 0 12 3.9L10.8 5M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.2-1.2",
+  project: "M3 6h7l2 2h9v10H3z",
+  export: "M12 3v12m-5-5 5 5 5-5M4 21h16",
+  components: "M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z",
+  properties: "M4 7h10m4 0h2m-6-3v6M4 17h2m4 0h10M6 14v6",
+  delete: "M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13m-7 4v5m4-5v5",
+} as const;
+
+function UiIcon({ name }: { name: keyof typeof uiIconPaths }) {
+  return <svg className="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d={uiIconPaths[name]} /></svg>;
+}
+
 type PublicationSettings = {
   pagePreset: PagePreset;
   monochrome: boolean;
@@ -1656,10 +1671,10 @@ export default function Home() {
         </label>
         <div ref={toolbarRef} className="toolbar" aria-label="Diagram actions">
           <div className="toolbar-group" role="group" aria-label="Edit actions">
-            <button onClick={undo} disabled={!past.length} title="Undo (Ctrl+Z)" aria-label="Undo"><span className="toolbar-label-compact" aria-hidden="true">↶</span><span className="toolbar-label-wide">Undo</span></button>
-            <button onClick={redo} disabled={!future.length} title="Redo (Ctrl+Y)" aria-label="Redo"><span className="toolbar-label-compact" aria-hidden="true">↷</span><span className="toolbar-label-wide">Redo</span></button>
-            <button className={connectMode ? "active" : ""} onClick={() => { setConnectMode(!connectMode); setConnectFrom(null); }}>
-              <span className="toolbar-label-compact">{connectFrom ? "Target" : "Link"}</span><span className="toolbar-label-wide">{connectFrom ? "Choose target" : "Connect"}</span>
+            <button onClick={undo} disabled={!past.length} title="Undo (Ctrl+Z)" aria-label="Undo"><UiIcon name="undo" /><span className="toolbar-label-wide">Undo</span></button>
+            <button onClick={redo} disabled={!future.length} title="Redo (Ctrl+Y)" aria-label="Redo"><UiIcon name="redo" /><span className="toolbar-label-wide">Redo</span></button>
+            <button className={connectMode ? "active" : ""} aria-label={connectFrom ? "Choose connection target" : "Connect components"} title={connectFrom ? "Choose connection target" : "Connect components"} onClick={() => { setConnectMode(!connectMode); setConnectFrom(null); }}>
+              <UiIcon name="link" /><span className="toolbar-label-wide">{connectFrom ? "Choose target" : "Connect"}</span>
             </button>
           </div>
           {connectMode && <div className="toolbar-group" role="group" aria-label="Connection settings">
@@ -1671,7 +1686,7 @@ export default function Home() {
             </label>
           </div>}
           <details className="toolbar-menu toolbar-project" name="toolbar-menu">
-            <summary>Project</summary>
+            <summary aria-label="Project" title="Project"><UiIcon name="project" /><span className="toolbar-menu-label">Project</span></summary>
             <div className="toolbar-menu-actions" onClick={(event) => {
               if (event.target instanceof Element && event.target.closest("button")) event.currentTarget.closest("details")?.removeAttribute("open");
             }}>
@@ -1692,7 +1707,7 @@ export default function Home() {
             </div>
           </details>
           <details className="toolbar-export-mobile" name="toolbar-menu">
-            <summary>Export</summary>
+            <summary aria-label="Export" title="Export"><UiIcon name="export" /><span className="toolbar-menu-label">Export</span></summary>
             <div className="toolbar-export-actions" role="group" aria-label="Export actions" onClick={(event) => {
               if (event.target instanceof Element && event.target.closest("button")) event.currentTarget.closest("details")?.removeAttribute("open");
             }}>
@@ -1705,14 +1720,14 @@ export default function Home() {
 
       <section className="workspace grid min-h-0 min-w-0 grid-cols-1 grid-rows-[minmax(0,1fr)_auto] bg-ui-canvas-muted" id="diagram-workspace" data-panel={workspacePanel} tabIndex={-1}>
         <nav className="workspace-switcher grid grid-cols-2 gap-1 bg-ui-surface" aria-label="Workspace panels">
-          <button id="library-toggle" className={workspacePanel === "library" ? "active" : ""} aria-controls="component-library" aria-expanded={workspacePanel === "library"} onClick={() => toggleWorkspacePanel("library")}>Components</button>
-          <button id="inspector-toggle" className={workspacePanel === "inspector" ? "active" : ""} aria-controls="property-inspector" aria-expanded={workspacePanel === "inspector"} onClick={() => toggleWorkspacePanel("inspector")}>Properties</button>
+          <button id="library-toggle" className={workspacePanel === "library" ? "active" : ""} aria-controls="component-library" aria-expanded={workspacePanel === "library"} onClick={() => toggleWorkspacePanel("library")}><UiIcon name="components" />Components</button>
+          <button id="inspector-toggle" className={workspacePanel === "inspector" ? "active" : ""} aria-controls="property-inspector" aria-expanded={workspacePanel === "inspector"} onClick={() => toggleWorkspacePanel("inspector")}><UiIcon name="properties" />Properties</button>
         </nav>
         <aside id="component-library" className="library min-h-0 min-w-0 overflow-y-auto bg-ui-surface p-4" aria-label="Component library" aria-hidden={workspacePanel !== "library"}>
           <div className="panel-heading">
             <span>Library</span>
             <span className="panel-heading-actions">
-              <button className="text-button danger" onClick={clearDiagram}>Clear</button>
+              <button className="text-button button-with-icon danger" onClick={clearDiagram}><UiIcon name="delete" />Clear</button>
               <button className="panel-close" aria-label="Close component library" onClick={() => closeWorkspacePanel("library")}>×</button>
             </span>
           </div>
@@ -1926,7 +1941,7 @@ export default function Home() {
               </div>
               <div className="property-actions">
                 <button onClick={duplicateSelected}>Duplicate</button>
-                <button className="danger" onClick={removeSelected}>Delete</button>
+                <button className="button-with-icon danger" onClick={removeSelected}><UiIcon name="delete" />Delete</button>
               </div>
             </div>
           ) : selectedIds.length > 1 ? (
@@ -1941,7 +1956,7 @@ export default function Home() {
                 <button onClick={saveSelectionAsModule}>Save module</button>
                 <button onClick={() => changeSelected({ locked: true })}>Lock</button>
                 <button onClick={duplicateSelected}>Duplicate</button>
-                <button className="danger" onClick={removeSelected}>Delete</button>
+                <button className="button-with-icon danger" onClick={removeSelected}><UiIcon name="delete" />Delete</button>
               </div>
             </div>
           ) : selectedConnection ? (
@@ -1967,7 +1982,7 @@ export default function Home() {
               </select></label>
               <button onClick={addConnectionBend}>Add bend</button>
               {selectedConnection.waypoints?.length ? <button onClick={() => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, waypoints: undefined } : connection))}>Clear bends</button> : null}
-              <button className="danger" onClick={removeSelected}>Delete connection</button>
+              <button className="button-with-icon danger" onClick={removeSelected}><UiIcon name="delete" />Delete connection</button>
             </div>
           ) : (
             <div className="empty-inspector"><p>Select a component to edit it. On desktop, Shift-click selects several.</p><span>Focused components can be nudged with the arrow keys.</span></div>
