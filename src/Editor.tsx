@@ -2,11 +2,31 @@
 
 import {
   ChangeEvent,
-  PointerEvent as ReactPointerEvent,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
+import {
+  Background,
+  BaseEdge,
+  ConnectionMode,
+  Controls,
+  Handle,
+  MarkerType,
+  Position,
+  ReactFlow,
+  getSmoothStepPath,
+  getStraightPath,
+  type Connection as ReactFlowConnection,
+  type Edge as ReactFlowEdge,
+  type EdgeChange,
+  type EdgeProps,
+  type Node as ReactFlowNode,
+  type NodeChange,
+  type NodeProps,
+  type NodeTypes,
+} from "@xyflow/react";
 import {
   annotationKinds,
   componentByKind,
@@ -119,7 +139,6 @@ const STORAGE_KEY = "setupsketch-diagram-v1";
 const FAVORITES_KEY = "setupsketch-favorites-v1";
 const MODULES_KEY = "setupsketch-modules-v1";
 const GRID_STEP = 20;
-const DRAG_THRESHOLD = 5;
 
 const pagePresets: Record<PagePreset, { label: string; width: number; height: number }> = {
   canvas: { label: "Canvas 12:7", width: WIDTH, height: HEIGHT },
@@ -544,6 +563,88 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
   }
 }
 
+type ScientificNodeData = {
+  element: DiagramElement;
+  labelsVisible: boolean;
+  monochrome: boolean;
+  portsVisible: boolean;
+  labelScale: number;
+};
+
+type PaperNodeData = {
+  title: string;
+  showCredit: boolean;
+  gridVisible: boolean;
+  labelScale: number;
+};
+
+type ScientificFlowNode = ReactFlowNode<ScientificNodeData, "scientific">;
+type PaperFlowNode = ReactFlowNode<PaperNodeData, "paper">;
+type CanvasFlowNode = ScientificFlowNode | PaperFlowNode;
+type ScientificEdgeData = { connection: Connection };
+type ScientificFlowEdge = ReactFlowEdge<ScientificEdgeData, "scientific">;
+
+const scientificNodeSize = (element: DiagramElement) => ({
+  width: Math.max(144, (element.width ?? 120) * (element.scale ?? 1) + 20),
+  height: Math.max(144, (element.height ?? 100) * (element.scale ?? 1) + 36),
+});
+
+function ScientificFlowNodeComponent({ data, selected }: NodeProps<ScientificFlowNode>) {
+  const { element } = data;
+  const { width, height } = scientificNodeSize(element);
+  const renderedElement = data.monochrome ? { ...element, color: "#20242a" } : element;
+  return (
+    <div className={`scientific-flow-node${selected ? " is-selected" : ""}${element.locked ? " is-locked" : ""}`} style={{ width, height }}>
+      <svg viewBox={`${-width / 2} ${-height / 2} ${width} ${height}`} aria-hidden="true">
+        <g transform={`rotate(${element.rotation})`}>
+          <g transform={`scale(${(element.scale ?? 1) * (element.flipX ? -1 : 1)} ${(element.scale ?? 1) * (element.flipY ? -1 : 1)})`}>
+            <ElectronicPortStubs element={renderedElement} />
+            <ComponentShape element={renderedElement} monochrome={data.monochrome} />
+          </g>
+          {data.labelsVisible && !annotationKinds.has(element.kind) && <text y={70 * (element.scale ?? 1)} textAnchor="middle" fill="#252b33" fontSize={14 * data.labelScale} fontWeight="600" fontFamily="Arial, sans-serif" transform={`rotate(${-element.rotation})`}>{element.label}</text>}
+        </g>
+      </svg>
+      {portsFor(element).map((port) => (
+        <Handle
+          className={`scientific-handle${data.portsVisible ? " is-visible" : ""}`}
+          id={port.id}
+          key={port.id}
+          type="source"
+          position={Position.Left}
+          isConnectable={data.portsVisible}
+          aria-label={`${port.id}: ${portTypeLabels[port.type]}`}
+          style={{ left: width / 2 + port.x - element.x, top: height / 2 + port.y - element.y, background: portTypeColors[port.type] }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function PaperFlowNodeComponent({ data }: NodeProps<PaperFlowNode>) {
+  return (
+    <div className={`flow-paper${data.gridVisible ? " has-grid" : ""}`}>
+      <strong style={{ fontSize: 25 * data.labelScale }}>{data.title}</strong>
+      {data.showCredit && <span style={{ fontSize: 12 * data.labelScale }}>Created with SetupSketch</span>}
+    </div>
+  );
+}
+
+function ScientificFlowEdgeComponent({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, data, markerEnd, style }: EdgeProps<ScientificFlowEdge>) {
+  const connection = data?.connection;
+  let path: string;
+  if (connection?.waypoints?.length) {
+    path = `M ${[{ x: sourceX, y: sourceY }, ...connection.waypoints, { x: targetX, y: targetY }].map((point) => `${point.x} ${point.y}`).join(" L ")}`;
+  } else if (connection?.routing === "straight" || connection?.type === "beam") {
+    [path] = getStraightPath({ sourceX, sourceY, targetX, targetY });
+  } else {
+    [path] = getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, borderRadius: 0 });
+  }
+  return <BaseEdge path={path} markerEnd={markerEnd} style={style} interactionWidth={18} />;
+}
+
+const flowNodeTypes = { scientific: ScientificFlowNodeComponent, paper: PaperFlowNodeComponent } satisfies NodeTypes;
+const flowEdgeTypes = { scientific: ScientificFlowEdgeComponent };
+
 export default function Home() {
   const [elements, setElements] = useState<DiagramElement[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -574,28 +675,21 @@ export default function Home() {
   const [recentKinds, setRecentKinds] = useState<ElementKind[]>([]);
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>(() => componentGroups.map((group) => group.title));
   const [savedModules, setSavedModules] = useState<SavedModule[]>([]);
-  const [endpointPreview, setEndpointPreview] = useState<Point | null>(null);
   const [checklistDraft, setChecklistDraft] = useState("");
   const svgRef = useRef<SVGSVGElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bomRef = useRef<HTMLInputElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const hydrated = useRef(false);
+  const skipInitialSave = useRef(true);
   const editBefore = useRef<Snapshot | null>(null);
-  const drag = useRef<{
-    ids: string[];
-    start: Point;
-    origins: Array<{ id: string; x: number; y: number }>;
-    before: Snapshot;
-    moved: boolean;
-  } | null>(null);
-  const bendDrag = useRef<{ connectionId: string; index: number; before: Snapshot; moved: boolean } | null>(null);
-  const endpointDrag = useRef<{ connectionId: string; end: "from" | "to"; before: Snapshot } | null>(null);
+  const flowDragBefore = useRef<Snapshot | null>(null);
+  const flowDragMoved = useRef(false);
 
   const dimensions = pagePresets[publication.pagePreset];
   const selected = selectedIds.length === 1 ? elements.find((element) => element.id === selectedIds[0]) ?? null : null;
   const selectedConnection = connections.find((connection) => connection.id === selectedConnectionId) ?? null;
-  const selection = new Set(selectedIds);
+  const selection = useMemo(() => new Set(selectedIds), [selectedIds]);
   const validationIssues = validateSetup(
     elements,
     connections,
@@ -605,6 +699,62 @@ export default function Home() {
     (kind, portId) => elementKinds.has(kind as ElementKind) ? portTypeFor(kind as ElementKind, portId) : undefined,
   );
   const budgets = calculateBudgets(elements, connections);
+  const flowNodes = useMemo<CanvasFlowNode[]>(() => [
+    {
+      id: "__paper__",
+      type: "paper",
+      position: { x: 0, y: 0 },
+      width: dimensions.width,
+      height: dimensions.height,
+      data: { title, showCredit: publication.showCredit, gridVisible: layers.grid, labelScale: publication.labelScale },
+      draggable: false,
+      selectable: false,
+      connectable: false,
+      focusable: false,
+      deletable: false,
+      zIndex: -1,
+    },
+    ...elements.map((element, index): ScientificFlowNode => {
+      const size = scientificNodeSize(element);
+      return {
+        id: element.id,
+        type: "scientific",
+        position: { x: element.x - size.width / 2, y: element.y - size.height / 2 },
+        width: size.width,
+        height: size.height,
+        data: {
+          element,
+          labelsVisible: layers.labels,
+          monochrome: publication.monochrome,
+          portsVisible: connectMode || selectedIds.includes(element.id),
+          labelScale: publication.labelScale,
+        },
+        selected: selectedIds.includes(element.id),
+        draggable: !element.locked,
+        hidden: !layers[annotationKinds.has(element.kind) ? "annotations" : electronicKinds.has(element.kind) ? "electronics" : "optics"],
+        zIndex: index + 1,
+        ariaLabel: `${element.label}, ${componentByKind.get(element.kind)?.label ?? element.kind}${element.locked ? ", locked" : ""}`,
+      };
+    }),
+  ], [connectMode, dimensions, elements, layers, publication.labelScale, publication.monochrome, publication.showCredit, selectedIds, title]);
+  const flowEdges = useMemo<ScientificFlowEdge[]>(() => connections.map((connection) => {
+    const type = getConnectionType(connection);
+    const color = publication.monochrome ? "#20242a" : connection.color;
+    return {
+      id: connection.id,
+      type: "scientific",
+      source: connection.from,
+      target: connection.to,
+      sourceHandle: connection.fromPort,
+      targetHandle: connection.toPort,
+      data: { connection },
+      selected: selectedConnectionId === connection.id,
+      hidden: !layers[type === "beam" ? "beams" : "signals"],
+      markerEnd: type === "signal" ? { type: MarkerType.ArrowClosed, color } : undefined,
+      style: { stroke: color, strokeWidth: selectedConnectionId === connection.id ? 4 : type === "beam" ? 3 : 2.5, strokeDasharray: type === "signal" ? "9 5" : undefined },
+      reconnectable: true,
+    };
+  }), [connections, layers, publication.monochrome, selectedConnectionId]);
   const isNarrowWorkspace = () => window.matchMedia("(max-width: 59.999rem)").matches;
   const showWorkspacePanel = (panel: "library" | "canvas" | "inspector") => {
     toolbarRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((menu) => { menu.open = false; });
@@ -657,6 +807,10 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (skipInitialSave.current) {
+      skipInitialSave.current = false;
+      return;
+    }
     if (!hydrated.current) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 4, title, elements, connections, publication, experiment }));
   }, [title, elements, connections, publication, experiment]);
@@ -668,15 +822,6 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem(MODULES_KEY, JSON.stringify(savedModules));
   }, [savedModules]);
-
-  const pointFromEvent = (event: ReactPointerEvent<SVGElement>) => {
-    const svg = svgRef.current;
-    if (!svg) return { x: 0, y: 0 };
-    const point = svg.createSVGPoint();
-    point.x = event.clientX;
-    point.y = event.clientY;
-    return point.matrixTransform(svg.getScreenCTM()?.inverse());
-  };
 
   const commit = (nextElements: DiagramElement[], nextConnections = connections) => {
     const before = editBefore.current ?? cloneSnapshot(elements, connections, publication, experiment);
@@ -813,152 +958,126 @@ export default function Home() {
     setSelectedIds(copies.map((element) => element.id));
   };
 
-  const selectElement = (event: ReactPointerEvent<SVGGElement>, id: string) => {
-    event.stopPropagation();
-    if (connectMode) {
-      if (!connectFrom) {
-        setConnectFrom(id);
-        setNotice("Select the destination component");
-      } else if (connectFrom !== id) {
-        const from = elements.find((element) => element.id === connectFrom);
-        const to = elements.find((element) => element.id === id);
-        if (!from || !to) return;
-        if (!portsFor(from).some((port) => port.type === connectionDomain) || !portsFor(to).some((port) => port.type === connectionDomain)) {
-          setNotice(`Both components need a ${portTypeLabels[connectionDomain]} port`);
-          return;
-        }
-        const ports = closestPortPair(from, to, connectionDomain);
-        const connectionType: ConnectionType = connectionDomain === "optical-free-space" || connectionDomain === "fiber" ? "beam" : "signal";
-        const connection: Connection = {
-          id: `connection-${Date.now()}`,
-          from: connectFrom,
-          to: id,
-          color: portTypeColors[connectionDomain],
-          type: connectionType,
-          portType: connectionDomain,
-          fromPort: ports.source.id,
-          toPort: ports.target.id,
-          routing: connectionType === "beam" ? "straight" : "orthogonal",
-        };
-        commit(elements, [...connections, connection]);
-        setConnectFrom(null);
-        setConnectMode(false);
-        setNotice("Connection added");
-      }
+  const connectionFromFlow = (candidate: { source: string | null; target: string | null; sourceHandle?: string | null; targetHandle?: string | null }, ignoredConnectionId?: string): Omit<Connection, "id"> | null => {
+    const from = elements.find((element) => element.id === candidate.source);
+    const to = elements.find((element) => element.id === candidate.target);
+    if (!from || !to || from.id === to.id || !candidate.sourceHandle || !candidate.targetHandle) return null;
+    const sourceType = portTypeFor(from.kind, candidate.sourceHandle);
+    const targetType = portTypeFor(to.kind, candidate.targetHandle);
+    if (sourceType !== targetType) return null;
+    const occupied = connections.some((connection) => connection.id !== ignoredConnectionId && (
+      connection.from === from.id && connection.fromPort === candidate.sourceHandle ||
+      connection.to === from.id && connection.toPort === candidate.sourceHandle ||
+      connection.from === to.id && connection.fromPort === candidate.targetHandle ||
+      connection.to === to.id && connection.toPort === candidate.targetHandle
+    ));
+    if (occupied) return null;
+    const type: ConnectionType = sourceType === "optical-free-space" || sourceType === "fiber" ? "beam" : "signal";
+    return {
+      from: from.id,
+      to: to.id,
+      color: portTypeColors[sourceType],
+      type,
+      portType: sourceType,
+      fromPort: candidate.sourceHandle,
+      toPort: candidate.targetHandle,
+      routing: type === "beam" ? "straight" : "orthogonal",
+    };
+  };
+
+  const addFlowConnection = (candidate: ReactFlowConnection) => {
+    const connection = connectionFromFlow(candidate);
+    if (!connection) {
+      setNotice("Choose two compatible, unused ports");
       return;
     }
-    const clicked = elements.find((element) => element.id === id);
-    if (!clicked) return;
-    const groupIds = clicked.groupId
-      ? elements.filter((element) => element.groupId === clicked.groupId).map((element) => element.id)
-      : [id];
-    const nextIds = event.shiftKey
-      ? selectedIds.includes(id) ? selectedIds.filter((selectedId) => !groupIds.includes(selectedId)) : [...new Set([...selectedIds, ...groupIds])]
-      : selectedIds.includes(id) ? selectedIds : groupIds;
-    setSelectedIds(nextIds);
-    setSelectedConnectionId(null);
-    if (clicked.locked) {
+    commit(elements, [...connections, { ...connection, id: `connection-${Date.now()}` }]);
+    setConnectFrom(null);
+    setConnectMode(false);
+    setNotice("Connection added");
+  };
+
+  const selectFlowNode = (id: string, additive = false) => {
+    if (!connectMode) {
+      const element = elements.find((candidate) => candidate.id === id);
+      const ids = element?.groupId ? elements.filter((candidate) => candidate.groupId === element.groupId).map((candidate) => candidate.id) : [id];
+      setSelectedIds((current) => additive
+        ? ids.every((candidate) => current.includes(candidate)) ? current.filter((candidate) => !ids.includes(candidate)) : [...new Set([...current, ...ids])]
+        : ids);
+      setSelectedConnectionId(null);
       if (isNarrowWorkspace()) setWorkspacePanel("inspector");
       return;
     }
-    const point = pointFromEvent(event);
-    drag.current = {
-      ids: nextIds,
-      start: point,
-      origins: elements.filter((element) => nextIds.includes(element.id) && !element.locked).map(({ id: elementId, x, y }) => ({ id: elementId, x, y })),
-      before: cloneSnapshot(elements, connections, publication, experiment),
-      moved: false,
-    };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-
-  const moveElement = (event: ReactPointerEvent<SVGGElement>) => {
-    if (!drag.current || connectMode) return;
-    const point = pointFromEvent(event);
-    const dx = point.x - drag.current.start.x;
-    const dy = point.y - drag.current.start.y;
-    if (!drag.current.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-    drag.current.moved = true;
-    setElements((items) => items.map((item) => {
-      const origin = drag.current?.origins.find((candidate) => candidate.id === item.id);
-      if (!origin) return item;
-      const rawX = origin.x + dx;
-      const rawY = origin.y + dy;
-      const x = snapEnabled ? Math.round(rawX / GRID_STEP) * GRID_STEP : rawX;
-      const y = snapEnabled ? Math.round(rawY / GRID_STEP) * GRID_STEP : rawY;
-      return { ...item, x: Math.max(60, Math.min(dimensions.width - 60, x)), y: Math.max(60, Math.min(dimensions.height - 60, y)) };
-    }));
-  };
-
-  const finishDrag = () => {
-    const active = drag.current;
-    if (active?.moved) {
-      setPast((items) => [...items.slice(-39), active.before]);
-      setFuture([]);
-    } else if (active && isNarrowWorkspace()) {
-      setWorkspacePanel("inspector");
+    if (!connectFrom) {
+      setConnectFrom(id);
+      setNotice("Select the destination component");
+      return;
     }
-    drag.current = null;
-  };
-
-  const moveBend = (event: ReactPointerEvent<SVGCircleElement>) => {
-    const active = bendDrag.current;
-    if (!active) return;
-    const point = pointFromEvent(event);
-    active.moved = true;
-    setConnections((items) => items.map((connection) => connection.id === active.connectionId ? {
-      ...connection,
-      waypoints: connection.waypoints?.map((waypoint, index) => index === active.index ? {
-        x: snapEnabled ? Math.round(point.x / GRID_STEP) * GRID_STEP : point.x,
-        y: snapEnabled ? Math.round(point.y / GRID_STEP) * GRID_STEP : point.y,
-      } : waypoint),
-    } : connection));
-  };
-
-  const finishBend = () => {
-    const active = bendDrag.current;
-    if (active?.moved) {
-      setPast((items) => [...items.slice(-39), active.before]);
-      setFuture([]);
+    if (connectFrom === id) return;
+    const from = elements.find((element) => element.id === connectFrom);
+    const to = elements.find((element) => element.id === id);
+    if (!from || !to || !portsFor(from).some((port) => port.type === connectionDomain) || !portsFor(to).some((port) => port.type === connectionDomain)) {
+      setNotice(`Both components need a ${portTypeLabels[connectionDomain]} port`);
+      return;
     }
-    bendDrag.current = null;
+    const pair = closestPortPair(from, to, connectionDomain);
+    addFlowConnection({ source: from.id, target: to.id, sourceHandle: pair.source.id, targetHandle: pair.target.id });
   };
 
-  const moveEndpoint = (event: ReactPointerEvent<SVGCircleElement>) => {
-    if (!endpointDrag.current) return;
-    setEndpointPreview(pointFromEvent(event));
-  };
-
-  const finishEndpoint = (event: ReactPointerEvent<SVGCircleElement>) => {
-    const active = endpointDrag.current;
-    if (!active) return;
-    const point = pointFromEvent(event);
-    const connection = connections.find((item) => item.id === active.connectionId);
-    if (connection) {
-      const oppositeId = active.end === "from" ? connection.to : connection.from;
-      const from = elements.find((element) => element.id === connection.from);
-      const domain = getConnectionDomain(connection, from);
-      const choices = elements.filter((element) => element.id !== oppositeId).flatMap((element) =>
-        portsFor(element).filter((port) => port.type === domain).map((port) => ({ element, port, distance: Math.hypot(port.x - point.x, port.y - point.y) })),
+  const changeFlowNodes = (changes: NodeChange<CanvasFlowNode>[]) => {
+    const removedIds = new Set(changes.flatMap((change) => change.type === "remove" && change.id !== "__paper__" ? [change.id] : []));
+    if (removedIds.size) {
+      commit(
+        elements.filter((element) => !removedIds.has(element.id)),
+        connections.filter((connection) => !removedIds.has(connection.from) && !removedIds.has(connection.to)),
       );
-      const nearest = choices.sort((a, b) => a.distance - b.distance)[0];
-      if (nearest && nearest.distance <= 90) {
-        setPast((items) => [...items.slice(-39), active.before]);
-        setFuture([]);
-        setConnections((items) => items.map((item) => item.id === active.connectionId ? active.end === "from"
-          ? { ...item, from: nearest.element.id, fromPort: nearest.port.id, waypoints: undefined }
-          : { ...item, to: nearest.element.id, toPort: nearest.port.id, waypoints: undefined }
-        : item));
-        setNotice("Connection endpoint moved");
-      }
+      return;
     }
-    endpointDrag.current = null;
-    setEndpointPreview(null);
+    const positions = new Map(changes.flatMap((change) => change.type === "position" && change.id !== "__paper__" && change.position ? [[change.id, change.position] as const] : []));
+    if (!positions.size) return;
+    let moved = false;
+    const nextElements = elements.map((element) => {
+      const position = positions.get(element.id);
+      if (!position) return element;
+      const size = scientificNodeSize(element);
+      const x = position.x + size.width / 2;
+      const y = position.y + size.height / 2;
+      if (element.x === x && element.y === y) return element;
+      moved = true;
+      return { ...element, x, y };
+    });
+    if (!moved) return;
+    if (flowDragBefore.current) {
+      flowDragMoved.current = true;
+      setElements(nextElements);
+    } else {
+      commit(nextElements);
+    }
   };
 
-  const cancelEndpoint = () => {
-    endpointDrag.current = null;
-    setEndpointPreview(null);
+  const changeFlowEdges = (changes: EdgeChange<ScientificFlowEdge>[]) => {
+    const removedIds = new Set(changes.flatMap((change) => change.type === "remove" ? [change.id] : []));
+    if (removedIds.size) commit(elements, connections.filter((connection) => !removedIds.has(connection.id)));
+  };
+
+  const finishFlowDrag = () => {
+    const before = flowDragBefore.current;
+    if (flowDragMoved.current && before) {
+      setPast((items) => [...items.slice(-39), before]);
+      setFuture([]);
+    }
+    flowDragBefore.current = null;
+    flowDragMoved.current = false;
+  };
+
+  const reconnectFlowEdge = (edge: ScientificFlowEdge, candidate: ReactFlowConnection) => {
+    const replacement = connectionFromFlow(candidate, edge.id);
+    if (!replacement) {
+      setNotice("Choose a compatible, unused port");
+      return;
+    }
+    commit(elements, connections.map((connection) => connection.id === edge.id ? { ...connection, ...replacement, waypoints: undefined } : connection));
+    setNotice("Connection endpoint moved");
   };
 
   const groupSelection = () => {
@@ -993,9 +1112,9 @@ export default function Home() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target instanceof Element ? event.target : null;
-      const diagramControl = target?.closest("[data-diagram-control]");
       const interfaceControl = target?.closest("input, textarea, select, button, summary, a, [contenteditable='true']");
-      if (interfaceControl && !diagramControl) return;
+      if (interfaceControl) return;
+      if (target?.closest(".react-flow") && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
       if (event.key === "Delete" || event.key === "Backspace") removeSelected();
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
         event.preventDefault();
@@ -1049,7 +1168,7 @@ export default function Home() {
     if (!svgRef.current) return "";
     const frame = exportFrame();
     const clone = svgRef.current.cloneNode(true) as SVGSVGElement;
-    clone.querySelectorAll(".selection-outline, .connection-hit, .grid-layer, .port-marker, .bend-handle, .endpoint-handle").forEach((node) => node.remove());
+    clone.querySelectorAll(".grid-layer").forEach((node) => node.remove());
     clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
     clone.setAttribute("viewBox", `${frame.x} ${frame.y} ${frame.width} ${frame.height}`);
     clone.setAttribute("width", String(frame.width));
@@ -1572,14 +1691,45 @@ export default function Home() {
           </div>
           <div className="stage">
             {elements.length === 0 && <div className="stage-empty"><strong>Start with a component</strong><p>Add one from the library or load a template from the toolbar.</p></div>}
+            <div className="diagram-flow" role="group" aria-label={`${title}, editable scientific setup diagram`}>
+              <ReactFlow<CanvasFlowNode, ScientificFlowEdge>
+                nodes={flowNodes}
+                edges={flowEdges}
+                nodeTypes={flowNodeTypes}
+                edgeTypes={flowEdgeTypes}
+                onNodesChange={changeFlowNodes}
+                onEdgesChange={changeFlowEdges}
+                onNodeClick={(event, node) => node.id !== "__paper__" && selectFlowNode(node.id, event.shiftKey || event.ctrlKey || event.metaKey)}
+                onEdgeClick={(_, edge) => { setSelectedConnectionId(edge.id); setSelectedIds([]); }}
+                onPaneClick={() => { setSelectedIds([]); setSelectedConnectionId(null); }}
+                onNodeDragStart={() => { flowDragBefore.current = cloneSnapshot(elements, connections, publication, experiment); flowDragMoved.current = false; }}
+                onNodeDragStop={finishFlowDrag}
+                onConnect={addFlowConnection}
+                onReconnect={reconnectFlowEdge}
+                isValidConnection={(candidate) => Boolean(connectionFromFlow(candidate))}
+                connectionMode={ConnectionMode.Loose}
+                connectionLineStyle={{ stroke: portTypeColors[connectionDomain], strokeWidth: 3 }}
+                nodeExtent={[[0, 0], [dimensions.width, dimensions.height]]}
+                translateExtent={[[-160, -160], [dimensions.width + 160, dimensions.height + 160]]}
+                snapToGrid={snapEnabled}
+                snapGrid={[GRID_STEP, GRID_STEP]}
+                nodesDraggable={!connectMode}
+                deleteKeyCode={null}
+                minZoom={0.25}
+                maxZoom={2.5}
+                fitView
+                fitViewOptions={{ padding: 0.06 }}
+                attributionPosition="bottom-left"
+              >
+                <Background gap={20} size={1} color="var(--color-rule)" />
+                <Controls showInteractive={false} />
+              </ReactFlow>
+            </div>
             <svg
               ref={svgRef}
-              className="diagram"
+              className="diagram-export"
               viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
-              style={{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }}
-              role="group"
-              aria-label={`${title}, editable scientific setup diagram`}
-              onPointerDown={() => { setSelectedIds([]); setSelectedConnectionId(null); }}
+              aria-hidden="true"
             >
               <defs>
                 <pattern id="minorGrid" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -1604,7 +1754,6 @@ export default function Home() {
                 const from = elements.find((element) => element.id === connection.from);
                 const to = elements.find((element) => element.id === connection.to);
                 if (!from || !to) return null;
-                const selectedEdge = selectedConnectionId === connection.id;
                 const points = connectionPath(connection, from, to, elements);
                 const pointString = points.map((point) => `${point.x},${point.y}`).join(" ");
                 return (
@@ -1613,39 +1762,11 @@ export default function Home() {
                       points={pointString}
                       fill="none"
                       stroke={publication.monochrome ? "#20242a" : connection.color}
-                      strokeWidth={selectedEdge ? 5 : getConnectionType(connection) === "beam" ? 3 : 2.5}
+                      strokeWidth={getConnectionType(connection) === "beam" ? 3 : 2.5}
                       strokeDasharray={getConnectionType(connection) === "signal" ? "9 5" : undefined}
                       markerEnd={getConnectionType(connection) === "signal" ? "url(#arrow)" : undefined}
                       strokeLinejoin="round"
                     />
-                    <polyline
-                      className="connection-hit"
-                      data-diagram-control
-                      role="button"
-                      tabIndex={0}
-                      aria-pressed={selectedEdge}
-                      aria-label={`Connection from ${from.label} to ${to.label}`}
-                      points={pointString}
-                      fill="none" stroke="transparent" strokeWidth="18"
-                      onPointerDown={(event) => { event.stopPropagation(); setSelectedConnectionId(connection.id); setSelectedIds([]); }}
-                      onFocus={() => { setSelectedConnectionId(connection.id); setSelectedIds([]); }}
-                      onKeyDown={(event) => { if (event.key === " " || event.key === "Enter") event.preventDefault(); }}
-                    />
-                    {selectedEdge && connection.waypoints?.map((point, index) => (
-                      <circle
-                        className="bend-handle"
-                        key={`${connection.id}-bend-${index}`}
-                        cx={point.x} cy={point.y} r="7" fill="var(--color-surface-raised)" stroke="var(--color-accent)" strokeWidth="3"
-                        onPointerDown={(event) => {
-                          event.stopPropagation();
-                          bendDrag.current = { connectionId: connection.id, index, before: cloneSnapshot(elements, connections, publication, experiment), moved: false };
-                          event.currentTarget.setPointerCapture(event.pointerId);
-                        }}
-                        onPointerMove={moveBend}
-                        onPointerUp={finishBend}
-                        onPointerCancel={finishBend}
-                      />
-                    ))}
                   </g>
                 );
               })}
@@ -1653,56 +1774,16 @@ export default function Home() {
               {elements.filter((element) => layers[annotationKinds.has(element.kind) ? "annotations" : electronicKinds.has(element.kind) ? "electronics" : "optics"]).map((element) => (
                 <g
                   key={element.id}
-                  className={`diagram-element${connectFrom === element.id ? " connection-source" : ""}${element.locked ? " locked" : ""}`}
-                  data-diagram-control
-                  role="button"
-                  tabIndex={0}
-                  aria-pressed={selection.has(element.id)}
-                  aria-label={`${element.label}, ${componentByKind.get(element.kind)?.label ?? element.kind}${element.locked ? ", locked" : ""}`}
+                  className="diagram-element"
                   transform={`translate(${element.x} ${element.y}) rotate(${element.rotation})`}
-                  onPointerDown={(event) => selectElement(event, element.id)}
-                  onFocus={() => { setSelectedIds([element.id]); setSelectedConnectionId(null); }}
-                  onKeyDown={(event) => { if (event.key === " " || event.key === "Enter") event.preventDefault(); }}
-                  onPointerMove={moveElement}
-                  onPointerUp={finishDrag}
-                  onPointerCancel={finishDrag}
                 >
-                  {selection.has(element.id) && <rect className="selection-outline" x={-Math.max(64, (element.width ?? 120) * (element.scale ?? 1) / 2 + 6)} y={-Math.max(58, (element.height ?? 100) * (element.scale ?? 1) / 2 + 6)} width={Math.max(128, (element.width ?? 120) * (element.scale ?? 1) + 12)} height={Math.max(116, (element.height ?? 100) * (element.scale ?? 1) + 12)} rx="9" fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeDasharray="6 5" />}
                   <g transform={`scale(${(element.scale ?? 1) * (element.flipX ? -1 : 1)} ${(element.scale ?? 1) * (element.flipY ? -1 : 1)})`}>
                     <ElectronicPortStubs element={publication.monochrome ? { ...element, color: "#20242a" } : element} />
                     <ComponentShape element={publication.monochrome ? { ...element, color: "#20242a" } : element} monochrome={publication.monochrome} />
                   </g>
-                  <rect x={-Math.max(66, (element.width ?? 120) * (element.scale ?? 1) / 2)} y={-Math.max(54, (element.height ?? 100) * (element.scale ?? 1) / 2)} width={Math.max(132, (element.width ?? 120) * (element.scale ?? 1))} height={Math.max(108, (element.height ?? 100) * (element.scale ?? 1))} fill="transparent" />
-                  {(selection.has(element.id) || connectMode) && portsFor(element).map((port) => {
-                    const local = rotatePoint({ x: port.x - element.x, y: port.y - element.y }, -element.rotation);
-                    return <circle className="port-marker" key={port.id} cx={local.x} cy={local.y} r="5" fill="#fff" stroke={portTypeColors[port.type]} strokeWidth="2"><title>{port.id}: {portTypeLabels[port.type]}</title></circle>;
-                  })}
                   {layers.labels && !annotationKinds.has(element.kind) && <text className="labels-layer" y={70 * (element.scale ?? 1)} textAnchor="middle" fill="#252b33" fontSize={14 * publication.labelScale} fontWeight="600" fontFamily="Arial, sans-serif" transform={`rotate(${-element.rotation})`}>{element.label}</text>}
                 </g>
               ))}
-              {selectedConnection && (() => {
-                const from = elements.find((element) => element.id === selectedConnection.from);
-                const to = elements.find((element) => element.id === selectedConnection.to);
-                if (!from || !to) return null;
-                const points = connectionPath(selectedConnection, from, to, elements);
-                return ([points[0], points.at(-1)!] as Point[]).map((point, index) => (
-                  <circle
-                    className="endpoint-handle"
-                    key={`${selectedConnection.id}-endpoint-${index}`}
-                    cx={point.x} cy={point.y} r="8" fill="var(--color-accent)" stroke="var(--color-surface-raised)" strokeWidth="3"
-                    onPointerDown={(event) => {
-                      event.stopPropagation();
-                      endpointDrag.current = { connectionId: selectedConnection.id, end: index === 0 ? "from" : "to", before: cloneSnapshot(elements, connections, publication, experiment) };
-                      setEndpointPreview(point);
-                      event.currentTarget.setPointerCapture(event.pointerId);
-                    }}
-                    onPointerMove={moveEndpoint}
-                    onPointerUp={finishEndpoint}
-                    onPointerCancel={cancelEndpoint}
-                  />
-                ));
-              })()}
-              {endpointPreview && <circle className="endpoint-handle" cx={endpointPreview.x} cy={endpointPreview.y} r="10" fill="var(--color-surface-raised)" stroke="var(--color-accent)" strokeWidth="3" pointerEvents="none" />}
             </svg>
           </div>
         </section>

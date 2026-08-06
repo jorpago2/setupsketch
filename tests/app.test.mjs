@@ -31,7 +31,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   for (const feature of ["connectionPath", "orthogonal", "fromPort", "selectedIds", "exportBom", "Publication", "Search components"]) {
     assert.match(editor, new RegExp(feature));
   }
-  for (const feature of ["saveSelectionAsModule", "finishEndpoint", "cropToContent", "loadBom", "Setup checks", "Flip horizontal"]) {
+  for (const feature of ["saveSelectionAsModule", "reconnectFlowEdge", "cropToContent", "loadBom", "Setup checks", "Flip horizontal"]) {
     assert.match(editor, new RegExp(feature));
   }
   for (const annotation of ["textnote", "equation", "region", "dimension", "brace", "legend"]) {
@@ -58,12 +58,13 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /<summary id="publication-title">Publication<\/summary>/);
   assert.doesNotMatch(editor, /toolbar-export-desktop/);
   assert.equal([...editor.matchAll(/name="toolbar-menu"/g)].length, 2);
-  assert.match(editor, /active && isNarrowWorkspace\(\)/);
+  assert.match(editor, /isNarrowWorkspace\(\)\) setWorkspacePanel\("inspector"\)/);
   assert.match(editor, /setWorkspacePanel\("canvas"\)/);
-  for (const feature of ['data-diagram-control', 'role="group"', 'className="property-section"', 'BOM CSV', 'Import BOM', 'Arrange overlaps']) assert.match(editor, new RegExp(feature));
+  for (const feature of ['ReactFlow', 'ConnectionMode.Loose', 'diagram-export', 'role="group"', 'className="property-section"', 'BOM CSV', 'Import BOM', 'Arrange overlaps']) assert.match(editor, new RegExp(feature));
   assert.doesNotMatch(editor, /stroke="#1665d8"|BOM↓|BOM↑/);
   assert.doesNotMatch(styles, /100vw|#[0-9a-fA-F]{3,8}|font-family:\s*Arial/);
   assert.match(editor, /href="https:\/\/jorpago2\.github\.io\/"/);
   assert.match(model, /calculateBudgets/);
   assert.equal(packageJson.dependencies.pptxgenjs, "^4.0.1");
+  assert.equal(packageJson.dependencies["@xyflow/react"], "12.11.2");
 });
