@@ -20,7 +20,7 @@ SetupSketch uses a modern-minimal, technical-austere system shared with the scie
 
 ## Typography
 
-- Display and body: IBM Plex Sans, 400–700.
+- Display: Space Grotesk, 600–700. Body: IBM Plex Sans, 400–700.
 - Labels and numeric UI: IBM Plex Mono, 500–600, with tabular figures where values align.
 - UI body floor: 12 px only for compact labels; editable content and explanatory text use 14 px or above.
 - Scientific diagram export typography remains controlled by the export model and is not coupled to the interface font.
@@ -58,7 +58,7 @@ The complete source is [`tokens.css`](tokens.css). Core roles:
   --color-accent: oklch(45% 0.09 190);
   --color-accent-ink: oklch(98.5% 0.006 155);
   --color-focus: oklch(60% 0.17 210);
-  --font-display: "IBM Plex Sans", ui-sans-serif, sans-serif;
+  --font-display: "Space Grotesk", ui-sans-serif, sans-serif;
   --font-body: "IBM Plex Sans", ui-sans-serif, sans-serif;
   --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
 }
@@ -79,7 +79,7 @@ The complete source is [`tokens.css`](tokens.css). Core roles:
   --color-ink: oklch(22% 0.025 205);
   --color-accent: oklch(45% 0.09 190);
   --color-focus: oklch(60% 0.17 210);
-  --font-display: "IBM Plex Sans", ui-sans-serif, sans-serif;
+  --font-display: "Space Grotesk", ui-sans-serif, sans-serif;
   --font-body: "IBM Plex Sans", ui-sans-serif, sans-serif;
   --font-outlier: "IBM Plex Mono", ui-monospace, monospace;
   --spacing-3xs: 0.125rem;
@@ -89,7 +89,7 @@ The complete source is [`tokens.css`](tokens.css). Core roles:
   --spacing-md: 1rem;
   --spacing-lg: 1.5rem;
   --spacing-xl: 2.5rem;
-  --radius-card: 0.625rem;
+  --radius-card: 0.875rem;
   --radius-input: 0.5rem;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -114,7 +114,7 @@ The complete source is [`tokens.css`](tokens.css). Core roles:
     "focus": { "$value": "oklch(60% 0.17 210)", "$type": "color" }
   },
   "font": {
-    "display": { "$value": "IBM Plex Sans, ui-sans-serif, sans-serif", "$type": "fontFamily" },
+    "display": { "$value": "Space Grotesk, ui-sans-serif, sans-serif", "$type": "fontFamily" },
     "body": { "$value": "IBM Plex Sans, ui-sans-serif, sans-serif", "$type": "fontFamily" },
     "outlier": { "$value": "IBM Plex Mono, ui-monospace, monospace", "$type": "fontFamily" }
   },
@@ -155,6 +155,6 @@ The complete source is [`tokens.css`](tokens.css). Core roles:
   --border: 86% 0.018 175;
   --input: 86% 0.018 175;
   --ring: 60% 0.17 210;
-  --radius: 0.625rem;
+  --radius: 0.875rem;
 }
 ```

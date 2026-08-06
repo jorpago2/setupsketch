@@ -1630,11 +1630,11 @@ export default function Home() {
   </>;
 
   return (
-    <main className="app-shell" aria-labelledby="app-title">
+    <main className="app-shell fixed inset-0 grid h-dvh min-w-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-ui-canvas font-ui-body text-ui-ink" aria-labelledby="app-title">
       <a className="skip-link" href="#diagram-workspace">Skip to diagram workspace</a>
       <h1 className="sr-only" id="app-title">SetupSketch scientific diagram editor</h1>
       <style>{`@media print { @page { size: ${publication.pagePreset === "a3" ? "A3 landscape" : "A4 landscape"}; margin: 8mm; } }`}</style>
-      <header className="topbar">
+      <header className="topbar relative z-[200] grid grid-cols-[auto_minmax(7rem,1fr)] items-center gap-2 bg-ui-surface px-3 py-2 shadow-ui-raised">
         <a className="brand" href="https://jorpago2.github.io/" aria-label="SetupSketch — All tools">
           <span className="brand-mark" aria-hidden="true">S</span>
           <span><strong>SetupSketch</strong><small>Scientific diagram editor</small></span>
@@ -1692,13 +1692,13 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="workspace" id="diagram-workspace" data-panel={workspacePanel} tabIndex={-1}>
-        <nav className="workspace-switcher" aria-label="Workspace layers">
+      <section className="workspace grid min-h-0 min-w-0 grid-cols-1 grid-rows-[minmax(0,1fr)_auto] bg-ui-canvas-muted" id="diagram-workspace" data-panel={workspacePanel} tabIndex={-1}>
+        <nav className="workspace-switcher grid grid-cols-3 gap-1 bg-ui-surface" aria-label="Workspace layers">
           <button className={workspacePanel === "library" ? "active" : ""} aria-pressed={workspacePanel === "library"} onClick={() => showWorkspacePanel("library")}>Components</button>
           <button className={workspacePanel === "canvas" ? "active" : ""} aria-pressed={workspacePanel === "canvas"} onClick={() => showWorkspacePanel("canvas")}>Canvas</button>
           <button className={workspacePanel === "inspector" ? "active" : ""} aria-pressed={workspacePanel === "inspector"} onClick={() => showWorkspacePanel("inspector")}>Properties</button>
         </nav>
-        <aside className="library" aria-label="Component library" aria-hidden={workspacePanel !== "library"}>
+        <aside className="library min-h-0 min-w-0 overflow-y-auto bg-ui-surface p-4" aria-label="Component library" aria-hidden={workspacePanel !== "library"}>
           <div className="panel-heading">
             <span>Library</span>
             <button className="text-button danger" onClick={clearDiagram}>Clear</button>
@@ -1749,7 +1749,7 @@ export default function Home() {
           <p className="library-help">Add a component, drag it into place, then use Connect to draw signal paths.</p>
         </aside>
 
-        <section className="stage-wrap" aria-label="Diagram workspace">
+        <section className="stage-wrap min-h-0 min-w-0" aria-label="Diagram workspace">
           <div className="stage-meta">
             <span>{elements.length} components · {connections.length} connections</span>
             <span className={connectMode ? "mode-note active" : "mode-note"} aria-live="polite">{connectMode ? (connectFrom ? `Select ${portTypeLabels[connectionDomain]} destination` : `Select ${portTypeLabels[connectionDomain]} source`) : notice}</span>
@@ -1854,7 +1854,7 @@ export default function Home() {
           </div>
         </section>
 
-        <aside className="inspector" aria-label="Properties" aria-hidden={workspacePanel !== "inspector"}>
+        <aside className="inspector min-h-0 min-w-0 overflow-y-auto bg-ui-surface p-4" aria-label="Properties" aria-hidden={workspacePanel !== "inspector"}>
           <div className="panel-heading"><span>Properties</span></div>
           {selected ? (
             <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>

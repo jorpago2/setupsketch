@@ -64,6 +64,11 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.doesNotMatch(editor, /stroke="#1665d8"|BOM↓|BOM↑/);
   assert.doesNotMatch(styles, /100vw|#[0-9a-fA-F]{3,8}|font-family:\s*Arial/);
   assert.match(editor, /href="https:\/\/jorpago2\.github\.io\/"/);
+  assert.match(styles, /tailwindcss\/theme\.css/);
+  assert.match(styles, /tailwindcss\/utilities\.css/);
+  assert.match(styles, /@theme inline/);
+  assert.doesNotMatch(styles, /tailwindcss\/preflight|@import\s+["']tailwindcss["']/);
+  assert.match(editor, /bg-ui-surface/);
   assert.match(model, /calculateBudgets/);
   assert.equal(packageJson.dependencies.pptxgenjs, "^4.0.1");
   assert.equal(packageJson.dependencies["@xyflow/react"], "12.11.2");
