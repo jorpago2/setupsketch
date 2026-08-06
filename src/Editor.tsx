@@ -578,6 +578,7 @@ export default function Home() {
   const svgRef = useRef<SVGSVGElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bomRef = useRef<HTMLInputElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
   const hydrated = useRef(false);
   const editBefore = useRef<Snapshot | null>(null);
   const drag = useRef<{
@@ -603,6 +604,11 @@ export default function Home() {
     (kind, portId) => elementKinds.has(kind as ElementKind) ? portTypeFor(kind as ElementKind, portId) : undefined,
   );
   const budgets = calculateBudgets(elements, connections);
+  const isNarrowWorkspace = () => window.matchMedia("(max-width: 59.999rem)").matches;
+  const showWorkspacePanel = (panel: "library" | "canvas" | "inspector") => {
+    toolbarRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((menu) => { menu.open = false; });
+    setWorkspacePanel(panel);
+  };
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -732,6 +738,7 @@ export default function Home() {
     setSelectedIds([element.id]);
     setSelectedConnectionId(null);
     setRecentKinds((items) => [kind, ...items.filter((item) => item !== kind)].slice(0, 6));
+    if (isNarrowWorkspace()) setWorkspacePanel("canvas");
   };
 
   const removeSelected = () => {
@@ -824,7 +831,10 @@ export default function Home() {
       : selectedIds.includes(id) ? selectedIds : groupIds;
     setSelectedIds(nextIds);
     setSelectedConnectionId(null);
-    if (clicked.locked) return;
+    if (clicked.locked) {
+      if (isNarrowWorkspace()) setWorkspacePanel("inspector");
+      return;
+    }
     const point = pointFromEvent(event);
     drag.current = {
       ids: nextIds,
@@ -858,6 +868,8 @@ export default function Home() {
     if (active?.moved) {
       setPast((items) => [...items.slice(-39), active.before]);
       setFuture([]);
+    } else if (active && isNarrowWorkspace()) {
+      setWorkspacePanel("inspector");
     }
     drag.current = null;
   };
@@ -1342,6 +1354,7 @@ export default function Home() {
     commit([...elements, ...nextElements], [...connections, ...nextConnections]);
     setSelectedIds(nextElements.map((element) => element.id));
     setNotice("Reusable module inserted");
+    if (isNarrowWorkspace()) setWorkspacePanel("canvas");
   };
 
   const toggleFavorite = (kind: ElementKind) => setFavoriteKinds((items) =>
@@ -1418,7 +1431,7 @@ export default function Home() {
           <span className="sr-only">Diagram title</span>
           <input value={title} onChange={(event) => setTitle(event.target.value)} />
         </label>
-        <div className="toolbar" aria-label="Diagram actions">
+        <div ref={toolbarRef} className="toolbar" aria-label="Diagram actions">
           <div className="toolbar-group" role="group" aria-label="Edit actions">
             <button onClick={undo} disabled={!past.length} title="Undo (Ctrl+Z)" aria-label="Undo"><span className="toolbar-label-compact" aria-hidden="true">↶</span><span className="toolbar-label-wide">Undo</span></button>
             <button onClick={redo} disabled={!future.length} title="Redo (Ctrl+Y)" aria-label="Redo"><span className="toolbar-label-compact" aria-hidden="true">↷</span><span className="toolbar-label-wide">Redo</span></button>
@@ -1434,7 +1447,7 @@ export default function Home() {
               </select>
             </label>
           </div>}
-          <details className="toolbar-menu toolbar-project">
+          <details className="toolbar-menu toolbar-project" name="toolbar-menu">
             <summary>Project</summary>
             <div className="toolbar-menu-actions">
               <label className="connection-type">
@@ -1451,7 +1464,7 @@ export default function Home() {
               </div>
             </div>
           </details>
-          <details className="toolbar-export-mobile">
+          <details className="toolbar-export-mobile" name="toolbar-menu">
             <summary>Export</summary>
             <div className="toolbar-export-actions" role="group" aria-label="Export actions">
               {renderExportActions()}
@@ -1463,9 +1476,9 @@ export default function Home() {
 
       <section className="workspace" id="diagram-workspace" data-panel={workspacePanel} tabIndex={-1}>
         <nav className="workspace-switcher" aria-label="Workspace layers">
-          <button className={workspacePanel === "library" ? "active" : ""} aria-pressed={workspacePanel === "library"} onClick={() => setWorkspacePanel("library")}>Components</button>
-          <button className={workspacePanel === "canvas" ? "active" : ""} aria-pressed={workspacePanel === "canvas"} onClick={() => setWorkspacePanel("canvas")}>Canvas</button>
-          <button className={workspacePanel === "inspector" ? "active" : ""} aria-pressed={workspacePanel === "inspector"} onClick={() => setWorkspacePanel("inspector")}>Properties</button>
+          <button className={workspacePanel === "library" ? "active" : ""} aria-pressed={workspacePanel === "library"} onClick={() => showWorkspacePanel("library")}>Components</button>
+          <button className={workspacePanel === "canvas" ? "active" : ""} aria-pressed={workspacePanel === "canvas"} onClick={() => showWorkspacePanel("canvas")}>Canvas</button>
+          <button className={workspacePanel === "inspector" ? "active" : ""} aria-pressed={workspacePanel === "inspector"} onClick={() => showWorkspacePanel("inspector")}>Properties</button>
         </nav>
         <aside className="library" aria-label="Component library" aria-hidden={workspacePanel !== "library"}>
           <div className="panel-heading">

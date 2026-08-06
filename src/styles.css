@@ -402,11 +402,15 @@ summary:active,
 
 .project-title input {
   width: 100%;
+  min-width: 0;
   min-height: 40px;
   padding-inline: var(--space-xs);
   border-color: transparent;
   background: transparent;
+  overflow: hidden;
   text-align: end;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--text-sm);
   font-weight: 600;
 }
