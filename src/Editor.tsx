@@ -139,6 +139,7 @@ type SavedModule = {
 
 const WIDTH = 1200;
 const HEIGHT = 700;
+const DIAGRAM_VERSION = 5;
 const STORAGE_KEY = "setupsketch-diagram-v1";
 const FAVORITES_KEY = "setupsketch-favorites-v1";
 const MODULES_KEY = "setupsketch-modules-v1";
@@ -228,6 +229,7 @@ const safeFilename = (name: string) =>
   name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "setup";
 
 type DiagramFile = {
+  version?: number;
   title?: string;
   elements: DiagramElement[];
   connections: Connection[];
@@ -820,7 +822,8 @@ export default function Home() {
         const parsed: unknown = JSON.parse(stored);
         if (isDiagramFile(parsed)) {
           setTitle(parsed.title || title);
-          setElements(parsed.elements);
+          const storedPage = parsed.publication?.pagePreset ?? defaultPublication.pagePreset;
+          setElements(parsed.version === DIAGRAM_VERSION ? parsed.elements : arrangeOverlaps(parsed.elements, pagePresets[storedPage]));
           setConnections(parsed.connections);
           if (parsed.publication) setPublication({ ...defaultPublication, ...parsed.publication });
           if (parsed.experiment) setExperiment(parsed.experiment);
@@ -850,7 +853,7 @@ export default function Home() {
       return;
     }
     if (!hydrated.current) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 4, title, elements, connections, publication, experiment }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: DIAGRAM_VERSION, title, elements, connections, publication, experiment }));
   }, [title, elements, connections, publication, experiment]);
 
   useEffect(() => {
@@ -1375,7 +1378,7 @@ export default function Home() {
   };
 
   const saveJson = () => download(
-    new Blob([JSON.stringify({ version: 4, title, elements, connections, publication, experiment }, null, 2)], { type: "application/json" }),
+    new Blob([JSON.stringify({ version: DIAGRAM_VERSION, title, elements, connections, publication, experiment }, null, 2)], { type: "application/json" }),
     `${safeFilename(title)}.json`,
   );
 
