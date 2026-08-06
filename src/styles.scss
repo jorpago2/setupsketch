@@ -1,28 +1,5 @@
-/* Hallmark · macrostructure: Split Studio · N9 knobs: cta=outlined, wordmark=sans, padding=tight · theme: custom · vibe: "layered technical calm" · axes: light / geometric-sans / chromatic-teal · pre-emit critique: P5 H5 E5 S5 R5 V4 · contrast: pass (40–41) · nav: N9 · footer: none (app) · slop: pass (42–49) · mobile: pass (34, 49, 50–57) · icons: pass (30) · studied: no · context: user-provided · v0.9.1 */
-@import "../tokens.css";
-@layer theme, base, components, utilities;
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css" layer(utilities);
-
-@theme inline {
-  --color-ui-canvas: var(--color-paper);
-  --color-ui-canvas-muted: var(--color-paper-2);
-  --color-ui-surface: var(--color-surface);
-  --color-ui-surface-raised: var(--color-surface-raised);
-  --color-ui-ink: var(--color-ink);
-  --color-ui-muted: var(--color-muted);
-  --color-ui-border: var(--color-rule);
-  --color-ui-border-strong: var(--color-rule-2);
-  --color-ui-accent: var(--color-accent);
-  --color-ui-focus: var(--color-focus);
-  --color-ui-danger: var(--color-danger);
-  --color-ui-success: var(--color-success);
-  --font-ui-body: var(--font-body);
-  --font-ui-display: var(--font-display);
-  --radius-ui-control: var(--radius-input);
-  --radius-ui-panel: var(--radius-card);
-  --shadow-ui-raised: var(--shadow-card);
-}
+/* Hallmark · system: Carbon g10 · macrostructure: Split Studio · pre-emit critique: P5 H5 E4 S5 R5 V3 · contrast: Carbon tokens · responsive: retained */
+@use "@carbon/react" with ($font-path: "@ibm/plex");
 
 :root {
   --ink: var(--color-ink);
@@ -203,6 +180,59 @@ button.danger { color: var(--danger); }
 
 /* Application layout and interaction layer. */
 
+#root,
+#root > * {
+  height: 100%;
+}
+
+.app-shell {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+.topbar {
+  position: relative;
+  z-index: var(--z-sticky);
+  display: grid;
+  grid-template-columns: auto minmax(7rem, 1fr);
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+  background: var(--color-paper-2);
+}
+
+.workspace-switcher {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2xs);
+  background: var(--color-surface);
+}
+
+.sidebar {
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-md);
+  overflow-y: auto;
+  background: var(--color-surface);
+}
+
 html,
 body {
   height: 100%;
@@ -372,11 +402,7 @@ button:active,
   width: 16px;
   height: 16px;
   flex: 0 0 auto;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  fill: currentColor;
   pointer-events: none;
 }
 
@@ -433,16 +459,11 @@ button:active,
 
 .toolbar-menu-actions,
 .toolbar-export-actions {
-  position: fixed;
-  z-index: var(--z-dropdown);
-  inset-inline: var(--space-sm);
-  top: 108px;
-  width: auto;
+  width: min(280px, calc(100dvw - 2 * var(--space-sm)));
   display: grid;
   gap: var(--space-xs);
   padding: var(--space-sm);
   border: var(--rule-hair) solid var(--color-rule);
-  border-radius: var(--radius-card);
   background: var(--color-surface-raised);
   box-shadow: 0 12px 30px var(--color-shadow);
 }
@@ -1011,6 +1032,48 @@ select option {
   color: var(--color-warning);
 }
 
+.property-section.cds--accordion,
+.layers-panel.cds--accordion {
+  padding: 0;
+  border: var(--rule-hair) solid var(--color-rule);
+  background: var(--color-surface);
+}
+
+.property-section .cds--accordion__item,
+.layers-panel .cds--accordion__item {
+  border: 0;
+}
+
+.property-section .cds--accordion__heading,
+.layers-panel .cds--accordion__heading {
+  min-height: 40px;
+  background: var(--color-paper-2);
+}
+
+.property-section .cds--accordion__content,
+.layers-panel .cds--accordion__content {
+  padding: 0;
+}
+
+.disclosure-title {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.disclosure-meta {
+  color: var(--color-muted);
+  font-family: var(--font-outlier);
+  font-size: var(--text-xs);
+}
+
+.toolbar-menu .cds--popover-content,
+.toolbar-export-mobile .cds--popover-content {
+  max-width: none;
+}
+
 .validation-issue.error span,
 button.danger {
   color: var(--color-danger);
@@ -1125,10 +1188,7 @@ button.danger {
 
   .toolbar-menu-actions,
   .toolbar-export-actions {
-    position: absolute;
-    inset-inline: auto 0;
-    top: calc(100% + var(--space-2xs));
-    width: 260px;
+    width: 280px;
   }
 
   .workspace {

@@ -8,7 +8,9 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   const editor = await readFile(new URL("../src/Editor.tsx", import.meta.url), "utf8");
   const diagramCanvas = await readFile(new URL("../src/DiagramCanvas.tsx", import.meta.url), "utf8");
   const canvasRouting = await readFile(new URL("../src/canvasRouting.ts", import.meta.url), "utf8");
-  const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../src/styles.scss", import.meta.url), "utf8");
+  const main = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
+  const viteConfig = await readFile(new URL("../vite.config.ts", import.meta.url), "utf8");
   const catalog = await readFile(new URL("../src/componentCatalog.ts", import.meta.url), "utf8");
   const templates = await readFile(new URL("../src/templates.ts", import.meta.url), "utf8");
   const model = await readFile(new URL("../src/editorModel.ts", import.meta.url), "utf8");
@@ -61,8 +63,11 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.doesNotMatch(editor, /toolbar-export-desktop/);
   assert.equal([...editor.matchAll(/<Popover as="div" className="toolbar-/g)].length, 2);
   assert.doesNotMatch(editor, /<details|<summary|uiIconPaths/);
-  assert.match(editor, /from "@headlessui\/react"/);
-  assert.match(editor, /from "@heroicons\/react\/24\/outline"/);
+  assert.match(editor, /from "@carbon\/react"/);
+  assert.match(editor, /from "@carbon\/react\/icons"/);
+  assert.match(editor, /<Accordion /);
+  assert.match(editor, /<PopoverContent/);
+  assert.match(editor, /<IconButton/);
   assert.match(editor, /if \(narrowWorkspace\) setWorkspacePanel\("selection"\)/);
   assert.match(editor, /current === panel \? "canvas" : panel/);
   assert.match(editor, /aria-controls="component-library" aria-expanded=/);
@@ -75,10 +80,12 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.doesNotMatch(selectionInspector, /buttonId="layout-title"/);
   assert.match(documentInspector, /buttonId="layout-title"/);
   assert.doesNotMatch(documentInspector, /Engineering parameters/);
-  for (const icon of ["undo", "redo", "link", "project", "export", "components", "canvas", "properties", "delete", "copy", "fit", "map", "bend"]) {
+  for (const icon of ["undo", "redo", "link", "project", "export", "delete", "fit", "map"]) {
     assert.match(editor, new RegExp(`<UiIcon name="${icon}"`));
   }
-  assert.match(editor, /allSelectedLocked \? "unlock" : "lock"/);
+  for (const icon of ["Grid", "Layers", "SettingsAdjust", "Copy", "TrashCan", "Locked", "Unlocked", "Corner"]) {
+    assert.match(editor, new RegExp(`renderIcon=\\{(?:[^}]* )?${icon}`));
+  }
   assert.doesNotMatch(editor, /↶|↷|toolbar-label-compact/);
   assert.match(editor, /nodes: modelFlowNodes\.filter\(\(node\) => node\.id !== "__paper__"\)/);
   assert.match(editor, /const \[notice, setNotice\] = useState\("Saved"\)/);
@@ -93,7 +100,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /textnote: \{ width: 150, height: 70 \}/);
   assert.match(editor, /annotation \? 48 : 128/);
   assert.match(editor, /orientation=\{narrowWorkspace \? "horizontal" : "vertical"\}/);
-  assert.match(editor, /@container\/sidebar/);
+  assert.doesNotMatch(editor, /@container\/sidebar|bg-ui-/);
   assert.doesNotMatch(editor, /stroke="#1665d8"|BOM↓|BOM↑/);
   assert.doesNotMatch(styles, /100vw|#[0-9a-fA-F]{3,8}|font-family:\s*Arial/);
   assert.doesNotMatch(styles, /@media\s*\(max-width/);
@@ -101,18 +108,22 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(styles, /@container sidebar \(min-width: 16rem\)/);
   assert.match(styles, /\.scientific-handle\.connectingto\.valid/);
   assert.match(styles, /\.context-toolbar\s*\{/);
-  assert.match(styles, /\.layers-panel > \.disclosure-button\[data-open\]\s*\{/);
+  assert.match(styles, /\.property-section \.cds--accordion__heading/);
   assert.match(styles, /workspace\[data-panel="document"\] \.document-inspector/);
   assert.match(styles, /workspace\[data-panel="selection"\] \.selection-inspector/);
   assert.match(editor, /href="https:\/\/jorpago2\.github\.io\/"/);
-  assert.match(styles, /tailwindcss\/theme\.css/);
-  assert.match(styles, /tailwindcss\/utilities\.css/);
-  assert.match(styles, /@theme inline/);
-  assert.doesNotMatch(styles, /tailwindcss\/preflight|@import\s+["']tailwindcss["']/);
-  assert.match(editor, /bg-ui-surface/);
+  assert.match(styles, /@use "@carbon\/react"/);
+  assert.doesNotMatch(styles, /tailwindcss|@theme inline/);
+  assert.match(main, /<GlobalTheme theme="g10">/);
+  assert.doesNotMatch(viteConfig, /tailwind/);
   assert.match(model, /calculateBudgets/);
   assert.equal(packageJson.dependencies.pptxgenjs, "^4.0.1");
   assert.equal(packageJson.dependencies["@xyflow/react"], "12.11.2");
-  assert.equal(packageJson.dependencies["@headlessui/react"], "^2.2.10");
-  assert.equal(packageJson.dependencies["@heroicons/react"], "^2.2.0");
+  assert.equal(packageJson.dependencies["@carbon/react"], "1.113.0");
+  assert.equal(packageJson.dependencies["@ibm/plex"], "6.4.1");
+  assert.equal(packageJson.dependencies["react-is"], "19.2.8");
+  assert.equal(packageJson.devDependencies.sass, "1.102.0");
+  for (const removed of ["@headlessui/react", "@heroicons/react", "@tailwindcss/vite", "tailwindcss"]) {
+    assert.equal(packageJson.dependencies[removed] ?? packageJson.devDependencies[removed], undefined);
+  }
 });

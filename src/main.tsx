@@ -1,11 +1,15 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { GlobalTheme } from "@carbon/react";
 import App from "./Editor";
+import "../tokens.css";
 import "@xyflow/react/dist/style.css";
-import "./styles.css";
+import "./styles.scss";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <GlobalTheme theme="g10">
+      <App />
+    </GlobalTheme>
   </StrictMode>,
 );

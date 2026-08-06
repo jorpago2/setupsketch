@@ -11,32 +11,31 @@ import {
   useState,
 } from "react";
 import {
-  Disclosure,
-  DisclosureButton,
-  DisclosurePanel,
+  Accordion,
+  AccordionItem,
+  Button,
+  IconButton,
   Popover,
-  PopoverButton,
-  PopoverPanel,
-} from "@headlessui/react";
+  PopoverContent,
+} from "@carbon/react";
 import {
-  AdjustmentsHorizontalIcon,
-  ArrowTurnDownRightIcon,
-  ArrowUpTrayIcon,
-  ArrowUturnLeftIcon,
-  ArrowUturnRightIcon,
-  ArrowsPointingOutIcon,
-  ChevronRightIcon,
-  DocumentDuplicateIcon,
-  FolderOpenIcon,
-  LinkIcon,
-  LockClosedIcon,
-  LockOpenIcon,
-  MapIcon,
-  RectangleStackIcon,
-  Squares2X2Icon,
-  TrashIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/outline";
+  Close,
+  Copy,
+  Corner,
+  FitToScreen,
+  FolderOpen,
+  Grid,
+  Layers,
+  Link,
+  Locked,
+  Map as MapView,
+  Redo,
+  SettingsAdjust,
+  TrashCan,
+  Undo,
+  Unlocked,
+  Upload,
+} from "@carbon/react/icons";
 import {
   ConnectionLineType,
   ControlButton,
@@ -101,26 +100,19 @@ type PagePreset = "canvas" | "a4" | "a3" | "single" | "double";
 type WorkspacePanel = "library" | "canvas" | "document" | "selection";
 
 const uiIcons = {
-  undo: ArrowUturnLeftIcon,
-  redo: ArrowUturnRightIcon,
-  link: LinkIcon,
-  project: FolderOpenIcon,
-  export: ArrowUpTrayIcon,
-  components: Squares2X2Icon,
-  canvas: RectangleStackIcon,
-  properties: AdjustmentsHorizontalIcon,
-  delete: TrashIcon,
-  copy: DocumentDuplicateIcon,
-  lock: LockClosedIcon,
-  unlock: LockOpenIcon,
-  fit: ArrowsPointingOutIcon,
-  map: MapIcon,
-  bend: ArrowTurnDownRightIcon,
+  undo: Undo,
+  redo: Redo,
+  link: Link,
+  project: FolderOpen,
+  export: Upload,
+  delete: TrashCan,
+  fit: FitToScreen,
+  map: MapView,
 } as const;
 
 function UiIcon({ name }: { name: keyof typeof uiIcons }) {
   const Icon = uiIcons[name];
-  return <Icon className="button-icon" aria-hidden={true} />;
+  return <Icon className="button-icon" size={16} aria-hidden={true} />;
 }
 
 function InspectorDisclosure({
@@ -139,14 +131,11 @@ function InspectorDisclosure({
   children: ReactNode;
 }) {
   return (
-    <Disclosure as="section" className={className}>
-      <DisclosureButton id={buttonId} className="disclosure-button">
-        <ChevronRightIcon className="disclosure-chevron" aria-hidden={true} />
-        <span>{label}</span>
-        {meta !== undefined && <span className="disclosure-meta">{meta}</span>}
-      </DisclosureButton>
-      <DisclosurePanel className={panelClassName}>{children}</DisclosurePanel>
-    </Disclosure>
+    <Accordion align="start" size="sm" className={className}>
+      <AccordionItem title={<span id={buttonId} className="disclosure-title"><span>{label}</span>{meta !== undefined && <span className="disclosure-meta">{meta}</span>}</span>}>
+        <div className={panelClassName}>{children}</div>
+      </AccordionItem>
+    </Accordion>
   );
 }
 
@@ -799,6 +788,8 @@ export default function Home() {
   const [future, setFuture] = useState<Snapshot[]>([]);
   const [notice, setNotice] = useState("Saved");
   const [workspacePanel, setWorkspacePanel] = useState<WorkspacePanel>("canvas");
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [publication, setPublication] = useState(defaultPublication);
   const [experiment, setExperiment] = useState(defaultExperiment);
   const [snapEnabled, setSnapEnabled] = useState(true);
@@ -1821,21 +1812,21 @@ export default function Home() {
   })();
 
   const renderExportActions = (close: () => void) => <>
-    <button onClick={() => { exportSvg(); close(); }}>SVG</button>
-    <button onClick={() => { exportPng(); close(); }}>PNG</button>
-    <button onClick={() => { exportTikz(); close(); }}>TeX</button>
-    <button onClick={() => { exportPowerPoint(); close(); }}>PPTX</button>
-    <button onClick={() => { exportNetlist(); close(); }}>Netlist</button>
-    <button onClick={() => { exportBom(); close(); }}>BOM CSV</button>
-    <button className="primary" onClick={() => { exportPdf(); close(); }}>PDF</button>
+    <Button size="sm" kind="ghost" onClick={() => { exportSvg(); close(); }}>SVG</Button>
+    <Button size="sm" kind="ghost" onClick={() => { exportPng(); close(); }}>PNG</Button>
+    <Button size="sm" kind="ghost" onClick={() => { exportTikz(); close(); }}>TeX</Button>
+    <Button size="sm" kind="ghost" onClick={() => { exportPowerPoint(); close(); }}>PPTX</Button>
+    <Button size="sm" kind="ghost" onClick={() => { exportNetlist(); close(); }}>Netlist</Button>
+    <Button size="sm" kind="ghost" onClick={() => { exportBom(); close(); }}>BOM CSV</Button>
+    <Button size="sm" kind="primary" onClick={() => { exportPdf(); close(); }}>PDF</Button>
   </>;
 
   return (
-    <main className="app-shell fixed inset-0 grid h-dvh min-w-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-ui-canvas font-ui-body text-ui-ink" aria-labelledby="app-title">
+    <main className="app-shell" aria-labelledby="app-title">
       <a className="skip-link" href="#diagram-workspace">Skip to diagram workspace</a>
       <h1 className="sr-only" id="app-title">SetupSketch scientific diagram editor</h1>
       <style>{`@media print { @page { size: ${publication.pagePreset === "a3" ? "A3 landscape" : "A4 landscape"}; margin: 8mm; } }`}</style>
-      <header className="topbar relative z-[200] grid grid-cols-[auto_minmax(7rem,1fr)] items-center gap-2 bg-ui-surface px-3 py-2 shadow-ui-raised">
+      <header className="topbar">
         <a className="brand" href="https://jorpago2.github.io/" aria-label="SetupSketch — All tools">
           <span className="brand-mark" aria-hidden="true">S</span>
           <span><strong>SetupSketch</strong><small>Scientific diagram editor</small></span>
@@ -1846,11 +1837,9 @@ export default function Home() {
         </label>
         <div className="toolbar" aria-label="Diagram actions">
           <div className="toolbar-group" role="group" aria-label="Edit actions">
-            <button onClick={undo} disabled={!past.length} title="Undo (Ctrl+Z)" aria-label="Undo"><UiIcon name="undo" /><span className="toolbar-label-wide">Undo</span></button>
-            <button onClick={redo} disabled={!future.length} title="Redo (Ctrl+Y)" aria-label="Redo"><UiIcon name="redo" /><span className="toolbar-label-wide">Redo</span></button>
-            <button className={connectMode ? "active" : ""} aria-label={connectFrom ? "Choose connection target" : "Connect components"} title={connectFrom ? "Choose connection target" : "Connect components"} onClick={() => { setConnectMode(!connectMode); setConnectFrom(null); }}>
-              <UiIcon name="link" /><span className="toolbar-label-wide">{connectFrom ? "Choose target" : "Connect"}</span>
-            </button>
+            <IconButton size="sm" kind="ghost" label="Undo" onClick={undo} disabled={!past.length}><UiIcon name="undo" /></IconButton>
+            <IconButton size="sm" kind="ghost" label="Redo" onClick={redo} disabled={!future.length}><UiIcon name="redo" /></IconButton>
+            <IconButton size="sm" kind="ghost" label={connectFrom ? "Choose connection target" : "Connect components"} isSelected={connectMode} onClick={() => { setConnectMode(!connectMode); setConnectFrom(null); }}><UiIcon name="link" /></IconButton>
           </div>
           {connectMode && <div className="toolbar-group" role="group" aria-label="Connection settings">
             <label className="connection-type connection-type-active">
@@ -1860,50 +1849,46 @@ export default function Home() {
               </select>
             </label>
           </div>}
-          <Popover as="div" className="toolbar-menu toolbar-project">
-            {({ close }) => <>
-              <PopoverButton className="toolbar-menu-button" aria-label="Project" title="Project"><UiIcon name="project" /><span className="toolbar-menu-label">Project</span></PopoverButton>
-              <PopoverPanel className="toolbar-menu-actions" focus>
-                <label className="connection-type">
-                  <span>Template</span>
-                  <select defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; close(); }}>
-                    <option value="" disabled>Choose setup</option>
-                    {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
-                  </select>
-                </label>
-                <div className="toolbar-group" role="group" aria-label="File actions">
-                  <button onClick={() => { saveJson(); close(); }}>Save JSON</button>
-                  <button onClick={() => { fileRef.current?.click(); close(); }}>Open JSON</button>
-                  <button onClick={() => { bomRef.current?.click(); close(); }}>Import BOM</button>
-                  <button onClick={() => { arrangeDiagram(); close(); }}>Arrange overlaps</button>
-                  <input ref={fileRef} hidden aria-label="Open diagram JSON" type="file" accept="application/json,.json" onChange={loadJson} />
-                </div>
-              </PopoverPanel>
-            </>}
+          <Popover as="div" className="toolbar-menu toolbar-project" open={projectMenuOpen} align="bottom-end" autoAlign onRequestClose={() => setProjectMenuOpen(false)}>
+            <IconButton size="sm" kind="ghost" label="Project" onClick={() => setProjectMenuOpen((open) => !open)}><UiIcon name="project" /></IconButton>
+            <PopoverContent className="toolbar-menu-actions">
+              <label className="connection-type">
+                <span>Template</span>
+                <select defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; setProjectMenuOpen(false); }}>
+                  <option value="" disabled>Choose setup</option>
+                  {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
+                </select>
+              </label>
+              <div className="toolbar-group" role="group" aria-label="File actions">
+                <Button size="sm" kind="ghost" onClick={() => { saveJson(); setProjectMenuOpen(false); }}>Save JSON</Button>
+                <Button size="sm" kind="ghost" onClick={() => { fileRef.current?.click(); setProjectMenuOpen(false); }}>Open JSON</Button>
+                <Button size="sm" kind="ghost" onClick={() => { bomRef.current?.click(); setProjectMenuOpen(false); }}>Import BOM</Button>
+                <Button size="sm" kind="ghost" onClick={() => { arrangeDiagram(); setProjectMenuOpen(false); }}>Arrange overlaps</Button>
+                <input ref={fileRef} hidden aria-label="Open diagram JSON" type="file" accept="application/json,.json" onChange={loadJson} />
+              </div>
+            </PopoverContent>
           </Popover>
-          <Popover as="div" className="toolbar-export-mobile">
-            {({ close }) => <>
-              <PopoverButton className="toolbar-menu-button" aria-label="Export" title="Export"><UiIcon name="export" /><span className="toolbar-menu-label">Export</span></PopoverButton>
-              <PopoverPanel className="toolbar-export-actions" aria-label="Export actions" focus>
-                {renderExportActions(close)}
-              </PopoverPanel>
-            </>}
+          <Popover as="div" className="toolbar-export-mobile" open={exportMenuOpen} align="bottom-end" autoAlign onRequestClose={() => setExportMenuOpen(false)}>
+            <IconButton size="sm" kind="ghost" label="Export" onClick={() => setExportMenuOpen((open) => !open)}><UiIcon name="export" /></IconButton>
+            <PopoverContent className="toolbar-export-actions" aria-label="Export actions">
+              {renderExportActions(() => setExportMenuOpen(false))}
+            </PopoverContent>
           </Popover>
           <input ref={bomRef} hidden aria-label="Import bill of materials" type="file" accept="text/csv,.csv" onChange={loadBom} />
         </div>
       </header>
 
-      <section className="workspace grid min-h-0 min-w-0 grid-cols-1 grid-rows-[minmax(0,1fr)_auto] bg-ui-canvas-muted" id="diagram-workspace" data-panel={workspacePanel} tabIndex={-1}>
-        <nav className="workspace-switcher grid grid-cols-2 gap-1 bg-ui-surface" aria-label="Workspace panels">
-          <button id="library-toggle" className={workspacePanel === "library" ? "active" : ""} aria-controls="component-library" aria-expanded={workspacePanel === "library"} onClick={() => toggleWorkspacePanel("library")}><UiIcon name="components" />Components</button>
-          <button id="document-toggle" className={workspacePanel === "document" ? "active" : ""} aria-controls="document-inspector" aria-expanded={workspacePanel === "document"} onClick={() => toggleWorkspacePanel("document")}><UiIcon name="canvas" />Canvas</button>
+      <section className="workspace" id="diagram-workspace" data-panel={workspacePanel} tabIndex={-1}>
+        <nav className="workspace-switcher" aria-label="Workspace panels">
+          <Button size="sm" kind="ghost" renderIcon={Grid} id="library-toggle" className={workspacePanel === "library" ? "active" : ""} aria-controls="component-library" aria-expanded={workspacePanel === "library"} onClick={() => toggleWorkspacePanel("library")}>Components</Button>
+          <Button size="sm" kind="ghost" renderIcon={Layers} id="document-toggle" className={workspacePanel === "document" ? "active" : ""} aria-controls="document-inspector" aria-expanded={workspacePanel === "document"} onClick={() => toggleWorkspacePanel("document")}>Canvas</Button>
         </nav>
-        <aside id="component-library" className="library @container/sidebar min-h-0 min-w-0 overflow-y-auto bg-ui-surface p-4" aria-label="Component library" aria-hidden={workspacePanel !== "library"}>
+        <aside id="component-library" className="library sidebar" aria-label="Component library" aria-hidden={workspacePanel !== "library"}>
           <div className="panel-heading">
             <span>Library</span>
             <span className="panel-heading-actions">
-              <button className="text-button button-with-icon danger" onClick={clearDiagram}><UiIcon name="delete" />Clear</button>
-              <button className="panel-close" aria-label="Close component library" title="Close component library" onClick={() => closeWorkspacePanel("library")}><XMarkIcon className="button-icon" aria-hidden={true} /></button>
+              <Button size="sm" kind="danger--ghost" renderIcon={TrashCan} onClick={clearDiagram}>Clear</Button>
+              <IconButton size="sm" kind="ghost" label="Close component library" onClick={() => closeWorkspacePanel("library")}><Close size={16} aria-hidden={true} /></IconButton>
             </span>
           </div>
           <input
@@ -1952,7 +1937,7 @@ export default function Home() {
           <p className="library-help">Add a component, drag it into place, then use Connect to draw signal paths.</p>
         </aside>
 
-        <section className="stage-wrap min-h-0 min-w-0" aria-label="Diagram workspace">
+        <section className="stage-wrap" aria-label="Diagram workspace">
           <div className="stage-meta">
             <span>{elements.length} components · {connections.length} connections</span>
             <span className={connectMode ? "mode-note active" : "mode-note"} aria-live="polite">{connectMode ? (connectFrom ? `Select ${portTypeLabels[connectionDomain]} destination` : `Select ${portTypeLabels[connectionDomain]} source`) : notice}</span>
@@ -1992,15 +1977,15 @@ export default function Home() {
                 gridVisible={layers.grid}
               >
                 {selectedIds.length > 0 && <NodeToolbar nodeId={selectedIds} isVisible={workspacePanel === "canvas"} className="context-toolbar" position={Position.Top}>
-                  <button title="Edit properties" aria-label="Edit properties" onClick={() => setWorkspacePanel("selection")}><UiIcon name="properties" /><span>Properties</span></button>
-                  <button title="Duplicate selection" aria-label="Duplicate selection" onClick={duplicateSelected}><UiIcon name="copy" /><span>Duplicate</span></button>
-                  <button title={allSelectedLocked ? "Unlock selection" : "Lock selection"} aria-label={allSelectedLocked ? "Unlock selection" : "Lock selection"} onClick={() => changeSelected({ locked: !allSelectedLocked })}><UiIcon name={allSelectedLocked ? "unlock" : "lock"} /><span>{allSelectedLocked ? "Unlock" : "Lock"}</span></button>
-                  <button className="danger" title="Delete selection" aria-label="Delete selection" onClick={removeSelected}><UiIcon name="delete" /><span>Delete</span></button>
+                  <Button size="sm" kind="ghost" renderIcon={SettingsAdjust} onClick={() => setWorkspacePanel("selection")}><span>Properties</span></Button>
+                  <Button size="sm" kind="ghost" renderIcon={Copy} onClick={duplicateSelected}><span>Duplicate</span></Button>
+                  <Button size="sm" kind="ghost" renderIcon={allSelectedLocked ? Unlocked : Locked} onClick={() => changeSelected({ locked: !allSelectedLocked })}><span>{allSelectedLocked ? "Unlock" : "Lock"}</span></Button>
+                  <Button size="sm" kind="danger--ghost" renderIcon={TrashCan} onClick={removeSelected}><span>Delete</span></Button>
                 </NodeToolbar>}
                 {selectedConnection && selectedConnectionToolbarPosition && <EdgeToolbar edgeId={selectedConnection.id} x={selectedConnectionToolbarPosition.x} y={selectedConnectionToolbarPosition.y} isVisible={workspacePanel === "canvas"} className="context-toolbar">
-                  <button title="Edit connection properties" aria-label="Edit connection properties" onClick={() => setWorkspacePanel("selection")}><UiIcon name="properties" /><span>Properties</span></button>
-                  <button title="Add connection bend" aria-label="Add connection bend" onClick={addConnectionBend}><UiIcon name="bend" /><span>Add bend</span></button>
-                  <button className="danger" title="Delete connection" aria-label="Delete connection" onClick={removeSelected}><UiIcon name="delete" /><span>Delete</span></button>
+                  <Button size="sm" kind="ghost" renderIcon={SettingsAdjust} onClick={() => setWorkspacePanel("selection")}><span>Properties</span></Button>
+                  <Button size="sm" kind="ghost" renderIcon={Corner} onClick={addConnectionBend}><span>Add bend</span></Button>
+                  <Button size="sm" kind="danger--ghost" renderIcon={TrashCan} onClick={removeSelected}><span>Delete</span></Button>
                 </EdgeToolbar>}
                 <Controls showFitView={false} showInteractive={false} orientation={narrowWorkspace ? "horizontal" : "vertical"}>
                   <ControlButton onClick={fitCanvas} title={selectedIds.length ? "Fit selection" : "Fit diagram"} aria-label={selectedIds.length ? "Fit selection" : "Fit diagram"}><UiIcon name="fit" /></ControlButton>
@@ -2082,8 +2067,8 @@ export default function Home() {
           </div>
         </section>
 
-        <aside id="selection-inspector" className="inspector selection-inspector @container/sidebar min-h-0 min-w-0 overflow-y-auto bg-ui-surface p-4" aria-label="Selection properties" aria-hidden={workspacePanel !== "selection"}>
-          <div className="panel-heading"><span>{selectedConnection ? "Connection properties" : selectedIds.length > 1 ? "Selection properties" : "Component properties"}</span><button className="panel-close" aria-label="Close selection properties" title="Close selection properties" onClick={() => closeWorkspacePanel("selection")}><XMarkIcon className="button-icon" aria-hidden={true} /></button></div>
+        <aside id="selection-inspector" className="inspector selection-inspector sidebar" aria-label="Selection properties" aria-hidden={workspacePanel !== "selection"}>
+          <div className="panel-heading"><span>{selectedConnection ? "Connection properties" : selectedIds.length > 1 ? "Selection properties" : "Component properties"}</span><IconButton size="sm" kind="ghost" label="Close selection properties" onClick={() => closeWorkspacePanel("selection")}><Close size={16} aria-hidden={true} /></IconButton></div>
           {selected ? (
             <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
               <label>Label<input value={selected.label} onChange={(event) => updateSelected({ label: event.target.value })} /></label>
@@ -2184,8 +2169,8 @@ export default function Home() {
           )}
         </aside>
 
-        <aside id="document-inspector" className="inspector document-inspector @container/sidebar min-h-0 min-w-0 overflow-y-auto bg-ui-surface p-4" aria-label="Canvas settings" aria-hidden={workspacePanel !== "document"}>
-          <div className="panel-heading"><span>Canvas</span><button className="panel-close" aria-label="Close canvas settings" title="Close canvas settings" onClick={() => closeWorkspacePanel("document")}><XMarkIcon className="button-icon" aria-hidden={true} /></button></div>
+        <aside id="document-inspector" className="inspector document-inspector sidebar" aria-label="Canvas settings" aria-hidden={workspacePanel !== "document"}>
+          <div className="panel-heading"><span>Canvas</span><IconButton size="sm" kind="ghost" label="Close canvas settings" onClick={() => closeWorkspacePanel("document")}><Close size={16} aria-hidden={true} /></IconButton></div>
           <InspectorDisclosure className="layers-panel" buttonId="layout-title" label="Layout">
             <label className="layer-toggle"><input type="checkbox" checked={snapEnabled} onChange={(event) => setSnapEnabled(event.target.checked)} /><span>Snap to grid</span></label>
             <div className="port-legend">{(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <span key={type}><i style={{ background: portTypeColors[type] }} />{label}</span>)}</div>
