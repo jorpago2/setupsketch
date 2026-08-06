@@ -564,6 +564,7 @@ export default function Home() {
   const [past, setPast] = useState<Snapshot[]>([]);
   const [future, setFuture] = useState<Snapshot[]>([]);
   const [notice, setNotice] = useState("Autosaved locally");
+  const [workspacePanel, setWorkspacePanel] = useState<"library" | "canvas" | "inspector">("canvas");
   const [publication, setPublication] = useState(defaultPublication);
   const [experiment, setExperiment] = useState(defaultExperiment);
   const [snapEnabled, setSnapEnabled] = useState(true);
@@ -1409,43 +1410,47 @@ export default function Home() {
       <h1 className="sr-only" id="app-title">SetupSketch scientific diagram editor</h1>
       <style>{`@media print { @page { size: ${publication.pagePreset === "a3" ? "A3 landscape" : "A4 landscape"}; margin: 8mm; } }`}</style>
       <header className="topbar">
-        <div className="brand" aria-label="SetupSketch">
+        <a className="brand" href="https://jorpago2.github.io/" aria-label="SetupSketch — All tools">
           <span className="brand-mark" aria-hidden="true">S</span>
           <span><strong>SetupSketch</strong><small>Scientific diagram editor</small></span>
-        </div>
+        </a>
         <label className="project-title">
           <span className="sr-only">Diagram title</span>
           <input value={title} onChange={(event) => setTitle(event.target.value)} />
         </label>
         <div className="toolbar" aria-label="Diagram actions">
-          <a className="suite-link" href="https://jorpago2.github.io/" aria-label="Online Simulators & Tools">All tools</a>
           <div className="toolbar-group" role="group" aria-label="Edit actions">
-            <button onClick={undo} disabled={!past.length} title="Undo (Ctrl+Z)">Undo</button>
-            <button onClick={redo} disabled={!future.length} title="Redo (Ctrl+Y)">Redo</button>
+            <button onClick={undo} disabled={!past.length} title="Undo (Ctrl+Z)" aria-label="Undo"><span className="toolbar-label-compact" aria-hidden="true">↶</span><span className="toolbar-label-wide">Undo</span></button>
+            <button onClick={redo} disabled={!future.length} title="Redo (Ctrl+Y)" aria-label="Redo"><span className="toolbar-label-compact" aria-hidden="true">↷</span><span className="toolbar-label-wide">Redo</span></button>
             <button className={connectMode ? "active" : ""} onClick={() => { setConnectMode(!connectMode); setConnectFrom(null); }}>
-              {connectFrom ? "Choose target" : "Connect"}
+              <span className="toolbar-label-compact">{connectFrom ? "Target" : "Link"}</span><span className="toolbar-label-wide">{connectFrom ? "Choose target" : "Connect"}</span>
             </button>
           </div>
-          <div className="toolbar-group" role="group" aria-label="Connection and template settings">
-            <label className="connection-type">
+          {connectMode && <div className="toolbar-group" role="group" aria-label="Connection settings">
+            <label className="connection-type connection-type-active">
               <span className="sr-only">Connection domain</span>
               <select value={connectionDomain} onChange={(event) => setConnectionDomain(event.target.value as PortType)}>
                 {(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <option value={type} key={type}>{label}</option>)}
               </select>
             </label>
-            <label className="connection-type">
-              <span className="sr-only">Setup template</span>
-              <select defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; }}>
-                <option value="" disabled>Template</option>
-                {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
-              </select>
-            </label>
-          </div>
-          <div className="toolbar-group" role="group" aria-label="File actions">
-            <button onClick={saveJson}>JSON</button>
-            <button onClick={() => fileRef.current?.click()}>Open</button>
-            <input ref={fileRef} hidden aria-label="Open diagram JSON" type="file" accept="application/json,.json" onChange={loadJson} />
-          </div>
+          </div>}
+          <details className="toolbar-menu toolbar-project">
+            <summary>Project</summary>
+            <div className="toolbar-menu-actions">
+              <label className="connection-type">
+                <span>Template</span>
+                <select defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; }}>
+                  <option value="" disabled>Choose setup</option>
+                  {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
+                </select>
+              </label>
+              <div className="toolbar-group" role="group" aria-label="File actions">
+                <button onClick={saveJson}>Save JSON</button>
+                <button onClick={() => fileRef.current?.click()}>Open JSON</button>
+                <input ref={fileRef} hidden aria-label="Open diagram JSON" type="file" accept="application/json,.json" onChange={loadJson} />
+              </div>
+            </div>
+          </details>
           <details className="toolbar-export-mobile">
             <summary>Export</summary>
             <div className="toolbar-export-actions" role="group" aria-label="Export actions">
@@ -1456,8 +1461,13 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="workspace" id="diagram-workspace" tabIndex={-1}>
-        <aside className="library" aria-label="Component library">
+      <section className="workspace" id="diagram-workspace" data-panel={workspacePanel} tabIndex={-1}>
+        <nav className="workspace-switcher" aria-label="Workspace layers">
+          <button className={workspacePanel === "library" ? "active" : ""} aria-pressed={workspacePanel === "library"} onClick={() => setWorkspacePanel("library")}>Components</button>
+          <button className={workspacePanel === "canvas" ? "active" : ""} aria-pressed={workspacePanel === "canvas"} onClick={() => setWorkspacePanel("canvas")}>Canvas</button>
+          <button className={workspacePanel === "inspector" ? "active" : ""} aria-pressed={workspacePanel === "inspector"} onClick={() => setWorkspacePanel("inspector")}>Properties</button>
+        </nav>
+        <aside className="library" aria-label="Component library" aria-hidden={workspacePanel !== "library"}>
           <div className="panel-heading">
             <span>Library</span>
             <button className="text-button danger" onClick={clearDiagram}>Clear</button>
@@ -1636,7 +1646,7 @@ export default function Home() {
           </div>
         </section>
 
-        <aside className="inspector" aria-label="Properties">
+        <aside className="inspector" aria-label="Properties" aria-hidden={workspacePanel !== "inspector"}>
           <div className="panel-heading"><span>Properties</span></div>
           {selected ? (
             <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>

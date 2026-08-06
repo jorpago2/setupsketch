@@ -1,0 +1,18 @@
+{
+  "date": "2026-08-06",
+  "scope": "app",
+  "framework": "React 19 + TypeScript + Vite 8",
+  "pages": ["src/Editor.tsx"],
+  "existing": {
+    "typography": "Arial / Helvetica throughout UI and SVG labels",
+    "palette": "hex-based white, cool-grey and blue",
+    "motion": "no motion library; native state changes only",
+    "spacing": "ad-hoc pixel values without a named scale",
+    "layout": "permanent three-column desktop and vertically serialized mobile"
+  },
+  "constraints": [
+    "Preserve diagram model, scientific symbols, calculations and exports",
+    "No new dependencies",
+    "Keep the canvas primary and reveal secondary information on request"
+  ]
+}
