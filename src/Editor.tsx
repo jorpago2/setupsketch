@@ -3,12 +3,39 @@
 import {
   ChangeEvent,
   memo,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import {
+  Disclosure,
+  DisclosureButton,
+  DisclosurePanel,
+  Popover,
+  PopoverButton,
+  PopoverPanel,
+} from "@headlessui/react";
+import {
+  AdjustmentsHorizontalIcon,
+  ArrowTurnDownRightIcon,
+  ArrowUpTrayIcon,
+  ArrowUturnLeftIcon,
+  ArrowUturnRightIcon,
+  ArrowsPointingOutIcon,
+  ChevronRightIcon,
+  DocumentDuplicateIcon,
+  FolderOpenIcon,
+  LinkIcon,
+  LockClosedIcon,
+  LockOpenIcon,
+  MapIcon,
+  Squares2X2Icon,
+  TrashIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 import {
   ConnectionLineType,
   ControlButton,
@@ -71,25 +98,53 @@ type Point = { x: number; y: number };
 type Routing = "straight" | "orthogonal";
 type PagePreset = "canvas" | "a4" | "a3" | "single" | "double";
 
-const uiIconPaths = {
-  undo: "M9 14 4 9l5-5M4 9h10a6 6 0 0 1 6 6v1",
-  redo: "m15 14 5-5-5-5m5 5H10a6 6 0 0 0-6 6v1",
-  link: "M10 13a5 5 0 0 0 7.1 0l2-2A5 5 0 0 0 12 3.9L10.8 5M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.2-1.2",
-  project: "M3 6h7l2 2h9v10H3z",
-  export: "M12 3v12m-5-5 5 5 5-5M4 21h16",
-  components: "M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z",
-  properties: "M4 7h10m4 0h2m-6-3v6M4 17h2m4 0h10M6 14v6",
-  delete: "M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13m-7 4v5m4-5v5",
-  copy: "M8 8h11v11H8zM5 16H4V4h12v1",
-  lock: "M7 10V7a5 5 0 0 1 10 0v3m-9 0h8a2 2 0 0 1 2 2v7H6v-7a2 2 0 0 1 2-2z",
-  unlock: "M7 10V7a5 5 0 0 1 9.5-2M8 10h8a2 2 0 0 1 2 2v7H6v-7a2 2 0 0 1 2-2z",
-  fit: "M9 4H4v5m11-5h5v5M9 20H4v-5m11 5h5v-5",
-  map: "m4 6 5-2 6 2 5-2v14l-5 2-6-2-5 2zM9 4v14m6-12v14",
-  bend: "M4 5h6v10h10M7 2v6M17 12v6",
+const uiIcons = {
+  undo: ArrowUturnLeftIcon,
+  redo: ArrowUturnRightIcon,
+  link: LinkIcon,
+  project: FolderOpenIcon,
+  export: ArrowUpTrayIcon,
+  components: Squares2X2Icon,
+  properties: AdjustmentsHorizontalIcon,
+  delete: TrashIcon,
+  copy: DocumentDuplicateIcon,
+  lock: LockClosedIcon,
+  unlock: LockOpenIcon,
+  fit: ArrowsPointingOutIcon,
+  map: MapIcon,
+  bend: ArrowTurnDownRightIcon,
 } as const;
 
-function UiIcon({ name }: { name: keyof typeof uiIconPaths }) {
-  return <svg className="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d={uiIconPaths[name]} /></svg>;
+function UiIcon({ name }: { name: keyof typeof uiIcons }) {
+  const Icon = uiIcons[name];
+  return <Icon className="button-icon" aria-hidden={true} />;
+}
+
+function InspectorDisclosure({
+  className,
+  label,
+  meta,
+  buttonId,
+  panelClassName = "disclosure-panel",
+  children,
+}: {
+  className: string;
+  label: ReactNode;
+  meta?: ReactNode;
+  buttonId?: string;
+  panelClassName?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Disclosure as="section" className={className}>
+      <DisclosureButton id={buttonId} className="disclosure-button">
+        <ChevronRightIcon className="disclosure-chevron" aria-hidden={true} />
+        <span>{label}</span>
+        {meta !== undefined && <span className="disclosure-meta">{meta}</span>}
+      </DisclosureButton>
+      <DisclosurePanel className={panelClassName}>{children}</DisclosurePanel>
+    </Disclosure>
+  );
 }
 
 type PublicationSettings = {
@@ -756,7 +811,6 @@ export default function Home() {
   const svgRef = useRef<SVGSVGElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bomRef = useRef<HTMLInputElement>(null);
-  const toolbarRef = useRef<HTMLDivElement>(null);
   const hydrated = useRef(false);
   const skipInitialSave = useRef(true);
   const editBefore = useRef<Snapshot | null>(null);
@@ -853,7 +907,6 @@ export default function Home() {
     ? { ...FLOW_FIT_VIEW_OPTIONS, nodes: modelFlowNodes.filter((node) => node.id !== "__paper__"), maxZoom: 1 }
     : FLOW_FIT_VIEW_OPTIONS;
   const toggleWorkspacePanel = (panel: "library" | "inspector") => {
-    toolbarRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((menu) => { menu.open = false; });
     setWorkspacePanel((current) => current === panel ? "canvas" : panel);
   };
   const closeWorkspacePanel = (panel: "library" | "inspector") => {
@@ -905,21 +958,12 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const closeMenus = () => toolbarRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((menu) => { menu.open = false; });
-    const dismissOutside = (event: PointerEvent) => {
-      if (event.target instanceof Node && !toolbarRef.current?.contains(event.target)) closeMenus();
-    };
     const dismissWithEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      closeMenus();
       if (workspacePanel !== "canvas") closeWorkspacePanel(workspacePanel);
     };
-    document.addEventListener("pointerdown", dismissOutside);
     document.addEventListener("keydown", dismissWithEscape);
-    return () => {
-      document.removeEventListener("pointerdown", dismissOutside);
-      document.removeEventListener("keydown", dismissWithEscape);
-    };
+    return () => document.removeEventListener("keydown", dismissWithEscape);
   }, [workspacePanel]);
 
   useEffect(() => {
@@ -1316,7 +1360,7 @@ export default function Home() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target instanceof Element ? event.target : null;
-      const interfaceControl = target?.closest("input, textarea, select, button, summary, a, [contenteditable='true']");
+      const interfaceControl = target?.closest("input, textarea, select, button, a, [contenteditable='true']");
       if (interfaceControl) return;
       if (target?.closest(".react-flow") && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
       if (event.key === "Delete" || event.key === "Backspace") removeSelected();
@@ -1767,14 +1811,14 @@ export default function Home() {
     return points[Math.floor(points.length / 2)];
   })();
 
-  const renderExportActions = () => <>
-    <button onClick={exportSvg}>SVG</button>
-    <button onClick={exportPng}>PNG</button>
-    <button onClick={exportTikz}>TeX</button>
-    <button onClick={exportPowerPoint}>PPTX</button>
-    <button onClick={exportNetlist}>Netlist</button>
-    <button onClick={exportBom}>BOM CSV</button>
-    <button className="primary" onClick={exportPdf}>PDF</button>
+  const renderExportActions = (close: () => void) => <>
+    <button onClick={() => { exportSvg(); close(); }}>SVG</button>
+    <button onClick={() => { exportPng(); close(); }}>PNG</button>
+    <button onClick={() => { exportTikz(); close(); }}>TeX</button>
+    <button onClick={() => { exportPowerPoint(); close(); }}>PPTX</button>
+    <button onClick={() => { exportNetlist(); close(); }}>Netlist</button>
+    <button onClick={() => { exportBom(); close(); }}>BOM CSV</button>
+    <button className="primary" onClick={() => { exportPdf(); close(); }}>PDF</button>
   </>;
 
   return (
@@ -1791,7 +1835,7 @@ export default function Home() {
           <span className="sr-only">Diagram title</span>
           <input value={title} onChange={(event) => setTitle(event.target.value)} />
         </label>
-        <div ref={toolbarRef} className="toolbar" aria-label="Diagram actions">
+        <div className="toolbar" aria-label="Diagram actions">
           <div className="toolbar-group" role="group" aria-label="Edit actions">
             <button onClick={undo} disabled={!past.length} title="Undo (Ctrl+Z)" aria-label="Undo"><UiIcon name="undo" /><span className="toolbar-label-wide">Undo</span></button>
             <button onClick={redo} disabled={!future.length} title="Redo (Ctrl+Y)" aria-label="Redo"><UiIcon name="redo" /><span className="toolbar-label-wide">Redo</span></button>
@@ -1807,35 +1851,35 @@ export default function Home() {
               </select>
             </label>
           </div>}
-          <details className="toolbar-menu toolbar-project" name="toolbar-menu">
-            <summary aria-label="Project" title="Project"><UiIcon name="project" /><span className="toolbar-menu-label">Project</span></summary>
-            <div className="toolbar-menu-actions" onClick={(event) => {
-              if (event.target instanceof Element && event.target.closest("button")) event.currentTarget.closest("details")?.removeAttribute("open");
-            }}>
-              <label className="connection-type">
-                <span>Template</span>
-                <select defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; event.currentTarget.closest("details")?.removeAttribute("open"); }}>
-                  <option value="" disabled>Choose setup</option>
-                  {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
-                </select>
-              </label>
-              <div className="toolbar-group" role="group" aria-label="File actions">
-                <button onClick={saveJson}>Save JSON</button>
-                <button onClick={() => fileRef.current?.click()}>Open JSON</button>
-                <button onClick={() => bomRef.current?.click()}>Import BOM</button>
-                <button onClick={arrangeDiagram}>Arrange overlaps</button>
-                <input ref={fileRef} hidden aria-label="Open diagram JSON" type="file" accept="application/json,.json" onChange={loadJson} />
-              </div>
-            </div>
-          </details>
-          <details className="toolbar-export-mobile" name="toolbar-menu">
-            <summary aria-label="Export" title="Export"><UiIcon name="export" /><span className="toolbar-menu-label">Export</span></summary>
-            <div className="toolbar-export-actions" role="group" aria-label="Export actions" onClick={(event) => {
-              if (event.target instanceof Element && event.target.closest("button")) event.currentTarget.closest("details")?.removeAttribute("open");
-            }}>
-              {renderExportActions()}
-            </div>
-          </details>
+          <Popover as="div" className="toolbar-menu toolbar-project">
+            {({ close }) => <>
+              <PopoverButton className="toolbar-menu-button" aria-label="Project" title="Project"><UiIcon name="project" /><span className="toolbar-menu-label">Project</span></PopoverButton>
+              <PopoverPanel className="toolbar-menu-actions" focus>
+                <label className="connection-type">
+                  <span>Template</span>
+                  <select defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; close(); }}>
+                    <option value="" disabled>Choose setup</option>
+                    {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
+                  </select>
+                </label>
+                <div className="toolbar-group" role="group" aria-label="File actions">
+                  <button onClick={() => { saveJson(); close(); }}>Save JSON</button>
+                  <button onClick={() => { fileRef.current?.click(); close(); }}>Open JSON</button>
+                  <button onClick={() => { bomRef.current?.click(); close(); }}>Import BOM</button>
+                  <button onClick={() => { arrangeDiagram(); close(); }}>Arrange overlaps</button>
+                  <input ref={fileRef} hidden aria-label="Open diagram JSON" type="file" accept="application/json,.json" onChange={loadJson} />
+                </div>
+              </PopoverPanel>
+            </>}
+          </Popover>
+          <Popover as="div" className="toolbar-export-mobile">
+            {({ close }) => <>
+              <PopoverButton className="toolbar-menu-button" aria-label="Export" title="Export"><UiIcon name="export" /><span className="toolbar-menu-label">Export</span></PopoverButton>
+              <PopoverPanel className="toolbar-export-actions" aria-label="Export actions" focus>
+                {renderExportActions(close)}
+              </PopoverPanel>
+            </>}
+          </Popover>
           <input ref={bomRef} hidden aria-label="Import bill of materials" type="file" accept="text/csv,.csv" onChange={loadBom} />
         </div>
       </header>
@@ -1850,7 +1894,7 @@ export default function Home() {
             <span>Library</span>
             <span className="panel-heading-actions">
               <button className="text-button button-with-icon danger" onClick={clearDiagram}><UiIcon name="delete" />Clear</button>
-              <button className="panel-close" aria-label="Close component library" onClick={() => closeWorkspacePanel("library")}>×</button>
+              <button className="panel-close" aria-label="Close component library" title="Close component library" onClick={() => closeWorkspacePanel("library")}><XMarkIcon className="button-icon" aria-hidden={true} /></button>
             </span>
           </div>
           <input
@@ -1865,7 +1909,7 @@ export default function Home() {
             <div className="library-group-title"><span>Reusable modules</span></div>
             {savedModules.map((module) => <div className="module-row" key={module.id}>
               <button onClick={() => insertModule(module.id)}>{module.name}</button>
-              <button className="danger" aria-label={`Delete ${module.name}`} onClick={() => setSavedModules((items) => items.filter((item) => item.id !== module.id))}>×</button>
+              <button className="danger" aria-label={`Delete ${module.name}`} title={`Delete ${module.name}`} onClick={() => setSavedModules((items) => items.filter((item) => item.id !== module.id))}><UiIcon name="delete" /></button>
             </div>)}
           </section> : null}
           {visibleGroups.map((group) => (
@@ -2029,7 +2073,7 @@ export default function Home() {
         </section>
 
         <aside id="property-inspector" className="inspector @container/sidebar min-h-0 min-w-0 overflow-y-auto bg-ui-surface p-4" aria-label="Properties" aria-hidden={workspacePanel !== "inspector"}>
-          <div className="panel-heading"><span>Properties</span><button className="panel-close" aria-label="Close properties" onClick={() => closeWorkspacePanel("inspector")}>×</button></div>
+          <div className="panel-heading"><span>Properties</span><button className="panel-close" aria-label="Close properties" title="Close properties" onClick={() => closeWorkspacePanel("inspector")}><XMarkIcon className="button-icon" aria-hidden={true} /></button></div>
           {selected ? (
             <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
               <label>Label<input value={selected.label} onChange={(event) => updateSelected({ label: event.target.value })} /></label>
@@ -2044,9 +2088,7 @@ export default function Home() {
                 <label>Height<input type="number" min="30" max="500" value={selected.height ?? annotationDefaultSizes[selected.kind]?.height ?? 70} onChange={(event) => updateSelected({ height: Number(event.target.value) })} /></label>
               </div>}
               <label>Color<input className="color-input" type="color" value={selected.color} onChange={(event) => updateSelected({ color: event.target.value })} /></label>
-              <details className="property-section">
-                <summary>Engineering parameters</summary>
-                <div className="property-section-content">
+              <InspectorDisclosure className="property-section" label="Engineering parameters" panelClassName="property-section-content">
                   <div className="property-row">
                     <label>Source power (dBm)<input type="number" step="0.1" value={selected.powerDbm ?? ""} onChange={(event) => updateSelected({ powerDbm: optionalNumber(event.target.value) })} /></label>
                     <label>Gain (dB)<input type="number" step="0.1" value={selected.gainDb ?? ""} onChange={(event) => updateSelected({ gainDb: optionalNumber(event.target.value) })} /></label>
@@ -2059,11 +2101,8 @@ export default function Home() {
                     <label>Bandwidth (Hz)<input type="number" min="0" step="any" value={selected.bandwidthHz ?? ""} onChange={(event) => updateSelected({ bandwidthHz: optionalNumber(event.target.value) })} /></label>
                     <label>Wavelength (nm)<input type="number" min="0" step="any" value={selected.wavelengthNm ?? ""} onChange={(event) => updateSelected({ wavelengthNm: optionalNumber(event.target.value) })} /></label>
                   </div>
-                </div>
-              </details>
-              <details className="property-section">
-                <summary>Traceability</summary>
-                <div className="property-section-content">
+              </InspectorDisclosure>
+              <InspectorDisclosure className="property-section" label="Traceability" panelClassName="property-section-content">
                   <label>Manufacturer<input list="manufacturers" value={selected.manufacturer ?? ""} onChange={(event) => updateSelected({ manufacturer: event.target.value })} placeholder="e.g. Thorlabs" /></label>
                   <datalist id="manufacturers"><option value="Thorlabs" /><option value="Mini-Circuits" /><option value="Keysight" /></datalist>
                   <label>Part number<input value={selected.model ?? ""} onChange={(event) => updateSelected({ model: event.target.value })} placeholder="Vendor model / part number" /></label>
@@ -2076,8 +2115,7 @@ export default function Home() {
                   <label>Uncertainty<input value={selected.uncertainty ?? ""} onChange={(event) => updateSelected({ uncertainty: event.target.value })} placeholder="e.g. ±0.2 dB (k=2)" /></label>
                   <label>Datasheet URL<input type="url" value={selected.datasheetUrl ?? ""} onChange={(event) => updateSelected({ datasheetUrl: event.target.value })} placeholder="https://…" /></label>
                   <label>Notes<textarea value={selected.notes ?? ""} onChange={(event) => updateSelected({ notes: event.target.value })} /></label>
-                </div>
-              </details>
+              </InspectorDisclosure>
               <div className="compact-actions">
                 <button onClick={() => changeSelected({ flipX: !selected.flipX })}>Flip horizontal</button>
                 <button onClick={() => changeSelected({ flipY: !selected.flipY })}>Flip vertical</button>
@@ -2134,13 +2172,11 @@ export default function Home() {
           ) : (
             <div className="empty-inspector"><p>Select a component to edit it. On desktop, Shift-click selects several.</p><span>Focused components can be nudged with the arrow keys.</span></div>
           )}
-          <details className="layers-panel">
-            <summary id="layout-title">Layout</summary>
+          <InspectorDisclosure className="layers-panel" buttonId="layout-title" label="Layout">
             <label className="layer-toggle"><input type="checkbox" checked={snapEnabled} onChange={(event) => setSnapEnabled(event.target.checked)} /><span>Snap to grid</span></label>
             <div className="port-legend">{(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <span key={type}><i style={{ background: portTypeColors[type] }} />{label}</span>)}</div>
-          </details>
-          <details className="layers-panel budget-panel">
-            <summary id="budget-title"><span>Path budgets</span><span>{budgets.length}</span></summary>
+          </InspectorDisclosure>
+          <InspectorDisclosure className="layers-panel budget-panel" buttonId="budget-title" label="Path budgets" meta={budgets.length}>
             {budgets.length ? budgets.slice(0, 5).map((budget) => <article className="budget-result" key={budget.id}>
               <strong>{budget.labels.join(" → ")}</strong>
               <span>{portTypeLabels[budget.domain]} · {budget.inputPowerDbm.toFixed(2)} → {budget.outputPowerDbm.toFixed(2)} dBm</span>
@@ -2149,9 +2185,8 @@ export default function Home() {
               {budget.outputNoiseDbm !== undefined && <span>Noise {budget.outputNoiseDbm.toFixed(2)} dBm · SNR {budget.snrDb?.toFixed(2)} dB</span>}
             </article>) : <p className="validation-more">Set source power on a component to calculate directed paths.</p>}
             <p className="model-note">Cascaded dB budget; RF noise uses Friis and −174 dBm/Hz at 290 K. Reflections, mismatch and coherent interference are not included.</p>
-          </details>
-          <details className="layers-panel experiment-panel">
-            <summary id="experiment-title">Experiment</summary>
+          </InspectorDisclosure>
+          <InspectorDisclosure className="layers-panel experiment-panel" buttonId="experiment-title" label="Experiment">
             <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
               <label>Procedure<textarea value={experiment.procedure} onChange={(event) => setExperiment((current) => ({ ...current, procedure: event.target.value }))} placeholder="Alignment, warm-up, acquisition and shutdown procedure…" /></label>
             </div>
@@ -2168,20 +2203,18 @@ export default function Home() {
             </form>
             {experiment.checklist.map((item) => <div className="checklist-row" key={item.id}>
               <label><input type="checkbox" checked={item.done} onChange={(event) => commitExperiment({ ...experiment, checklist: experiment.checklist.map((candidate) => candidate.id === item.id ? { ...candidate, done: event.target.checked } : candidate) })} /><span>{item.text}</span></label>
-              <button className="danger" aria-label={`Delete ${item.text}`} onClick={() => commitExperiment({ ...experiment, checklist: experiment.checklist.filter((candidate) => candidate.id !== item.id) })}>×</button>
+              <button className="danger" aria-label={`Delete ${item.text}`} title={`Delete ${item.text}`} onClick={() => commitExperiment({ ...experiment, checklist: experiment.checklist.filter((candidate) => candidate.id !== item.id) })}><UiIcon name="delete" /></button>
             </div>)}
-          </details>
-          <details className="layers-panel validation-panel">
-            <summary id="validation-title"><span>Setup checks</span><span>{validationIssues.length}</span></summary>
+          </InspectorDisclosure>
+          <InspectorDisclosure className="layers-panel validation-panel" buttonId="validation-title" label="Setup checks" meta={validationIssues.length}>
             {validationIssues.length ? validationIssues.slice(0, 8).map((issue, index) => (
               <button className={`validation-issue ${issue.severity}`} key={`${issue.message}-${index}`} onClick={() => setSelectedIds(issue.elementIds)}>
                 <span>{issue.severity === "error" ? "Error" : "Check"}</span>{issue.message}
               </button>
             )) : <p className="validation-ok">No structural issues found.</p>}
             {validationIssues.length > 8 && <p className="validation-more">+{validationIssues.length - 8} more checks</p>}
-          </details>
-          <details className="layers-panel">
-            <summary id="publication-title">Publication</summary>
+          </InspectorDisclosure>
+          <InspectorDisclosure className="layers-panel" buttonId="publication-title" label="Publication">
             <div className="property-form">
               <label>Page<select value={publication.pagePreset} onChange={(event) => commitPublication({ ...publication, pagePreset: event.target.value as PagePreset })}>
                 {(Object.entries(pagePresets) as Array<[PagePreset, typeof pagePresets[PagePreset]]>).map(([key, preset]) => <option key={key} value={key}>{preset.label}</option>)}
@@ -2191,9 +2224,8 @@ export default function Home() {
               <label className="layer-toggle"><input type="checkbox" checked={publication.showCredit} onChange={(event) => commitPublication({ ...publication, showCredit: event.target.checked })} /><span>Show credit</span></label>
               <label className="layer-toggle"><input type="checkbox" checked={publication.cropToContent} onChange={(event) => commitPublication({ ...publication, cropToContent: event.target.checked })} /><span>Crop exports to content</span></label>
             </div>
-          </details>
-          <details className="layers-panel">
-            <summary id="layers-title">Layers</summary>
+          </InspectorDisclosure>
+          <InspectorDisclosure className="layers-panel" buttonId="layers-title" label="Layers">
             {([
               ["grid", "Grid"],
               ["labels", "Labels"],
@@ -2212,7 +2244,7 @@ export default function Home() {
                 <span>{label}</span>
               </label>
             ))}
-          </details>
+          </InspectorDisclosure>
         </aside>
       </section>
     </main>

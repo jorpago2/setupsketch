@@ -57,9 +57,12 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /useState<DiagramElement\[]>\(\[\]\)/);
   assert.match(editor, /componentGroups\.map\(\(group\) => group\.title\)/);
   assert.match(editor, /Start with a component/);
-  assert.match(editor, /<summary id="publication-title">Publication<\/summary>/);
+  assert.match(editor, /buttonId="publication-title" label="Publication"/);
   assert.doesNotMatch(editor, /toolbar-export-desktop/);
-  assert.equal([...editor.matchAll(/name="toolbar-menu"/g)].length, 2);
+  assert.equal([...editor.matchAll(/<Popover as="div" className="toolbar-/g)].length, 2);
+  assert.doesNotMatch(editor, /<details|<summary|uiIconPaths/);
+  assert.match(editor, /from "@headlessui\/react"/);
+  assert.match(editor, /from "@heroicons\/react\/24\/outline"/);
   assert.match(editor, /if \(narrowWorkspace\) setWorkspacePanel\("inspector"\)/);
   assert.match(editor, /current === panel \? "canvas" : panel/);
   assert.match(editor, /aria-controls="component-library" aria-expanded=/);
@@ -91,7 +94,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(styles, /@container sidebar \(min-width: 16rem\)/);
   assert.match(styles, /\.scientific-handle\.connectingto\.valid/);
   assert.match(styles, /\.context-toolbar\s*\{/);
-  assert.match(styles, /\.layers-panel\[open\] > summary\s*\{/);
+  assert.match(styles, /\.layers-panel > \.disclosure-button\[data-open\]\s*\{/);
   assert.match(editor, /href="https:\/\/jorpago2\.github\.io\/"/);
   assert.match(styles, /tailwindcss\/theme\.css/);
   assert.match(styles, /tailwindcss\/utilities\.css/);
@@ -101,4 +104,6 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(model, /calculateBudgets/);
   assert.equal(packageJson.dependencies.pptxgenjs, "^4.0.1");
   assert.equal(packageJson.dependencies["@xyflow/react"], "12.11.2");
+  assert.equal(packageJson.dependencies["@headlessui/react"], "^2.2.10");
+  assert.equal(packageJson.dependencies["@heroicons/react"], "^2.2.0");
 });
