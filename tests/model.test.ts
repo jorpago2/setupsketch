@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateBudgets, findOpenPosition, moveElements, parseCsv, routeOrthogonal, validateSetup } from "../src/editorModel.ts";
+import { arrangeOverlaps, calculateBudgets, findOpenPosition, moveElements, parseCsv, routeOrthogonal, validateSetup } from "../src/editorModel.ts";
 import { componentByKind, componentPortLayouts, portTypeFor } from "../src/componentCatalog.ts";
 import { setupTemplates } from "../src/templates.ts";
 
@@ -61,6 +61,17 @@ test("automatic placement avoids occupied component cells", () => {
   }));
   const position = findOpenPosition(occupied, { width: 1200, height: 700 });
   assert.ok(occupied.every((element) => Math.abs(element.x - position.x) >= 140 || Math.abs(element.y - position.y) >= 120));
+});
+
+test("arranging overlaps preserves locked and already clear components", () => {
+  const arranged = arrangeOverlaps([
+    { id: "locked", kind: "sample", label: "Locked", x: 120, y: 120, locked: true },
+    { id: "overlap", kind: "lens", label: "Overlap", x: 140, y: 140 },
+    { id: "clear", kind: "detector", label: "Clear", x: 600, y: 400 },
+  ], { width: 1200, height: 700 });
+  assert.deepEqual([arranged[0].x, arranged[0].y], [120, 120]);
+  assert.ok(Math.abs(arranged[1].x - 120) >= 140 || Math.abs(arranged[1].y - 120) >= 120);
+  assert.deepEqual([arranged[2].x, arranged[2].y], [600, 400]);
 });
 
 test("typed ports distinguish optical, fiber, RF, DC, trigger and digital domains", () => {

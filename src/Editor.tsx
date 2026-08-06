@@ -24,7 +24,7 @@ import {
   type ElementKind,
   type PortType,
 } from "./componentCatalog";
-import { calculateBudgets, findOpenPosition, moveElements, parseCsv, routeOrthogonal, validateSetup } from "./editorModel";
+import { arrangeOverlaps, calculateBudgets, findOpenPosition, moveElements, parseCsv, routeOrthogonal, validateSetup } from "./editorModel";
 import { setupTemplates } from "./templates";
 
 type LayerVisibility = {
@@ -755,6 +755,18 @@ export default function Home() {
     if (isNarrowWorkspace()) setWorkspacePanel("canvas");
   };
 
+  const arrangeDiagram = () => {
+    const arranged = arrangeOverlaps(elements, dimensions);
+    if (arranged.every((element, index) => element.x === elements[index].x && element.y === elements[index].y)) {
+      setNotice("No overlapping components");
+      return;
+    }
+    commit(arranged);
+    setSelectedIds([]);
+    setSelectedConnectionId(null);
+    setNotice("Overlapping components arranged");
+  };
+
   const removeSelected = () => {
     if (selectedIds.length) {
       const ids = new Set(selectedIds);
@@ -1428,9 +1440,8 @@ export default function Home() {
     <button onClick={exportPng}>PNG</button>
     <button onClick={exportTikz}>TeX</button>
     <button onClick={exportPowerPoint}>PPTX</button>
-    <button onClick={exportNetlist}>NET</button>
-    <button onClick={exportBom}>Export BOM</button>
-    <button onClick={() => bomRef.current?.click()}>Import BOM</button>
+    <button onClick={exportNetlist}>Netlist</button>
+    <button onClick={exportBom}>BOM CSV</button>
     <button className="primary" onClick={exportPdf}>PDF</button>
   </>;
 
@@ -1479,6 +1490,8 @@ export default function Home() {
               <div className="toolbar-group" role="group" aria-label="File actions">
                 <button onClick={saveJson}>Save JSON</button>
                 <button onClick={() => fileRef.current?.click()}>Open JSON</button>
+                <button onClick={() => bomRef.current?.click()}>Import BOM</button>
+                <button onClick={arrangeDiagram}>Arrange overlaps</button>
                 <input ref={fileRef} hidden aria-label="Open diagram JSON" type="file" accept="application/json,.json" onChange={loadJson} />
               </div>
             </div>

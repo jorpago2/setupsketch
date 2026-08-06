@@ -34,7 +34,7 @@ button {
 
 button:hover { border-color: var(--color-rule-2); background: var(--color-paper-2); }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible, .suite-link:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
-button:disabled { cursor: not-allowed; opacity: .4; }
+button:disabled { cursor: not-allowed; opacity: .65; }
 button.active { border-color: var(--blue); background: var(--blue-soft); color: var(--blue); }
 button.primary { border-color: var(--blue); background: var(--blue); color: var(--color-accent-ink); }
 button.primary:hover { background: var(--color-accent-strong); }
@@ -517,6 +517,10 @@ summary:active,
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.toolbar-export-actions .primary:last-child {
+  grid-column: 1 / -1;
+}
+
 .workspace {
   min-width: 0;
   min-height: 0;
@@ -562,9 +566,12 @@ summary:active,
 }
 
 .workspace[data-panel="library"] .library,
-.workspace[data-panel="inspector"] .inspector,
-.workspace[data-panel="canvas"] .stage-wrap {
+.workspace[data-panel="inspector"] .inspector {
   display: block;
+}
+
+.workspace[data-panel="canvas"] .stage-wrap {
+  display: grid;
 }
 
 .stage-wrap {
@@ -628,9 +635,10 @@ summary:active,
 .panel-heading {
   margin-bottom: var(--space-md);
   color: var(--color-ink);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 600;
-  letter-spacing: var(--tracking-label);
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .text-button {
@@ -665,7 +673,8 @@ summary:active,
   color: var(--color-muted);
   font-size: var(--text-xs);
   font-weight: 600;
-  letter-spacing: var(--tracking-label);
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .library-group-title {
@@ -705,7 +714,7 @@ summary:active,
 
 .library-help {
   color: var(--color-muted);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
 }
 
 .property-form {
@@ -734,10 +743,10 @@ summary:active,
   align-items: center;
   min-height: 44px;
   color: var(--color-ink-2);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 600;
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
   cursor: pointer;
 }
 

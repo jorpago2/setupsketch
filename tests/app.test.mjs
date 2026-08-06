@@ -60,7 +60,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.equal([...editor.matchAll(/name="toolbar-menu"/g)].length, 2);
   assert.match(editor, /active && isNarrowWorkspace\(\)/);
   assert.match(editor, /setWorkspacePanel\("canvas"\)/);
-  for (const feature of ['data-diagram-control', 'role="group"', 'className="property-section"', 'Export BOM', 'Import BOM']) assert.match(editor, new RegExp(feature));
+  for (const feature of ['data-diagram-control', 'role="group"', 'className="property-section"', 'BOM CSV', 'Import BOM', 'Arrange overlaps']) assert.match(editor, new RegExp(feature));
   assert.doesNotMatch(editor, /stroke="#1665d8"|BOM↓|BOM↑/);
   assert.doesNotMatch(styles, /100vw|#[0-9a-fA-F]{3,8}|font-family:\s*Arial/);
   assert.match(editor, /href="https:\/\/jorpago2\.github\.io\/"/);

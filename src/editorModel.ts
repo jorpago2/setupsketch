@@ -50,6 +50,9 @@ export type ValidationIssue = {
   elementIds: string[];
 };
 
+// ponytail: fixed cells fit catalog components; use measured bounds if variable-size auto-layout is needed.
+const positionsOverlap = (a: ModelPoint, b: ModelPoint) => Math.abs(a.x - b.x) < 140 && Math.abs(a.y - b.y) < 120;
+
 export const moveElements = <T extends ModelElement>(
   elements: T[],
   selectedIds: Set<string>,
@@ -68,11 +71,26 @@ export const findOpenPosition = (
 ): ModelPoint => {
   for (let y = 120; y <= bounds.height - 100; y += 140) {
     for (let x = 120; x <= bounds.width - 100; x += 160) {
-      if (elements.every((element) => Math.abs(element.x - x) >= 140 || Math.abs(element.y - y) >= 120)) return { x, y };
+      if (elements.every((element) => !positionsOverlap(element, { x, y }))) return { x, y };
     }
   }
   const offset = elements.length % 8 * 20;
   return { x: Math.min(bounds.width - 80, bounds.width / 2 + offset), y: Math.min(bounds.height - 80, bounds.height / 2 + offset) };
+};
+
+export const arrangeOverlaps = <T extends ModelElement>(
+  elements: T[],
+  bounds: { width: number; height: number },
+): T[] => {
+  const occupied: Array<Pick<ModelElement, "x" | "y">> = elements.filter((element) => element.locked);
+  return elements.map((element) => {
+    if (element.locked) return element;
+    const next = occupied.some((candidate) => positionsOverlap(candidate, element))
+      ? { ...element, ...findOpenPosition(occupied, bounds) }
+      : element;
+    occupied.push(next);
+    return next;
+  });
 };
 
 export const calculateBudgets = (
