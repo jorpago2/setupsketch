@@ -67,8 +67,12 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /from "@carbon\/react\/icons"/);
   assert.match(editor, /<Accordion /);
   assert.match(editor, /<PopoverContent/);
+  assert.match(editor, /<PopoverContent>\s*<div className="toolbar-menu-actions">/);
+  assert.match(editor, /<PopoverContent aria-label="Export actions">\s*<div className="toolbar-export-actions">/);
+  assert.equal([...editor.matchAll(/align=\{narrowWorkspace \? "bottom" : "bottom-end"\}/g)].length, 2);
   assert.match(editor, /<IconButton/);
   assert.match(editor, /if \(narrowWorkspace\) setWorkspacePanel\("selection"\)/);
+  assert.match(editor, /setSelectedIds\(\[id\]\);\s+setWorkspacePanel\("selection"\)/);
   assert.match(editor, /current === panel \? "canvas" : panel/);
   assert.match(editor, /aria-controls="component-library" aria-expanded=/);
   assert.match(editor, /aria-controls="document-inspector" aria-expanded=/);
@@ -100,6 +104,11 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   for (const edgeType of ['straight', 'bezier', 'smoothstep', 'waypoint']) assert.match(canvasRouting, new RegExp(`"${edgeType}"`));
   assert.match(editor, /viewport: savedViewport/);
   assert.match(editor, /isViewport\(diagram\.viewport\)/);
+  assert.match(editor, /parsed\.viewportMode === viewportMode/);
+  assert.match(editor, /viewportMode === "wide"/);
+  assert.match(editor, /widthRatio >= 0\.95 && widthRatio <= 1\.05/);
+  assert.match(editor, /window\.addEventListener\("resize", fitFlowToWorkspace\)/);
+  assert.match(editor, /aria-label="Properties"/);
   assert.match(editor, /textnote: \{ width: 150, height: 70 \}/);
   assert.match(editor, /annotation \? 48 : 128/);
   assert.match(editor, /orientation=\{narrowWorkspace \? "horizontal" : "vertical"\}/);

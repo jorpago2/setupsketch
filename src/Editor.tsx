@@ -107,6 +107,7 @@ type Point = { x: number; y: number };
 type Routing = "straight" | "orthogonal";
 type PagePreset = "canvas" | "a4" | "a3" | "single" | "double";
 type WorkspacePanel = "library" | "canvas" | "document" | "selection";
+type ViewportMode = "narrow" | "wide";
 
 const uiIcons = {
   undo: Undo,
@@ -329,6 +330,8 @@ type DiagramFile = {
   publication?: PublicationSettings;
   experiment?: ExperimentRecord;
   viewport?: Viewport;
+  viewportMode?: ViewportMode;
+  viewportWidth?: number;
 };
 
 const isViewport = (value: unknown): value is Viewport => {
@@ -365,6 +368,8 @@ const isDiagramFile = (value: unknown): value is DiagramFile => {
   if (diagram.publication !== undefined && !isPublicationSettings(diagram.publication)) return false;
   if (diagram.experiment !== undefined && !isExperimentRecord(diagram.experiment)) return false;
   if (diagram.viewport !== undefined && !isViewport(diagram.viewport)) return false;
+  if (diagram.viewportMode !== undefined && diagram.viewportMode !== "narrow" && diagram.viewportMode !== "wide") return false;
+  if (diagram.viewportWidth !== undefined && (typeof diagram.viewportWidth !== "number" || !Number.isFinite(diagram.viewportWidth) || diagram.viewportWidth <= 0)) return false;
   if (!Array.isArray(diagram.elements) || !Array.isArray(diagram.connections)) return false;
   const ids = new Set<string>();
   for (const candidate of diagram.elements) {
@@ -820,6 +825,7 @@ export default function Home() {
   const flowDragBefore = useRef<Snapshot | null>(null);
   const flowInstanceRef = useRef<ReactFlowInstance<CanvasFlowNode, ScientificFlowEdge> | null>(null);
   const pendingViewportRef = useRef<Viewport | null>(null);
+  const viewportEffectMounted = useRef(false);
 
   const dimensions = pagePresets[publication.pagePreset];
   const selected = selectedIds.length === 1 ? elements.find((element) => element.id === selectedIds[0]) ?? null : null;
@@ -910,6 +916,7 @@ export default function Home() {
   const flowFitViewOptions = narrowWorkspace
     ? { ...FLOW_FIT_VIEW_OPTIONS, nodes: modelFlowNodes.filter((node) => node.id !== "__paper__"), maxZoom: 1 }
     : FLOW_FIT_VIEW_OPTIONS;
+  const viewportMode: ViewportMode = narrowWorkspace ? "narrow" : "wide";
   const toggleWorkspacePanel = (panel: "library" | "document") => {
     setWorkspacePanel((current) => current === panel ? "canvas" : panel);
   };
@@ -962,6 +969,26 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    let frame = 0;
+    const fitFlowToWorkspace = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const instance = flowInstanceRef.current;
+        if (!instance) return;
+        const nodes = instance.getNodes().filter((node) => !node.hidden && node.id !== "__paper__");
+        void instance.fitView({ nodes: nodes.length ? nodes : instance.getNodes(), padding: 0.08, maxZoom: narrowWorkspace ? 1 : undefined });
+      });
+    };
+    window.addEventListener("resize", fitFlowToWorkspace);
+    if (viewportEffectMounted.current) fitFlowToWorkspace();
+    else viewportEffectMounted.current = true;
+    return () => {
+      window.removeEventListener("resize", fitFlowToWorkspace);
+      cancelAnimationFrame(frame);
+    };
+  }, [narrowWorkspace]);
+
+  useEffect(() => {
     const dismissWithEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (workspacePanel !== "canvas") closeWorkspacePanel(workspacePanel);
@@ -992,7 +1019,8 @@ export default function Home() {
           setConnections(migrateCanvasRouting(parsed.connections, parsed.version ?? 0));
           if (parsed.publication) setPublication({ ...defaultPublication, ...parsed.publication });
           if (parsed.experiment) setExperiment(parsed.experiment);
-          if (parsed.viewport) restoreFlowViewport(parsed.viewport);
+          const widthRatio = parsed.viewportWidth ? window.innerWidth / parsed.viewportWidth : 0;
+          if (parsed.viewport && viewportMode === "wide" && parsed.viewportMode === viewportMode && widthRatio >= 0.95 && widthRatio <= 1.05) restoreFlowViewport(parsed.viewport);
         }
       } catch {
         setNotice("Local draft could not be read");
@@ -1019,8 +1047,8 @@ export default function Home() {
       return;
     }
     if (!hydrated.current) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: DIAGRAM_VERSION, title, elements, connections, publication, experiment, viewport: savedViewport }));
-  }, [title, elements, connections, publication, experiment, savedViewport]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: DIAGRAM_VERSION, title, elements, connections, publication, experiment, viewport: savedViewport, viewportMode, viewportWidth: window.innerWidth }));
+  }, [title, elements, connections, publication, experiment, savedViewport, viewportMode]);
 
   useEffect(() => {
     localStorage.setItem(FAVORITES_KEY, JSON.stringify(favoriteKinds));
@@ -1217,7 +1245,10 @@ export default function Home() {
 
   const selectFlowNode = useCallback((id: string) => {
     if (!connectMode) {
-      if (narrowWorkspace) setWorkspacePanel("selection");
+      if (narrowWorkspace) {
+        setSelectedIds([id]);
+        setWorkspacePanel("selection");
+      }
       return;
     }
     if (!connectFrom) {
@@ -1576,7 +1607,7 @@ export default function Home() {
   };
 
   const saveJson = () => download(
-    new Blob([JSON.stringify({ version: DIAGRAM_VERSION, title, elements, connections, publication, experiment, viewport: savedViewport }, null, 2)], { type: "application/json" }),
+    new Blob([JSON.stringify({ version: DIAGRAM_VERSION, title, elements, connections, publication, experiment, viewport: savedViewport, viewportMode, viewportWidth: window.innerWidth }, null, 2)], { type: "application/json" }),
     `${safeFilename(title)}.json`,
   );
 
@@ -1854,26 +1885,28 @@ export default function Home() {
                 {(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <option value={type} key={type}>{label}</option>)}
             </Select>
           </div>}
-          <Popover as="div" className="toolbar-menu toolbar-project" open={projectMenuOpen} align="bottom-end" autoAlign onRequestClose={() => setProjectMenuOpen(false)}>
+          <Popover as="div" className="toolbar-menu toolbar-project" open={projectMenuOpen} align={narrowWorkspace ? "bottom" : "bottom-end"} autoAlign onRequestClose={() => setProjectMenuOpen(false)}>
             <IconButton size="sm" kind="ghost" label="Project" onClick={() => setProjectMenuOpen((open) => !open)}><UiIcon name="project" /></IconButton>
-            <PopoverContent className="toolbar-menu-actions">
-              <Select id="project-template" size="sm" labelText="Template" className="connection-type" defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; setProjectMenuOpen(false); }}>
-                  <option value="" disabled>Choose setup</option>
-                  {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
-              </Select>
-              <div className="toolbar-group" role="group" aria-label="File actions">
-                <Button size="sm" kind="ghost" onClick={() => { saveJson(); setProjectMenuOpen(false); }}>Save JSON</Button>
-                <Button size="sm" kind="ghost" onClick={() => { fileRef.current?.click(); setProjectMenuOpen(false); }}>Open JSON</Button>
-                <Button size="sm" kind="ghost" onClick={() => { bomRef.current?.click(); setProjectMenuOpen(false); }}>Import BOM</Button>
-                <Button size="sm" kind="ghost" onClick={() => { arrangeDiagram(); setProjectMenuOpen(false); }}>Arrange overlaps</Button>
-                <input ref={fileRef} hidden aria-label="Open diagram JSON" type="file" accept="application/json,.json" onChange={loadJson} />
+            <PopoverContent>
+              <div className="toolbar-menu-actions">
+                <Select id="project-template" size="sm" labelText="Template" className="connection-type" defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; setProjectMenuOpen(false); }}>
+                    <option value="" disabled>Choose setup</option>
+                    {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
+                </Select>
+                <div className="toolbar-group" role="group" aria-label="File actions">
+                  <Button size="sm" kind="ghost" onClick={() => { saveJson(); setProjectMenuOpen(false); }}>Save JSON</Button>
+                  <Button size="sm" kind="ghost" onClick={() => { fileRef.current?.click(); setProjectMenuOpen(false); }}>Open JSON</Button>
+                  <Button size="sm" kind="ghost" onClick={() => { bomRef.current?.click(); setProjectMenuOpen(false); }}>Import BOM</Button>
+                  <Button size="sm" kind="ghost" onClick={() => { arrangeDiagram(); setProjectMenuOpen(false); }}>Arrange overlaps</Button>
+                  <input ref={fileRef} hidden aria-label="Open diagram JSON" type="file" accept="application/json,.json" onChange={loadJson} />
+                </div>
               </div>
             </PopoverContent>
           </Popover>
-          <Popover as="div" className="toolbar-export-mobile" open={exportMenuOpen} align="bottom-end" autoAlign onRequestClose={() => setExportMenuOpen(false)}>
+          <Popover as="div" className="toolbar-export-mobile" open={exportMenuOpen} align={narrowWorkspace ? "bottom" : "bottom-end"} autoAlign onRequestClose={() => setExportMenuOpen(false)}>
             <IconButton size="sm" kind="ghost" label="Export" onClick={() => setExportMenuOpen((open) => !open)}><UiIcon name="export" /></IconButton>
-            <PopoverContent className="toolbar-export-actions" aria-label="Export actions">
-              {renderExportActions(() => setExportMenuOpen(false))}
+            <PopoverContent aria-label="Export actions">
+              <div className="toolbar-export-actions">{renderExportActions(() => setExportMenuOpen(false))}</div>
             </PopoverContent>
           </Popover>
           <input ref={bomRef} hidden aria-label="Import bill of materials" type="file" accept="text/csv,.csv" onChange={loadBom} />
@@ -1981,16 +2014,16 @@ export default function Home() {
                 attributionPosition="bottom-left"
                 gridVisible={layers.grid}
               >
-                {selectedIds.length > 0 && <NodeToolbar nodeId={selectedIds} isVisible={workspacePanel === "canvas"} className="context-toolbar" position={Position.Top}>
-                  <Button size="sm" kind="ghost" renderIcon={SettingsAdjust} onClick={() => setWorkspacePanel("selection")}><span>Properties</span></Button>
-                  <Button size="sm" kind="ghost" renderIcon={Copy} onClick={duplicateSelected}><span>Duplicate</span></Button>
-                  <Button size="sm" kind="ghost" renderIcon={allSelectedLocked ? Unlocked : Locked} onClick={() => changeSelected({ locked: !allSelectedLocked })}><span>{allSelectedLocked ? "Unlock" : "Lock"}</span></Button>
-                  <Button size="sm" kind="danger--ghost" renderIcon={TrashCan} onClick={removeSelected}><span>Delete</span></Button>
+                {selectedIds.length > 0 && <NodeToolbar nodeId={selectedIds} isVisible={workspacePanel === "canvas" && !narrowWorkspace} className="context-toolbar" position={Position.Top}>
+                  <Button size="sm" kind="ghost" renderIcon={SettingsAdjust} aria-label="Properties" onClick={() => setWorkspacePanel("selection")}><span>Properties</span></Button>
+                  <Button size="sm" kind="ghost" renderIcon={Copy} aria-label="Duplicate" onClick={duplicateSelected}><span>Duplicate</span></Button>
+                  <Button size="sm" kind="ghost" renderIcon={allSelectedLocked ? Unlocked : Locked} aria-label={allSelectedLocked ? "Unlock" : "Lock"} onClick={() => changeSelected({ locked: !allSelectedLocked })}><span>{allSelectedLocked ? "Unlock" : "Lock"}</span></Button>
+                  <Button size="sm" kind="danger--ghost" renderIcon={TrashCan} aria-label="Delete" onClick={removeSelected}><span>Delete</span></Button>
                 </NodeToolbar>}
-                {selectedConnection && selectedConnectionToolbarPosition && <EdgeToolbar edgeId={selectedConnection.id} x={selectedConnectionToolbarPosition.x} y={selectedConnectionToolbarPosition.y} isVisible={workspacePanel === "canvas"} className="context-toolbar">
-                  <Button size="sm" kind="ghost" renderIcon={SettingsAdjust} onClick={() => setWorkspacePanel("selection")}><span>Properties</span></Button>
-                  <Button size="sm" kind="ghost" renderIcon={Corner} onClick={addConnectionBend}><span>Add bend</span></Button>
-                  <Button size="sm" kind="danger--ghost" renderIcon={TrashCan} onClick={removeSelected}><span>Delete</span></Button>
+                {selectedConnection && selectedConnectionToolbarPosition && <EdgeToolbar edgeId={selectedConnection.id} x={selectedConnectionToolbarPosition.x} y={selectedConnectionToolbarPosition.y} isVisible={workspacePanel === "canvas" && !narrowWorkspace} className="context-toolbar">
+                  <Button size="sm" kind="ghost" renderIcon={SettingsAdjust} aria-label="Properties" onClick={() => setWorkspacePanel("selection")}><span>Properties</span></Button>
+                  <Button size="sm" kind="ghost" renderIcon={Corner} aria-label="Add bend" onClick={addConnectionBend}><span>Add bend</span></Button>
+                  <Button size="sm" kind="danger--ghost" renderIcon={TrashCan} aria-label="Delete" onClick={removeSelected}><span>Delete</span></Button>
                 </EdgeToolbar>}
                 <Controls showFitView={false} showInteractive={false} orientation={narrowWorkspace ? "horizontal" : "vertical"}>
                   <ControlButton onClick={fitCanvas} title={selectedIds.length ? "Fit selection" : "Fit diagram"} aria-label={selectedIds.length ? "Fit selection" : "Fit diagram"}><UiIcon name="fit" /></ControlButton>
@@ -2081,8 +2114,8 @@ export default function Home() {
                 <NumberInput id="component-x" size="sm" label="X" value={selected.x} min={0} max={dimensions.width} onChange={(_, { value }) => updateSelected({ x: Number(value) })} />
                 <NumberInput id="component-y" size="sm" label="Y" value={selected.y} min={0} max={dimensions.height} onChange={(_, { value }) => updateSelected({ y: Number(value) })} />
               </div>
-              <Slider id="component-rotation" labelText="Rotation" min={0} max={345} step={15} value={selected.rotation} onChange={({ value }) => updateSelected({ rotation: Number(value) })} />
-              <Slider id="component-scale" labelText="Scale" min={0.5} max={2} step={0.1} value={selected.scale ?? 1} onChange={({ value }) => updateSelected({ scale: Number(value) })} />
+              <Slider id="component-rotation" hideTextInput labelText={`Rotation · ${selected.rotation}°`} min={0} max={345} step={15} value={selected.rotation} onChange={({ value }) => updateSelected({ rotation: Number(value) })} />
+              <Slider id="component-scale" hideTextInput labelText={`Scale · ${(selected.scale ?? 1).toFixed(1)}×`} min={0.5} max={2} step={0.1} value={selected.scale ?? 1} onChange={({ value }) => updateSelected({ scale: Number(value) })} />
               {annotationKinds.has(selected.kind) && <div className="property-row">
                 <NumberInput id="annotation-width" size="sm" label="Width" min={40} max={600} value={selected.width ?? annotationDefaultSizes[selected.kind]?.width ?? 180} onChange={(_, { value }) => updateSelected({ width: Number(value) })} />
                 <NumberInput id="annotation-height" size="sm" label="Height" min={30} max={500} value={selected.height ?? annotationDefaultSizes[selected.kind]?.height ?? 70} onChange={(_, { value }) => updateSelected({ height: Number(value) })} />
@@ -2222,7 +2255,7 @@ export default function Home() {
               <Select id="publication-page" size="sm" labelText="Page" value={publication.pagePreset} onChange={(event) => commitPublication({ ...publication, pagePreset: event.target.value as PagePreset })}>
                 {(Object.entries(pagePresets) as Array<[PagePreset, typeof pagePresets[PagePreset]]>).map(([key, preset]) => <option key={key} value={key}>{preset.label}</option>)}
               </Select>
-              <Slider id="publication-label-scale" labelText="Label scale" min={0.7} max={1.5} step={0.1} value={publication.labelScale} onChange={({ value }) => commitPublication({ ...publication, labelScale: Number(value) })} />
+              <Slider id="publication-label-scale" hideTextInput labelText={`Label scale · ${publication.labelScale.toFixed(1)}×`} min={0.7} max={1.5} step={0.1} value={publication.labelScale} onChange={({ value }) => commitPublication({ ...publication, labelScale: Number(value) })} />
               <Checkbox id="publication-monochrome" labelText="Monochrome" checked={publication.monochrome} onChange={(_, { checked }) => commitPublication({ ...publication, monochrome: checked })} />
               <Checkbox id="publication-credit" labelText="Show credit" checked={publication.showCredit} onChange={(_, { checked }) => commitPublication({ ...publication, showCredit: checked })} />
               <Checkbox id="publication-crop" labelText="Crop exports to content" checked={publication.cropToContent} onChange={(_, { checked }) => commitPublication({ ...publication, cropToContent: checked })} />
