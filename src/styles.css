@@ -674,6 +674,19 @@ summary:active,
   text-transform: none;
 }
 
+.panel-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.panel-close {
+  min-width: 44px;
+  padding: 0;
+  font-size: var(--text-lg);
+  line-height: 1;
+}
+
 .text-button {
   min-height: 44px;
   color: var(--color-danger);
@@ -941,7 +954,7 @@ button.danger {
   .workspace-switcher {
     grid-area: switch;
     grid-template-columns: 1fr;
-    grid-template-rows: repeat(3, 44px);
+    grid-template-rows: repeat(2, 44px);
     align-content: start;
     gap: var(--space-xs);
     padding: var(--space-md) var(--space-xs);

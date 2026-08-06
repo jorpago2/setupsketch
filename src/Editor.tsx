@@ -796,9 +796,13 @@ export default function Home() {
   const flowFitViewOptions = isNarrowWorkspace()
     ? { ...FLOW_FIT_VIEW_OPTIONS, nodes: modelFlowNodes.filter((node) => node.id !== "__paper__"), maxZoom: 1 }
     : FLOW_FIT_VIEW_OPTIONS;
-  const showWorkspacePanel = (panel: "library" | "canvas" | "inspector") => {
+  const toggleWorkspacePanel = (panel: "library" | "inspector") => {
     toolbarRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((menu) => { menu.open = false; });
-    setWorkspacePanel(panel);
+    setWorkspacePanel((current) => current === panel ? "canvas" : panel);
+  };
+  const closeWorkspacePanel = (panel: "library" | "inspector") => {
+    document.getElementById(`${panel}-toggle`)?.focus();
+    setWorkspacePanel("canvas");
   };
 
   useEffect(() => setFlowNodes(modelFlowNodes), [modelFlowNodes, setFlowNodes]);
@@ -809,14 +813,18 @@ export default function Home() {
     const dismissOutside = (event: PointerEvent) => {
       if (event.target instanceof Node && !toolbarRef.current?.contains(event.target)) closeMenus();
     };
-    const dismissWithEscape = (event: KeyboardEvent) => { if (event.key === "Escape") closeMenus(); };
+    const dismissWithEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      closeMenus();
+      if (workspacePanel !== "canvas") closeWorkspacePanel(workspacePanel);
+    };
     document.addEventListener("pointerdown", dismissOutside);
     document.addEventListener("keydown", dismissWithEscape);
     return () => {
       document.removeEventListener("pointerdown", dismissOutside);
       document.removeEventListener("keydown", dismissWithEscape);
     };
-  }, []);
+  }, [workspacePanel]);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -1696,15 +1704,17 @@ export default function Home() {
       </header>
 
       <section className="workspace grid min-h-0 min-w-0 grid-cols-1 grid-rows-[minmax(0,1fr)_auto] bg-ui-canvas-muted" id="diagram-workspace" data-panel={workspacePanel} tabIndex={-1}>
-        <nav className="workspace-switcher grid grid-cols-3 gap-1 bg-ui-surface" aria-label="Workspace layers">
-          <button className={workspacePanel === "library" ? "active" : ""} aria-pressed={workspacePanel === "library"} onClick={() => showWorkspacePanel("library")}>Components</button>
-          <button className={workspacePanel === "canvas" ? "active" : ""} aria-pressed={workspacePanel === "canvas"} onClick={() => showWorkspacePanel("canvas")}>Canvas</button>
-          <button className={workspacePanel === "inspector" ? "active" : ""} aria-pressed={workspacePanel === "inspector"} onClick={() => showWorkspacePanel("inspector")}>Properties</button>
+        <nav className="workspace-switcher grid grid-cols-2 gap-1 bg-ui-surface" aria-label="Workspace panels">
+          <button id="library-toggle" className={workspacePanel === "library" ? "active" : ""} aria-controls="component-library" aria-expanded={workspacePanel === "library"} onClick={() => toggleWorkspacePanel("library")}>Components</button>
+          <button id="inspector-toggle" className={workspacePanel === "inspector" ? "active" : ""} aria-controls="property-inspector" aria-expanded={workspacePanel === "inspector"} onClick={() => toggleWorkspacePanel("inspector")}>Properties</button>
         </nav>
-        <aside className="library min-h-0 min-w-0 overflow-y-auto bg-ui-surface p-4" aria-label="Component library" aria-hidden={workspacePanel !== "library"}>
+        <aside id="component-library" className="library min-h-0 min-w-0 overflow-y-auto bg-ui-surface p-4" aria-label="Component library" aria-hidden={workspacePanel !== "library"}>
           <div className="panel-heading">
             <span>Library</span>
-            <button className="text-button danger" onClick={clearDiagram}>Clear</button>
+            <span className="panel-heading-actions">
+              <button className="text-button danger" onClick={clearDiagram}>Clear</button>
+              <button className="panel-close" aria-label="Close component library" onClick={() => closeWorkspacePanel("library")}>×</button>
+            </span>
           </div>
           <input
             className="library-search"
@@ -1857,8 +1867,8 @@ export default function Home() {
           </div>
         </section>
 
-        <aside className="inspector min-h-0 min-w-0 overflow-y-auto bg-ui-surface p-4" aria-label="Properties" aria-hidden={workspacePanel !== "inspector"}>
-          <div className="panel-heading"><span>Properties</span></div>
+        <aside id="property-inspector" className="inspector min-h-0 min-w-0 overflow-y-auto bg-ui-surface p-4" aria-label="Properties" aria-hidden={workspacePanel !== "inspector"}>
+          <div className="panel-heading"><span>Properties</span><button className="panel-close" aria-label="Close properties" onClick={() => closeWorkspacePanel("inspector")}>×</button></div>
           {selected ? (
             <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
               <label>Label<input value={selected.label} onChange={(event) => updateSelected({ label: event.target.value })} /></label>

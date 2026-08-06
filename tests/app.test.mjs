@@ -59,7 +59,10 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.doesNotMatch(editor, /toolbar-export-desktop/);
   assert.equal([...editor.matchAll(/name="toolbar-menu"/g)].length, 2);
   assert.match(editor, /isNarrowWorkspace\(\)\) setWorkspacePanel\("inspector"\)/);
-  assert.match(editor, /setWorkspacePanel\("canvas"\)/);
+  assert.match(editor, /current === panel \? "canvas" : panel/);
+  assert.match(editor, /aria-controls="component-library" aria-expanded=/);
+  assert.match(editor, /aria-controls="property-inspector" aria-expanded=/);
+  assert.doesNotMatch(editor, />Canvas<\/button>/);
   assert.match(editor, /nodes: modelFlowNodes\.filter\(\(node\) => node\.id !== "__paper__"\)/);
   assert.match(editor, /const \[notice, setNotice\] = useState\("Saved"\)/);
   for (const feature of ['ReactFlow', 'ConnectionMode.Loose', 'diagram-export', 'role="group"', 'className="property-section"', 'BOM CSV', 'Import BOM', 'Arrange overlaps']) assert.match(editor, new RegExp(feature));

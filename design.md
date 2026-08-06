@@ -4,7 +4,7 @@ SetupSketch uses a modern-minimal, technical-austere system shared with the scie
 
 ## Structure
 
-- App macrostructure: **Split Studio**. The canvas is the permanent work surface on desktop; Components and Properties are mutually exclusive contextual rails. On narrow screens the three become exclusive layers selected from a bottom bar.
+- App macrostructure: **Split Studio**. The canvas is the base work surface; Components and Properties are mutually exclusive contextual rails. Their controls toggle the rails open and closed, so the canvas needs no dedicated button.
 - Navigation: **N9 edge-aligned minimal**, adapted as an application header. The wordmark, editable project name, essential edit controls, and two disclosures are the only persistent items.
 - Content pages, if added later: **Long Document**, with stacked section heads and no decorative eyebrows.
 - Marketing pages: not defined; this repository is an editor, not a landing page.
@@ -30,11 +30,11 @@ SetupSketch uses a modern-minimal, technical-austere system shared with the scie
 - Controls have default, hover, focus-visible, active, and disabled states without border-width changes.
 - Touch targets are at least 44 × 44 px below 60 rem.
 - Motion is cut to state colour changes and native disclosure behaviour. Reduced motion collapses all optional transitions.
-- Components, Canvas, and Properties remain keyboard-accessible buttons with `aria-pressed` state.
+- Components and Properties are keyboard-accessible disclosure buttons with `aria-expanded` state. Repeating the active control, pressing Escape, or using the panel close button returns to the canvas.
 
 ## Responsive contract
 
-- 320–959 px: one active workspace layer at a time; persistent bottom layer switcher; toolbar stays one line and scrolls horizontally rather than wrapping controls.
+- 320–959 px: the canvas is the default layer; one contextual panel may replace it at a time, controlled by a persistent two-button bottom switcher. The toolbar stays one line and scrolls horizontally rather than wrapping controls.
 - 960 px and above: canvas stays visible; one contextual rail may open beside it.
 - No horizontal page scroll, `100vw`, hover-only actions, or wrapped primary control labels.
 
