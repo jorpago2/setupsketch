@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateBudgets, moveElements, parseCsv, routeOrthogonal, validateSetup } from "../src/editorModel.ts";
+import { calculateBudgets, findOpenPosition, moveElements, parseCsv, routeOrthogonal, validateSetup } from "../src/editorModel.ts";
 import { componentByKind, componentPortLayouts, portTypeFor } from "../src/componentCatalog.ts";
 import { setupTemplates } from "../src/templates.ts";
 
@@ -52,6 +52,15 @@ test("keyboard movement updates a multi-selection, respects bounds and locks", (
   );
   assert.deepEqual([moved[0].x, moved[0].y], [60, 120]);
   assert.deepEqual([moved[1].x, moved[1].y], [80, 80]);
+});
+
+test("automatic placement avoids occupied component cells", () => {
+  const occupied = Array.from({ length: 13 }, (_, index) => ({
+    x: 120 + index % 7 * 160,
+    y: 120 + Math.floor(index / 7) * 140,
+  }));
+  const position = findOpenPosition(occupied, { width: 1200, height: 700 });
+  assert.ok(occupied.every((element) => Math.abs(element.x - position.x) >= 140 || Math.abs(element.y - position.y) >= 120));
 });
 
 test("typed ports distinguish optical, fiber, RF, DC, trigger and digital domains", () => {

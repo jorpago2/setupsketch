@@ -24,7 +24,7 @@ import {
   type ElementKind,
   type PortType,
 } from "./componentCatalog";
-import { calculateBudgets, moveElements, parseCsv, routeOrthogonal, validateSetup } from "./editorModel";
+import { calculateBudgets, findOpenPosition, moveElements, parseCsv, routeOrthogonal, validateSetup } from "./editorModel";
 import { setupTemplates } from "./templates";
 
 type LayerVisibility = {
@@ -119,6 +119,7 @@ const STORAGE_KEY = "setupsketch-diagram-v1";
 const FAVORITES_KEY = "setupsketch-favorites-v1";
 const MODULES_KEY = "setupsketch-modules-v1";
 const GRID_STEP = 20;
+const DRAG_THRESHOLD = 5;
 
 const pagePresets: Record<PagePreset, { label: string; width: number; height: number }> = {
   canvas: { label: "Canvas 12:7", width: WIDTH, height: HEIGHT },
@@ -611,6 +612,20 @@ export default function Home() {
   };
 
   useEffect(() => {
+    const closeMenus = () => toolbarRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((menu) => { menu.open = false; });
+    const dismissOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !toolbarRef.current?.contains(event.target)) closeMenus();
+    };
+    const dismissWithEscape = (event: KeyboardEvent) => { if (event.key === "Escape") closeMenus(); };
+    document.addEventListener("pointerdown", dismissOutside);
+    document.addEventListener("keydown", dismissWithEscape);
+    return () => {
+      document.removeEventListener("pointerdown", dismissOutside);
+      document.removeEventListener("keydown", dismissWithEscape);
+    };
+  }, []);
+
+  useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
@@ -724,13 +739,12 @@ export default function Home() {
   };
 
   const addElement = (kind: ElementKind, label: string) => {
-    const index = elements.length;
+    const position = findOpenPosition(elements, dimensions);
     const element: DiagramElement = {
       id: `${kind}-${Date.now()}`,
       kind,
       label,
-      x: 170 + (index % 4) * 250,
-      y: 170 + (Math.floor(index / 4) % 3) * 190,
+      ...position,
       rotation: 0,
       color: defaultColor(kind),
     };
@@ -851,6 +865,7 @@ export default function Home() {
     const point = pointFromEvent(event);
     const dx = point.x - drag.current.start.x;
     const dy = point.y - drag.current.start.y;
+    if (!drag.current.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
     drag.current.moved = true;
     setElements((items) => items.map((item) => {
       const origin = drag.current?.origins.find((candidate) => candidate.id === item.id);
@@ -965,8 +980,11 @@ export default function Home() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const editing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
-      if (!editing && (event.key === "Delete" || event.key === "Backspace")) removeSelected();
+      const target = event.target instanceof Element ? event.target : null;
+      const diagramControl = target?.closest("[data-diagram-control]");
+      const interfaceControl = target?.closest("input, textarea, select, button, summary, a, [contenteditable='true']");
+      if (interfaceControl && !diagramControl) return;
+      if (event.key === "Delete" || event.key === "Backspace") removeSelected();
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
         event.preventDefault();
         if (event.shiftKey) redo();
@@ -976,11 +994,11 @@ export default function Home() {
         event.preventDefault();
         redo();
       }
-      if (!editing && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "d") {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "d") {
         event.preventDefault();
         duplicateSelected();
       }
-      if (!editing && selectedIds.length && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+      if (selectedIds.length && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
         event.preventDefault();
         const distance = event.shiftKey ? GRID_STEP : 1;
         const dx = event.key === "ArrowLeft" ? -distance : event.key === "ArrowRight" ? distance : 0;
@@ -1206,13 +1224,12 @@ export default function Home() {
         if (!elementKinds.has(kind)) continue;
         const quantity = Math.min(100, Math.max(1, Number.parseInt(row[columns.get("quantity") ?? -1] ?? "1", 10) || 1));
         for (let count = 0; count < quantity; count += 1) {
-          const index = elements.length + imported.length;
+          const position = findOpenPosition([...elements, ...imported], dimensions);
           imported.push({
-            id: `${kind}-bom-${Date.now()}-${index}`,
+            id: `${kind}-bom-${Date.now()}-${elements.length + imported.length}`,
             kind,
             label: row[columns.get("component") ?? -1] || componentByKind.get(kind)?.label || kind,
-            x: 170 + (index % 4) * 250,
-            y: 170 + (Math.floor(index / 4) % 3) * 190,
+            ...position,
             rotation: 0,
             color: defaultColor(kind),
             manufacturer: row[columns.get("manufacturer") ?? -1] || undefined,
@@ -1412,8 +1429,8 @@ export default function Home() {
     <button onClick={exportTikz}>TeX</button>
     <button onClick={exportPowerPoint}>PPTX</button>
     <button onClick={exportNetlist}>NET</button>
-    <button onClick={exportBom} title="Export bill of materials">BOM↓</button>
-    <button onClick={() => bomRef.current?.click()} title="Import bill of materials">BOM↑</button>
+    <button onClick={exportBom}>Export BOM</button>
+    <button onClick={() => bomRef.current?.click()}>Import BOM</button>
     <button className="primary" onClick={exportPdf}>PDF</button>
   </>;
 
@@ -1449,10 +1466,12 @@ export default function Home() {
           </div>}
           <details className="toolbar-menu toolbar-project" name="toolbar-menu">
             <summary>Project</summary>
-            <div className="toolbar-menu-actions">
+            <div className="toolbar-menu-actions" onClick={(event) => {
+              if (event.target instanceof Element && event.target.closest("button")) event.currentTarget.closest("details")?.removeAttribute("open");
+            }}>
               <label className="connection-type">
                 <span>Template</span>
-                <select defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; }}>
+                <select defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; event.currentTarget.closest("details")?.removeAttribute("open"); }}>
                   <option value="" disabled>Choose setup</option>
                   {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
                 </select>
@@ -1466,7 +1485,9 @@ export default function Home() {
           </details>
           <details className="toolbar-export-mobile" name="toolbar-menu">
             <summary>Export</summary>
-            <div className="toolbar-export-actions" role="group" aria-label="Export actions">
+            <div className="toolbar-export-actions" role="group" aria-label="Export actions" onClick={(event) => {
+              if (event.target instanceof Element && event.target.closest("button")) event.currentTarget.closest("details")?.removeAttribute("open");
+            }}>
               {renderExportActions()}
             </div>
           </details>
@@ -1543,7 +1564,7 @@ export default function Home() {
               className="diagram"
               viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
               style={{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }}
-              role="img"
+              role="group"
               aria-label={`${title}, editable scientific setup diagram`}
               onPointerDown={() => { setSelectedIds([]); setSelectedConnectionId(null); }}
             >
@@ -1586,15 +1607,22 @@ export default function Home() {
                     />
                     <polyline
                       className="connection-hit"
+                      data-diagram-control
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={selectedEdge}
+                      aria-label={`Connection from ${from.label} to ${to.label}`}
                       points={pointString}
                       fill="none" stroke="transparent" strokeWidth="18"
                       onPointerDown={(event) => { event.stopPropagation(); setSelectedConnectionId(connection.id); setSelectedIds([]); }}
+                      onFocus={() => { setSelectedConnectionId(connection.id); setSelectedIds([]); }}
+                      onKeyDown={(event) => { if (event.key === " " || event.key === "Enter") event.preventDefault(); }}
                     />
                     {selectedEdge && connection.waypoints?.map((point, index) => (
                       <circle
                         className="bend-handle"
                         key={`${connection.id}-bend-${index}`}
-                        cx={point.x} cy={point.y} r="7" fill="#fff" stroke="#1665d8" strokeWidth="3"
+                        cx={point.x} cy={point.y} r="7" fill="var(--color-surface-raised)" stroke="var(--color-accent)" strokeWidth="3"
                         onPointerDown={(event) => {
                           event.stopPropagation();
                           bendDrag.current = { connectionId: connection.id, index, before: cloneSnapshot(elements, connections, publication, experiment), moved: false };
@@ -1613,13 +1641,20 @@ export default function Home() {
                 <g
                   key={element.id}
                   className={`diagram-element${connectFrom === element.id ? " connection-source" : ""}${element.locked ? " locked" : ""}`}
+                  data-diagram-control
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={selection.has(element.id)}
+                  aria-label={`${element.label}, ${componentByKind.get(element.kind)?.label ?? element.kind}${element.locked ? ", locked" : ""}`}
                   transform={`translate(${element.x} ${element.y}) rotate(${element.rotation})`}
                   onPointerDown={(event) => selectElement(event, element.id)}
+                  onFocus={() => { setSelectedIds([element.id]); setSelectedConnectionId(null); }}
+                  onKeyDown={(event) => { if (event.key === " " || event.key === "Enter") event.preventDefault(); }}
                   onPointerMove={moveElement}
                   onPointerUp={finishDrag}
                   onPointerCancel={finishDrag}
                 >
-                  {selection.has(element.id) && <rect className="selection-outline" x={-Math.max(64, (element.width ?? 120) * (element.scale ?? 1) / 2 + 6)} y={-Math.max(58, (element.height ?? 100) * (element.scale ?? 1) / 2 + 6)} width={Math.max(128, (element.width ?? 120) * (element.scale ?? 1) + 12)} height={Math.max(116, (element.height ?? 100) * (element.scale ?? 1) + 12)} rx="9" fill="none" stroke="#1665d8" strokeWidth="2" strokeDasharray="6 5" />}
+                  {selection.has(element.id) && <rect className="selection-outline" x={-Math.max(64, (element.width ?? 120) * (element.scale ?? 1) / 2 + 6)} y={-Math.max(58, (element.height ?? 100) * (element.scale ?? 1) / 2 + 6)} width={Math.max(128, (element.width ?? 120) * (element.scale ?? 1) + 12)} height={Math.max(116, (element.height ?? 100) * (element.scale ?? 1) + 12)} rx="9" fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeDasharray="6 5" />}
                   <g transform={`scale(${(element.scale ?? 1) * (element.flipX ? -1 : 1)} ${(element.scale ?? 1) * (element.flipY ? -1 : 1)})`}>
                     <ElectronicPortStubs element={publication.monochrome ? { ...element, color: "#20242a" } : element} />
                     <ComponentShape element={publication.monochrome ? { ...element, color: "#20242a" } : element} monochrome={publication.monochrome} />
@@ -1641,7 +1676,7 @@ export default function Home() {
                   <circle
                     className="endpoint-handle"
                     key={`${selectedConnection.id}-endpoint-${index}`}
-                    cx={point.x} cy={point.y} r="8" fill="#1665d8" stroke="#fff" strokeWidth="3"
+                    cx={point.x} cy={point.y} r="8" fill="var(--color-accent)" stroke="var(--color-surface-raised)" strokeWidth="3"
                     onPointerDown={(event) => {
                       event.stopPropagation();
                       endpointDrag.current = { connectionId: selectedConnection.id, end: index === 0 ? "from" : "to", before: cloneSnapshot(elements, connections, publication, experiment) };
@@ -1654,7 +1689,7 @@ export default function Home() {
                   />
                 ));
               })()}
-              {endpointPreview && <circle className="endpoint-handle" cx={endpointPreview.x} cy={endpointPreview.y} r="10" fill="#fff" stroke="#1665d8" strokeWidth="3" pointerEvents="none" />}
+              {endpointPreview && <circle className="endpoint-handle" cx={endpointPreview.x} cy={endpointPreview.y} r="10" fill="var(--color-surface-raised)" stroke="var(--color-accent)" strokeWidth="3" pointerEvents="none" />}
             </svg>
           </div>
         </section>
@@ -1675,32 +1710,40 @@ export default function Home() {
                 <label>Height<input type="number" min="30" max="500" value={selected.height ?? (selected.kind === "region" ? 150 : 70)} onChange={(event) => updateSelected({ height: Number(event.target.value) })} /></label>
               </div>}
               <label>Color<input className="color-input" type="color" value={selected.color} onChange={(event) => updateSelected({ color: event.target.value })} /></label>
-              <p className="property-subheading">Engineering parameters</p>
-              <div className="property-row">
-                <label>Source power (dBm)<input type="number" step="0.1" value={selected.powerDbm ?? ""} onChange={(event) => updateSelected({ powerDbm: optionalNumber(event.target.value) })} /></label>
-                <label>Gain (dB)<input type="number" step="0.1" value={selected.gainDb ?? ""} onChange={(event) => updateSelected({ gainDb: optionalNumber(event.target.value) })} /></label>
-              </div>
-              <div className="property-row">
-                <label>Loss (dB)<input type="number" min="0" step="0.1" value={selected.lossDb ?? ""} onChange={(event) => updateSelected({ lossDb: optionalNumber(event.target.value) })} /></label>
-                <label>Noise figure (dB)<input type="number" min="0" step="0.1" value={selected.noiseFigureDb ?? ""} onChange={(event) => updateSelected({ noiseFigureDb: optionalNumber(event.target.value) })} /></label>
-              </div>
-              <div className="property-row">
-                <label>Bandwidth (Hz)<input type="number" min="0" step="any" value={selected.bandwidthHz ?? ""} onChange={(event) => updateSelected({ bandwidthHz: optionalNumber(event.target.value) })} /></label>
-                <label>Wavelength (nm)<input type="number" min="0" step="any" value={selected.wavelengthNm ?? ""} onChange={(event) => updateSelected({ wavelengthNm: optionalNumber(event.target.value) })} /></label>
-              </div>
-              <p className="property-subheading">Traceability</p>
-              <label>Manufacturer<input list="manufacturers" value={selected.manufacturer ?? ""} onChange={(event) => updateSelected({ manufacturer: event.target.value })} placeholder="e.g. Thorlabs" /></label>
-              <datalist id="manufacturers"><option value="Thorlabs" /><option value="Mini-Circuits" /><option value="Keysight" /></datalist>
-              <label>Part number<input value={selected.model ?? ""} onChange={(event) => updateSelected({ model: event.target.value })} placeholder="Vendor model / part number" /></label>
-              <label>Specifications<input value={selected.specs ?? ""} onChange={(event) => updateSelected({ specs: event.target.value })} placeholder="Wavelength, bandwidth…" /></label>
-              <label>Serial number<input value={selected.serialNumber ?? ""} onChange={(event) => updateSelected({ serialNumber: event.target.value })} /></label>
-              <div className="property-row">
-                <label>Calibrated<input type="date" value={selected.calibrationDate ?? ""} onChange={(event) => updateSelected({ calibrationDate: event.target.value })} /></label>
-                <label>Calibration due<input type="date" value={selected.calibrationDueDate ?? ""} onChange={(event) => updateSelected({ calibrationDueDate: event.target.value })} /></label>
-              </div>
-              <label>Uncertainty<input value={selected.uncertainty ?? ""} onChange={(event) => updateSelected({ uncertainty: event.target.value })} placeholder="e.g. ±0.2 dB (k=2)" /></label>
-              <label>Datasheet URL<input type="url" value={selected.datasheetUrl ?? ""} onChange={(event) => updateSelected({ datasheetUrl: event.target.value })} placeholder="https://…" /></label>
-              <label>Notes<textarea value={selected.notes ?? ""} onChange={(event) => updateSelected({ notes: event.target.value })} /></label>
+              <details className="property-section">
+                <summary>Engineering parameters</summary>
+                <div className="property-section-content">
+                  <div className="property-row">
+                    <label>Source power (dBm)<input type="number" step="0.1" value={selected.powerDbm ?? ""} onChange={(event) => updateSelected({ powerDbm: optionalNumber(event.target.value) })} /></label>
+                    <label>Gain (dB)<input type="number" step="0.1" value={selected.gainDb ?? ""} onChange={(event) => updateSelected({ gainDb: optionalNumber(event.target.value) })} /></label>
+                  </div>
+                  <div className="property-row">
+                    <label>Loss (dB)<input type="number" min="0" step="0.1" value={selected.lossDb ?? ""} onChange={(event) => updateSelected({ lossDb: optionalNumber(event.target.value) })} /></label>
+                    <label>Noise figure (dB)<input type="number" min="0" step="0.1" value={selected.noiseFigureDb ?? ""} onChange={(event) => updateSelected({ noiseFigureDb: optionalNumber(event.target.value) })} /></label>
+                  </div>
+                  <div className="property-row">
+                    <label>Bandwidth (Hz)<input type="number" min="0" step="any" value={selected.bandwidthHz ?? ""} onChange={(event) => updateSelected({ bandwidthHz: optionalNumber(event.target.value) })} /></label>
+                    <label>Wavelength (nm)<input type="number" min="0" step="any" value={selected.wavelengthNm ?? ""} onChange={(event) => updateSelected({ wavelengthNm: optionalNumber(event.target.value) })} /></label>
+                  </div>
+                </div>
+              </details>
+              <details className="property-section">
+                <summary>Traceability</summary>
+                <div className="property-section-content">
+                  <label>Manufacturer<input list="manufacturers" value={selected.manufacturer ?? ""} onChange={(event) => updateSelected({ manufacturer: event.target.value })} placeholder="e.g. Thorlabs" /></label>
+                  <datalist id="manufacturers"><option value="Thorlabs" /><option value="Mini-Circuits" /><option value="Keysight" /></datalist>
+                  <label>Part number<input value={selected.model ?? ""} onChange={(event) => updateSelected({ model: event.target.value })} placeholder="Vendor model / part number" /></label>
+                  <label>Specifications<input value={selected.specs ?? ""} onChange={(event) => updateSelected({ specs: event.target.value })} placeholder="Wavelength, bandwidth…" /></label>
+                  <label>Serial number<input value={selected.serialNumber ?? ""} onChange={(event) => updateSelected({ serialNumber: event.target.value })} /></label>
+                  <div className="property-row">
+                    <label>Calibrated<input type="date" value={selected.calibrationDate ?? ""} onChange={(event) => updateSelected({ calibrationDate: event.target.value })} /></label>
+                    <label>Calibration due<input type="date" value={selected.calibrationDueDate ?? ""} onChange={(event) => updateSelected({ calibrationDueDate: event.target.value })} /></label>
+                  </div>
+                  <label>Uncertainty<input value={selected.uncertainty ?? ""} onChange={(event) => updateSelected({ uncertainty: event.target.value })} placeholder="e.g. ±0.2 dB (k=2)" /></label>
+                  <label>Datasheet URL<input type="url" value={selected.datasheetUrl ?? ""} onChange={(event) => updateSelected({ datasheetUrl: event.target.value })} placeholder="https://…" /></label>
+                  <label>Notes<textarea value={selected.notes ?? ""} onChange={(event) => updateSelected({ notes: event.target.value })} /></label>
+                </div>
+              </details>
               <div className="compact-actions">
                 <button onClick={() => changeSelected({ flipX: !selected.flipX })}>Flip horizontal</button>
                 <button onClick={() => changeSelected({ flipY: !selected.flipY })}>Flip vertical</button>
@@ -1754,7 +1797,7 @@ export default function Home() {
               <button className="danger" onClick={removeSelected}>Delete connection</button>
             </div>
           ) : (
-            <div className="empty-inspector"><p>Select a component to edit it. Shift-click selects several.</p><span>Arrow keys nudge; Shift moves one grid step.</span></div>
+            <div className="empty-inspector"><p>Select a component to edit it. On desktop, Shift-click selects several.</p><span>Focused components can be nudged with the arrow keys.</span></div>
           )}
           <details className="layers-panel">
             <summary id="layout-title">Layout</summary>

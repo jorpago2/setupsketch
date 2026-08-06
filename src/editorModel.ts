@@ -62,6 +62,19 @@ export const moveElements = <T extends ModelElement>(
   y: Math.max(60, Math.min(bounds.height - 60, element.y + dy)),
 } : element);
 
+export const findOpenPosition = (
+  elements: Array<Pick<ModelElement, "x" | "y">>,
+  bounds: { width: number; height: number },
+): ModelPoint => {
+  for (let y = 120; y <= bounds.height - 100; y += 140) {
+    for (let x = 120; x <= bounds.width - 100; x += 160) {
+      if (elements.every((element) => Math.abs(element.x - x) >= 140 || Math.abs(element.y - y) >= 120)) return { x, y };
+    }
+  }
+  const offset = elements.length % 8 * 20;
+  return { x: Math.min(bounds.width - 80, bounds.width / 2 + offset), y: Math.min(bounds.height - 80, bounds.height / 2 + offset) };
+};
+
 export const calculateBudgets = (
   elements: ModelElement[],
   connections: ModelConnection[],

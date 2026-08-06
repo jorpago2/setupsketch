@@ -6,6 +6,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
   const assets = await readdir(new URL("../dist/assets/", import.meta.url));
   const editor = await readFile(new URL("../src/Editor.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
   const catalog = await readFile(new URL("../src/componentCatalog.ts", import.meta.url), "utf8");
   const templates = await readFile(new URL("../src/templates.ts", import.meta.url), "utf8");
   const model = await readFile(new URL("../src/editorModel.ts", import.meta.url), "utf8");
@@ -59,6 +60,9 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.equal([...editor.matchAll(/name="toolbar-menu"/g)].length, 2);
   assert.match(editor, /active && isNarrowWorkspace\(\)/);
   assert.match(editor, /setWorkspacePanel\("canvas"\)/);
+  for (const feature of ['data-diagram-control', 'role="group"', 'className="property-section"', 'Export BOM', 'Import BOM']) assert.match(editor, new RegExp(feature));
+  assert.doesNotMatch(editor, /stroke="#1665d8"|BOM↓|BOM↑/);
+  assert.doesNotMatch(styles, /100vw|#[0-9a-fA-F]{3,8}|font-family:\s*Arial/);
   assert.match(editor, /href="https:\/\/jorpago2\.github\.io\/"/);
   assert.match(model, /calculateBudgets/);
   assert.equal(packageJson.dependencies.pptxgenjs, "^4.0.1");
