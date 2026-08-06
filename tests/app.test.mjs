@@ -67,13 +67,15 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /from "@carbon\/react\/icons"/);
   assert.match(editor, /<Accordion /);
   assert.match(editor, /<PopoverContent/);
-  assert.match(editor, /<PopoverContent>\s*<div className="toolbar-menu-actions">/);
-  assert.match(editor, /<PopoverContent aria-label="Export actions">\s*<div className="toolbar-export-actions">/);
+  assert.match(editor, /<PopoverContent>\s*<Layer withBackground className="toolbar-menu-actions">/);
+  assert.match(editor, /<PopoverContent aria-label="Export actions">\s*<Layer withBackground className="toolbar-export-actions">/);
   assert.equal([...editor.matchAll(/align=\{narrowWorkspace \? "bottom" : "bottom-end"\}/g)].length, 2);
   assert.match(editor, /<IconButton/);
-  assert.match(editor, /if \(narrowWorkspace\) setWorkspacePanel\("selection"\)/);
-  assert.match(editor, /setSelectedIds\(\[id\]\);\s+setWorkspacePanel\("selection"\)/);
-  assert.match(editor, /current === panel \? "canvas" : panel/);
+  assert.match(editor, /if \(narrowWorkspace\) openSelectionInspector\(\)/);
+  assert.match(editor, /setSelectedIds\(\[id\]\);\s+openSelectionInspector\(\)/);
+  assert.match(editor, /current === mode \? null : mode/);
+  assert.match(editor, /data-library-open=\{libraryOpen\}/);
+  assert.match(editor, /data-inspector-open=\{Boolean\(inspectorMode\)\}/);
   assert.match(editor, /aria-controls="component-library" aria-expanded=/);
   assert.match(editor, /aria-controls="document-inspector" aria-expanded=/);
   assert.match(editor, /id="selection-inspector"/);
@@ -87,9 +89,10 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   for (const icon of ["undo", "redo", "link", "project", "export", "delete", "fit", "map"]) {
     assert.match(editor, new RegExp(`<UiIcon name="${icon}"`));
   }
-  for (const icon of ["GridIcon", "Layers", "SettingsAdjust", "Copy", "TrashCan", "Locked", "Unlocked", "Corner"]) {
+  for (const icon of ["SettingsAdjust", "Copy", "TrashCan", "Locked", "Unlocked", "Corner"]) {
     assert.match(editor, new RegExp(`renderIcon=\\{(?:[^}]* )?${icon}`));
   }
+  for (const icon of ["GridIcon", "Layers", "Chemistry", "Inspection"]) assert.match(editor, new RegExp(`<${icon} size=\\{16\\}`));
   for (const component of ["Grid", "Column", "Search", "TextInput", "NumberInput", "Select", "Slider", "Checkbox", "TextArea"]) {
     assert.match(editor, new RegExp(`<${component}`));
   }
@@ -122,12 +125,15 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(styles, /\.context-toolbar\s*\{/);
   assert.match(editor, /<Accordion align="end" isFlush/);
   assert.doesNotMatch(styles, /\.cds--accordion__|\.cds--popover-content/);
-  assert.match(styles, /workspace\[data-panel="document"\] \.document-inspector/);
-  assert.match(styles, /workspace\[data-panel="selection"\] \.selection-inspector/);
+  assert.match(styles, /workspace\[data-library-open="true"\]/);
+  assert.match(styles, /workspace\[data-inspector-open="true"\]/);
+  assert.match(styles, /@media \(min-width: 42rem\)/);
+  assert.match(styles, /@media \(min-width: 66rem\)/);
+  assert.match(styles, /@media \(min-width: 82rem\)/);
   assert.match(editor, /href="https:\/\/jorpago2\.github\.io\/"/);
   assert.match(styles, /@use "@carbon\/react"/);
   assert.doesNotMatch(styles, /tailwindcss|@theme inline/);
-  assert.match(main, /<GlobalTheme theme="g10">/);
+  assert.match(main, /<Theme theme="g10">/);
   assert.doesNotMatch(viteConfig, /tailwind/);
   assert.match(model, /calculateBudgets/);
   assert.equal(packageJson.dependencies.pptxgenjs, "^4.0.1");

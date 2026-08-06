@@ -18,6 +18,7 @@ import {
   Column,
   Grid,
   IconButton,
+  Layer,
   NumberInput,
   Popover,
   PopoverContent,
@@ -29,11 +30,13 @@ import {
 } from "@carbon/react";
 import {
   Close,
+  Chemistry,
   Copy,
   Corner,
   FitToScreen,
   FolderOpen,
   Grid as GridIcon,
+  Inspection,
   Layers,
   Link,
   Locked,
@@ -106,7 +109,7 @@ type LayerVisibility = {
 type Point = { x: number; y: number };
 type Routing = "straight" | "orthogonal";
 type PagePreset = "canvas" | "a4" | "a3" | "single" | "double";
-type WorkspacePanel = "library" | "canvas" | "document" | "selection";
+type InspectorMode = "document" | "experiment" | "review" | "selection";
 type ViewportMode = "narrow" | "wide";
 
 const uiIcons = {
@@ -130,6 +133,7 @@ function InspectorDisclosure({
   label,
   meta,
   buttonId,
+  initiallyOpen = false,
   panelClassName = "disclosure-panel",
   children,
 }: {
@@ -137,12 +141,13 @@ function InspectorDisclosure({
   label: ReactNode;
   meta?: ReactNode;
   buttonId?: string;
+  initiallyOpen?: boolean;
   panelClassName?: string;
   children: ReactNode;
 }) {
   return (
     <Accordion align="end" isFlush size="sm" className={className}>
-      <AccordionItem title={<span id={buttonId} className="disclosure-title"><span>{label}</span>{meta !== undefined && <span className="disclosure-meta">{meta}</span>}</span>}>
+      <AccordionItem open={initiallyOpen} title={<span id={buttonId} className="disclosure-title"><span>{label}</span>{meta !== undefined && <span className="disclosure-meta">{meta}</span>}</span>}>
         <div className={panelClassName}>{children}</div>
       </AccordionItem>
     </Accordion>
@@ -223,7 +228,7 @@ type SavedModule = {
 
 const WIDTH = 1200;
 const HEIGHT = 700;
-const DIAGRAM_VERSION = 8;
+const DIAGRAM_VERSION = 12;
 const STORAGE_KEY = "setupsketch-diagram-v1";
 const FAVORITES_KEY = "setupsketch-favorites-v1";
 const MODULES_KEY = "setupsketch-modules-v1";
@@ -801,7 +806,8 @@ export default function Home() {
   const [past, setPast] = useState<Snapshot[]>([]);
   const [future, setFuture] = useState<Snapshot[]>([]);
   const [notice, setNotice] = useState("Saved");
-  const [workspacePanel, setWorkspacePanel] = useState<WorkspacePanel>("canvas");
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [inspectorMode, setInspectorMode] = useState<InspectorMode | null>(null);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [publication, setPublication] = useState(defaultPublication);
@@ -815,7 +821,8 @@ export default function Home() {
   const [checklistDraft, setChecklistDraft] = useState("");
   const [showMiniMap, setShowMiniMap] = useState(false);
   const [savedViewport, setSavedViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
-  const [narrowWorkspace, setNarrowWorkspace] = useState(() => window.matchMedia("(max-width: 59.999rem)").matches);
+  const [narrowWorkspace, setNarrowWorkspace] = useState(() => window.matchMedia("(max-width: 65.999rem)").matches);
+  const [dualPanelWorkspace, setDualPanelWorkspace] = useState(() => window.matchMedia("(min-width: 82rem)").matches);
   const svgRef = useRef<SVGSVGElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bomRef = useRef<HTMLInputElement>(null);
@@ -824,8 +831,8 @@ export default function Home() {
   const editBefore = useRef<Snapshot | null>(null);
   const flowDragBefore = useRef<Snapshot | null>(null);
   const flowInstanceRef = useRef<ReactFlowInstance<CanvasFlowNode, ScientificFlowEdge> | null>(null);
+  const autoFittingViewportRef = useRef(false);
   const pendingViewportRef = useRef<Viewport | null>(null);
-  const viewportEffectMounted = useRef(false);
 
   const dimensions = pagePresets[publication.pagePreset];
   const selected = selectedIds.length === 1 ? elements.find((element) => element.id === selectedIds[0]) ?? null : null;
@@ -917,12 +924,26 @@ export default function Home() {
     ? { ...FLOW_FIT_VIEW_OPTIONS, nodes: modelFlowNodes.filter((node) => node.id !== "__paper__"), maxZoom: 1 }
     : FLOW_FIT_VIEW_OPTIONS;
   const viewportMode: ViewportMode = narrowWorkspace ? "narrow" : "wide";
-  const toggleWorkspacePanel = (panel: "library" | "document") => {
-    setWorkspacePanel((current) => current === panel ? "canvas" : panel);
+  const toggleLibrary = () => setLibraryOpen((open) => {
+    const next = !open;
+    if (next && !dualPanelWorkspace) setInspectorMode(null);
+    return next;
+  });
+  const toggleInspector = (mode: Exclude<InspectorMode, "selection">) => {
+    if (!dualPanelWorkspace) setLibraryOpen(false);
+    setInspectorMode((current) => current === mode ? null : mode);
   };
-  const closeWorkspacePanel = (panel: Exclude<WorkspacePanel, "canvas">) => {
-    document.getElementById(panel === "selection" ? "diagram-workspace" : `${panel}-toggle`)?.focus();
-    setWorkspacePanel("canvas");
+  const openSelectionInspector = useCallback(() => {
+    if (!dualPanelWorkspace) setLibraryOpen(false);
+    setInspectorMode("selection");
+  }, [dualPanelWorkspace]);
+  const closeLibrary = () => {
+    document.getElementById("library-toggle")?.focus();
+    setLibraryOpen(false);
+  };
+  const closeInspector = () => {
+    document.getElementById(inspectorMode === "selection" ? "diagram-workspace" : `${inspectorMode}-toggle`)?.focus();
+    setInspectorMode(null);
   };
 
   const restoreFlowViewport = useCallback((viewport: Viewport) => {
@@ -938,14 +959,21 @@ export default function Home() {
   const initializeFlow = useCallback((instance: ReactFlowInstance<CanvasFlowNode, ScientificFlowEdge>) => {
     flowInstanceRef.current = instance;
     const viewport = pendingViewportRef.current;
-    if (!viewport) return;
     requestAnimationFrame(() => {
-      void instance.setViewport(viewport);
-      pendingViewportRef.current = null;
+      if (viewport) {
+        void instance.setViewport(viewport);
+        pendingViewportRef.current = null;
+        return;
+      }
+      requestAnimationFrame(() => {
+        const paper = instance.getNodes().find((node) => node.id === "__paper__");
+        if (paper) void instance.fitView({ nodes: [paper], padding: 0.04, maxZoom: 1 });
+      });
     });
   }, []);
 
   const rememberFlowViewport = useCallback((viewport: Viewport) => {
+    if (autoFittingViewportRef.current) return;
     setSavedViewport((current) => current.x === viewport.x && current.y === viewport.y && current.zoom === viewport.zoom ? current : viewport);
   }, []);
 
@@ -962,11 +990,23 @@ export default function Home() {
   useEffect(() => setFlowNodes(modelFlowNodes), [modelFlowNodes, setFlowNodes]);
 
   useEffect(() => {
-    const media = window.matchMedia("(max-width: 59.999rem)");
-    const update = () => setNarrowWorkspace(media.matches);
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
+    const narrow = window.matchMedia("(max-width: 65.999rem)");
+    const dual = window.matchMedia("(min-width: 82rem)");
+    const update = () => {
+      setNarrowWorkspace(narrow.matches);
+      setDualPanelWorkspace(dual.matches);
+    };
+    narrow.addEventListener("change", update);
+    dual.addEventListener("change", update);
+    return () => {
+      narrow.removeEventListener("change", update);
+      dual.removeEventListener("change", update);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!dualPanelWorkspace && libraryOpen && inspectorMode) setLibraryOpen(false);
+  }, [dualPanelWorkspace, inspectorMode, libraryOpen]);
 
   useEffect(() => {
     let frame = 0;
@@ -975,31 +1015,39 @@ export default function Home() {
       frame = requestAnimationFrame(() => {
         const instance = flowInstanceRef.current;
         if (!instance) return;
-        const nodes = instance.getNodes().filter((node) => !node.hidden && node.id !== "__paper__");
-        void instance.fitView({ nodes: nodes.length ? nodes : instance.getNodes(), padding: 0.08, maxZoom: narrowWorkspace ? 1 : undefined });
+        const nodes = instance.getNodes().filter((node) => !node.hidden);
+        const paper = nodes.find((node) => node.id === "__paper__");
+        autoFittingViewportRef.current = true;
+        void instance.fitView({ nodes: paper ? [paper] : nodes, padding: 0.04, maxZoom: 1 })
+          .finally(() => { autoFittingViewportRef.current = false; });
       });
     };
     window.addEventListener("resize", fitFlowToWorkspace);
-    if (viewportEffectMounted.current) fitFlowToWorkspace();
-    else viewportEffectMounted.current = true;
+    fitFlowToWorkspace();
     return () => {
       window.removeEventListener("resize", fitFlowToWorkspace);
       cancelAnimationFrame(frame);
     };
-  }, [narrowWorkspace]);
+  }, [inspectorMode, libraryOpen, narrowWorkspace]);
 
   useEffect(() => {
     const dismissWithEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (workspacePanel !== "canvas") closeWorkspacePanel(workspacePanel);
+      if (inspectorMode) {
+        document.getElementById(inspectorMode === "selection" ? "diagram-workspace" : `${inspectorMode}-toggle`)?.focus();
+        setInspectorMode(null);
+      } else if (libraryOpen) {
+        document.getElementById("library-toggle")?.focus();
+        setLibraryOpen(false);
+      }
     };
     document.addEventListener("keydown", dismissWithEscape);
     return () => document.removeEventListener("keydown", dismissWithEscape);
-  }, [workspacePanel]);
+  }, [inspectorMode, libraryOpen]);
 
   useEffect(() => {
-    if (!hasSelection && workspacePanel === "selection") setWorkspacePanel("canvas");
-  }, [hasSelection, workspacePanel]);
+    if (!hasSelection && inspectorMode === "selection") setInspectorMode(null);
+  }, [hasSelection, inspectorMode]);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -1020,7 +1068,7 @@ export default function Home() {
           if (parsed.publication) setPublication({ ...defaultPublication, ...parsed.publication });
           if (parsed.experiment) setExperiment(parsed.experiment);
           const widthRatio = parsed.viewportWidth ? window.innerWidth / parsed.viewportWidth : 0;
-          if (parsed.viewport && viewportMode === "wide" && parsed.viewportMode === viewportMode && widthRatio >= 0.95 && widthRatio <= 1.05) restoreFlowViewport(parsed.viewport);
+          if ((parsed.version ?? 0) >= 12 && parsed.viewport && viewportMode === "wide" && parsed.viewportMode === viewportMode && widthRatio >= 0.95 && widthRatio <= 1.05) restoreFlowViewport(parsed.viewport);
         }
       } catch {
         setNotice("Local draft could not be read");
@@ -1132,7 +1180,7 @@ export default function Home() {
     setSelectedIds([element.id]);
     setSelectedConnectionId(null);
     setRecentKinds((items) => [kind, ...items.filter((item) => item !== kind)].slice(0, 6));
-    if (narrowWorkspace) setWorkspacePanel("canvas");
+    if (narrowWorkspace) setLibraryOpen(false);
   };
 
   const arrangeDiagram = () => {
@@ -1247,7 +1295,7 @@ export default function Home() {
     if (!connectMode) {
       if (narrowWorkspace) {
         setSelectedIds([id]);
-        setWorkspacePanel("selection");
+        openSelectionInspector();
       }
       return;
     }
@@ -1265,7 +1313,7 @@ export default function Home() {
     }
     const pair = closestPortPair(from, to, connectionDomain);
     addFlowConnection({ source: from.id, target: to.id, sourceHandle: pair.source.id, targetHandle: pair.target.id });
-  }, [addFlowConnection, connectFrom, connectMode, connectionDomain, elements, narrowWorkspace]);
+  }, [addFlowConnection, connectFrom, connectMode, connectionDomain, elements, narrowWorkspace, openSelectionInspector]);
 
   const changeFlowSelection = useCallback<OnSelectionChangeFunc<CanvasFlowNode, ScientificFlowEdge>>(({ nodes, edges }) => {
     const nextIds = [...new Set(nodes.flatMap((node) => {
@@ -1285,8 +1333,8 @@ export default function Home() {
   const handleFlowEdgeClick = useCallback((_: React.MouseEvent, edge: ScientificFlowEdge) => {
     setSelectedConnectionId(edge.id);
     setSelectedIds([]);
-    if (narrowWorkspace) setWorkspacePanel("selection");
-  }, [narrowWorkspace]);
+    if (narrowWorkspace) openSelectionInspector();
+  }, [narrowWorkspace, openSelectionInspector]);
 
   const clearFlowSelection = useCallback(() => {
     setSelectedIds([]);
@@ -1791,7 +1839,7 @@ export default function Home() {
     commit([...elements, ...nextElements], [...connections, ...nextConnections]);
     setSelectedIds(nextElements.map((element) => element.id));
     setNotice("Reusable module inserted");
-    if (narrowWorkspace) setWorkspacePanel("canvas");
+    if (narrowWorkspace) setLibraryOpen(false);
   };
 
   const toggleFavorite = (kind: ElementKind) => setFavoriteKinds((items) =>
@@ -1866,13 +1914,17 @@ export default function Home() {
       <a className="skip-link" href="#diagram-workspace">Skip to diagram workspace</a>
       <h1 className="sr-only" id="app-title">SetupSketch scientific diagram editor</h1>
       <style>{`@media print { @page { size: ${publication.pagePreset === "a3" ? "A3 landscape" : "A4 landscape"}; margin: 8mm; } }`}</style>
-      <header className="topbar">
-        <a className="brand" href="https://jorpago2.github.io/" aria-label="SetupSketch — All tools">
+      <header className="global-header">
+        <span className="brand">
           <span className="brand-mark" aria-hidden="true">S</span>
           <span><strong>SetupSketch</strong><small>Scientific diagram editor</small></span>
-        </a>
+        </span>
+        <a className="suite-link" href="https://jorpago2.github.io/">All tools</a>
+      </header>
+      <section className="document-bar" aria-label="Document controls">
         <div className="project-title">
           <TextInput id="diagram-title" size="sm" hideLabel labelText="Diagram title" value={title} onChange={(event) => setTitle(event.target.value)} />
+          <span className="document-status" aria-live="polite">{notice}</span>
         </div>
         <div className="toolbar" aria-label="Diagram actions">
           <div className="toolbar-group" role="group" aria-label="Edit actions">
@@ -1888,7 +1940,7 @@ export default function Home() {
           <Popover as="div" className="toolbar-menu toolbar-project" open={projectMenuOpen} align={narrowWorkspace ? "bottom" : "bottom-end"} autoAlign onRequestClose={() => setProjectMenuOpen(false)}>
             <IconButton size="sm" kind="ghost" label="Project" onClick={() => setProjectMenuOpen((open) => !open)}><UiIcon name="project" /></IconButton>
             <PopoverContent>
-              <div className="toolbar-menu-actions">
+              <Layer withBackground className="toolbar-menu-actions">
                 <Select id="project-template" size="sm" labelText="Template" className="connection-type" defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; setProjectMenuOpen(false); }}>
                     <option value="" disabled>Choose setup</option>
                     {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
@@ -1900,30 +1952,33 @@ export default function Home() {
                   <Button size="sm" kind="ghost" onClick={() => { arrangeDiagram(); setProjectMenuOpen(false); }}>Arrange overlaps</Button>
                   <input ref={fileRef} hidden aria-label="Open diagram JSON" type="file" accept="application/json,.json" onChange={loadJson} />
                 </div>
-              </div>
+              </Layer>
             </PopoverContent>
           </Popover>
           <Popover as="div" className="toolbar-export-mobile" open={exportMenuOpen} align={narrowWorkspace ? "bottom" : "bottom-end"} autoAlign onRequestClose={() => setExportMenuOpen(false)}>
             <IconButton size="sm" kind="ghost" label="Export" onClick={() => setExportMenuOpen((open) => !open)}><UiIcon name="export" /></IconButton>
             <PopoverContent aria-label="Export actions">
-              <div className="toolbar-export-actions">{renderExportActions(() => setExportMenuOpen(false))}</div>
+              <Layer withBackground className="toolbar-export-actions">{renderExportActions(() => setExportMenuOpen(false))}</Layer>
             </PopoverContent>
           </Popover>
           <input ref={bomRef} hidden aria-label="Import bill of materials" type="file" accept="text/csv,.csv" onChange={loadBom} />
         </div>
-      </header>
+      </section>
 
-      <Grid as="section" fullWidth condensed className="workspace" id="diagram-workspace" data-panel={workspacePanel} tabIndex={-1}>
+      <Grid as="section" fullWidth condensed className="workspace" id="diagram-workspace" data-library-open={libraryOpen} data-inspector-open={Boolean(inspectorMode)} data-inspector={inspectorMode ?? "none"} tabIndex={-1}>
         <Column as="nav" sm={4} md={1} lg={1} className="workspace-switcher" aria-label="Workspace panels">
-          <Button size="sm" kind="ghost" renderIcon={GridIcon} id="library-toggle" className={workspacePanel === "library" ? "active" : ""} aria-controls="component-library" aria-expanded={workspacePanel === "library"} onClick={() => toggleWorkspacePanel("library")}>Components</Button>
-          <Button size="sm" kind="ghost" renderIcon={Layers} id="document-toggle" className={workspacePanel === "document" ? "active" : ""} aria-controls="document-inspector" aria-expanded={workspacePanel === "document"} onClick={() => toggleWorkspacePanel("document")}>Canvas</Button>
+          <Button size="sm" kind="ghost" id="library-toggle" className={libraryOpen ? "active" : ""} aria-controls="component-library" aria-expanded={libraryOpen} onClick={toggleLibrary}><GridIcon size={16} aria-hidden={true} /><span>Components</span></Button>
+          <Button size="sm" kind="ghost" id="document-toggle" className={inspectorMode === "document" ? "active" : ""} aria-controls="document-inspector" aria-expanded={inspectorMode === "document"} onClick={() => toggleInspector("document")}><Layers size={16} aria-hidden={true} /><span>Canvas</span></Button>
+          <Button size="sm" kind="ghost" id="experiment-toggle" className={inspectorMode === "experiment" ? "active" : ""} aria-controls="document-inspector" aria-expanded={inspectorMode === "experiment"} onClick={() => toggleInspector("experiment")}><Chemistry size={16} aria-hidden={true} /><span>Experiment</span></Button>
+          <Button size="sm" kind="ghost" id="review-toggle" className={inspectorMode === "review" ? "active" : ""} aria-controls="document-inspector" aria-expanded={inspectorMode === "review"} onClick={() => toggleInspector("review")}><Inspection size={16} aria-hidden={true} /><span>Review</span></Button>
         </Column>
-        <Column as="aside" sm={4} md={3} lg={3} id="component-library" className="library sidebar" aria-label="Component library" aria-hidden={workspacePanel !== "library"}>
+        <Column as="aside" sm={4} md={3} lg={3} id="component-library" className="library sidebar" aria-label="Component library" aria-hidden={!libraryOpen}>
+          <Layer withBackground className="sidebar-layer">
           <div className="panel-heading">
             <span>Library</span>
             <span className="panel-heading-actions">
               <Button size="sm" kind="danger--ghost" renderIcon={TrashCan} onClick={clearDiagram}>Clear</Button>
-              <IconButton size="sm" kind="ghost" label="Close component library" onClick={() => closeWorkspacePanel("library")}><Close size={16} aria-hidden={true} /></IconButton>
+              <IconButton size="sm" kind="ghost" label="Close component library" onClick={closeLibrary}><Close size={16} aria-hidden={true} /></IconButton>
             </span>
           </div>
           <Search
@@ -1973,13 +2028,10 @@ export default function Home() {
             </section>
           ))}
           <p className="library-help">Add a component, drag it into place, then use Connect to draw signal paths.</p>
+          </Layer>
         </Column>
 
-        <Column as="section" sm={4} md={workspacePanel === "canvas" ? 7 : 4} lg={workspacePanel === "canvas" ? 15 : workspacePanel === "library" ? 12 : 11} className="stage-wrap" aria-label="Diagram workspace">
-          <div className="stage-meta">
-            <span>{elements.length} components · {connections.length} connections</span>
-            <span className={connectMode ? "mode-note active" : "mode-note"} aria-live="polite">{connectMode ? (connectFrom ? `Select ${portTypeLabels[connectionDomain]} destination` : `Select ${portTypeLabels[connectionDomain]} source`) : notice}</span>
-          </div>
+        <Column as="section" sm={4} md={8} lg={16} className="stage-wrap" aria-label="Diagram workspace">
           <div className="stage">
             {elements.length === 0 && <div className="stage-empty"><strong>Start with a component</strong><p>Add one from the library or load a template from the toolbar.</p></div>}
             <div className="diagram-flow" role="group" aria-label={`${title}, editable scientific setup diagram`}>
@@ -2014,14 +2066,14 @@ export default function Home() {
                 attributionPosition="bottom-left"
                 gridVisible={layers.grid}
               >
-                {selectedIds.length > 0 && <NodeToolbar nodeId={selectedIds} isVisible={workspacePanel === "canvas" && !narrowWorkspace} className="context-toolbar" position={Position.Top}>
-                  <Button size="sm" kind="ghost" renderIcon={SettingsAdjust} aria-label="Properties" onClick={() => setWorkspacePanel("selection")}><span>Properties</span></Button>
+                {selectedIds.length > 0 && <NodeToolbar nodeId={selectedIds} isVisible={inspectorMode !== "selection" && !narrowWorkspace} className="context-toolbar" position={Position.Top}>
+                  <Button size="sm" kind="ghost" renderIcon={SettingsAdjust} aria-label="Properties" onClick={openSelectionInspector}><span>Properties</span></Button>
                   <Button size="sm" kind="ghost" renderIcon={Copy} aria-label="Duplicate" onClick={duplicateSelected}><span>Duplicate</span></Button>
                   <Button size="sm" kind="ghost" renderIcon={allSelectedLocked ? Unlocked : Locked} aria-label={allSelectedLocked ? "Unlock" : "Lock"} onClick={() => changeSelected({ locked: !allSelectedLocked })}><span>{allSelectedLocked ? "Unlock" : "Lock"}</span></Button>
                   <Button size="sm" kind="danger--ghost" renderIcon={TrashCan} aria-label="Delete" onClick={removeSelected}><span>Delete</span></Button>
                 </NodeToolbar>}
-                {selectedConnection && selectedConnectionToolbarPosition && <EdgeToolbar edgeId={selectedConnection.id} x={selectedConnectionToolbarPosition.x} y={selectedConnectionToolbarPosition.y} isVisible={workspacePanel === "canvas" && !narrowWorkspace} className="context-toolbar">
-                  <Button size="sm" kind="ghost" renderIcon={SettingsAdjust} aria-label="Properties" onClick={() => setWorkspacePanel("selection")}><span>Properties</span></Button>
+                {selectedConnection && selectedConnectionToolbarPosition && <EdgeToolbar edgeId={selectedConnection.id} x={selectedConnectionToolbarPosition.x} y={selectedConnectionToolbarPosition.y} isVisible={inspectorMode !== "selection" && !narrowWorkspace} className="context-toolbar">
+                  <Button size="sm" kind="ghost" renderIcon={SettingsAdjust} aria-label="Properties" onClick={openSelectionInspector}><span>Properties</span></Button>
                   <Button size="sm" kind="ghost" renderIcon={Corner} aria-label="Add bend" onClick={addConnectionBend}><span>Add bend</span></Button>
                   <Button size="sm" kind="danger--ghost" renderIcon={TrashCan} aria-label="Delete" onClick={removeSelected}><span>Delete</span></Button>
                 </EdgeToolbar>}
@@ -2103,10 +2155,15 @@ export default function Home() {
               ))}
             </svg>
           </div>
+          <div className="stage-meta">
+            <span>{elements.length} components · {connections.length} connections</span>
+            <span className={connectMode ? "mode-note active" : "mode-note"} aria-live="polite">{connectMode ? (connectFrom ? `Select ${portTypeLabels[connectionDomain]} destination` : `Select ${portTypeLabels[connectionDomain]} source`) : notice}</span>
+          </div>
         </Column>
 
-        <Column as="aside" sm={4} md={3} lg={4} id="selection-inspector" className="inspector selection-inspector sidebar" aria-label="Selection properties" aria-hidden={workspacePanel !== "selection"}>
-          <div className="panel-heading"><span>{selectedConnection ? "Connection properties" : selectedIds.length > 1 ? "Selection properties" : "Component properties"}</span><IconButton size="sm" kind="ghost" label="Close selection properties" onClick={() => closeWorkspacePanel("selection")}><Close size={16} aria-hidden={true} /></IconButton></div>
+        <Column as="aside" sm={4} md={3} lg={4} id="selection-inspector" className="inspector selection-inspector sidebar" aria-label="Selection properties" aria-hidden={inspectorMode !== "selection"}>
+          <Layer withBackground className="sidebar-layer">
+          <div className="panel-heading"><span>{selectedConnection ? "Connection properties" : selectedIds.length > 1 ? "Selection properties" : "Component properties"}</span><IconButton size="sm" kind="ghost" label="Close selection properties" onClick={closeInspector}><Close size={16} aria-hidden={true} /></IconButton></div>
           {selected ? (
             <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
               <TextInput id="component-label" size="sm" labelText="Label" value={selected.label} onChange={(event) => updateSelected({ label: event.target.value })} />
@@ -2205,15 +2262,17 @@ export default function Home() {
           ) : (
             <div className="empty-inspector"><p>Select a component to edit it. On desktop, Shift-click selects several.</p><span>Focused components can be nudged with the arrow keys.</span></div>
           )}
+          </Layer>
         </Column>
 
-        <Column as="aside" sm={4} md={3} lg={4} id="document-inspector" className="inspector document-inspector sidebar" aria-label="Canvas settings" aria-hidden={workspacePanel !== "document"}>
-          <div className="panel-heading"><span>Canvas</span><IconButton size="sm" kind="ghost" label="Close canvas settings" onClick={() => closeWorkspacePanel("document")}><Close size={16} aria-hidden={true} /></IconButton></div>
-          <InspectorDisclosure className="layers-panel" buttonId="layout-title" label="Layout">
+        <Column as="aside" sm={4} md={3} lg={4} id="document-inspector" className="inspector document-inspector sidebar" aria-label={`${inspectorMode ?? "Workspace"} settings`} aria-hidden={!inspectorMode || inspectorMode === "selection"}>
+          <Layer withBackground className="sidebar-layer">
+          <div className="panel-heading"><span>{inspectorMode === "experiment" ? "Experiment" : inspectorMode === "review" ? "Review" : "Canvas"}</span><IconButton size="sm" kind="ghost" label={`Close ${inspectorMode ?? "workspace"} settings`} onClick={closeInspector}><Close size={16} aria-hidden={true} /></IconButton></div>
+          {inspectorMode === "document" && <InspectorDisclosure className="layers-panel" buttonId="layout-title" label="Layout" initiallyOpen>
             <Checkbox id="snap-to-grid" labelText="Snap to grid" checked={snapEnabled} onChange={(_, { checked }) => setSnapEnabled(checked)} />
             <div className="port-legend">{(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <span key={type}><i style={{ background: portTypeColors[type] }} />{label}</span>)}</div>
-          </InspectorDisclosure>
-          <InspectorDisclosure className="layers-panel budget-panel" buttonId="budget-title" label="Path budgets" meta={budgets.length}>
+          </InspectorDisclosure>}
+          {inspectorMode === "review" && <InspectorDisclosure className="layers-panel budget-panel" buttonId="budget-title" label="Path budgets" meta={budgets.length}>
             {budgets.length ? budgets.slice(0, 5).map((budget) => <article className="budget-result" key={budget.id}>
               <strong>{budget.labels.join(" → ")}</strong>
               <span>{portTypeLabels[budget.domain]} · {budget.inputPowerDbm.toFixed(2)} → {budget.outputPowerDbm.toFixed(2)} dBm</span>
@@ -2222,8 +2281,8 @@ export default function Home() {
               {budget.outputNoiseDbm !== undefined && <span>Noise {budget.outputNoiseDbm.toFixed(2)} dBm · SNR {budget.snrDb?.toFixed(2)} dB</span>}
             </article>) : <p className="validation-more">Set source power on a component to calculate directed paths.</p>}
             <p className="model-note">Cascaded dB budget; RF noise uses Friis and −174 dBm/Hz at 290 K. Reflections, mismatch and coherent interference are not included.</p>
-          </InspectorDisclosure>
-          <InspectorDisclosure className="layers-panel experiment-panel" buttonId="experiment-title" label="Experiment">
+          </InspectorDisclosure>}
+          {inspectorMode === "experiment" && <InspectorDisclosure className="layers-panel experiment-panel" buttonId="experiment-title" label="Procedure and checklist" initiallyOpen>
             <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
               <TextArea id="experiment-procedure" labelText="Procedure" rows={4} value={experiment.procedure} onChange={(event) => setExperiment((current) => ({ ...current, procedure: event.target.value }))} placeholder="Alignment, warm-up, acquisition and shutdown procedure…" />
             </div>
@@ -2241,16 +2300,16 @@ export default function Home() {
               <Checkbox id={`checklist-${item.id}`} labelText={item.text} checked={item.done} onChange={(_, { checked }) => commitExperiment({ ...experiment, checklist: experiment.checklist.map((candidate) => candidate.id === item.id ? { ...candidate, done: checked } : candidate) })} />
               <IconButton size="sm" kind="ghost" label={`Delete ${item.text}`} onClick={() => commitExperiment({ ...experiment, checklist: experiment.checklist.filter((candidate) => candidate.id !== item.id) })}><TrashCan size={16} aria-hidden={true} /></IconButton>
             </div>)}
-          </InspectorDisclosure>
-          <InspectorDisclosure className="layers-panel validation-panel" buttonId="validation-title" label="Setup checks" meta={validationIssues.length}>
+          </InspectorDisclosure>}
+          {inspectorMode === "review" && <InspectorDisclosure className="layers-panel validation-panel" buttonId="validation-title" label="Setup checks" meta={validationIssues.length} initiallyOpen>
             {validationIssues.length ? validationIssues.slice(0, 8).map((issue, index) => (
               <button className={`validation-issue ${issue.severity}`} key={`${issue.message}-${index}`} onClick={() => setSelectedIds(issue.elementIds)}>
                 <span>{issue.severity === "error" ? "Error" : "Check"}</span>{issue.message}
               </button>
             )) : <p className="validation-ok">No structural issues found.</p>}
             {validationIssues.length > 8 && <p className="validation-more">+{validationIssues.length - 8} more checks</p>}
-          </InspectorDisclosure>
-          <InspectorDisclosure className="layers-panel" buttonId="publication-title" label="Publication">
+          </InspectorDisclosure>}
+          {inspectorMode === "document" && <InspectorDisclosure className="layers-panel" buttonId="publication-title" label="Publication">
             <div className="property-form">
               <Select id="publication-page" size="sm" labelText="Page" value={publication.pagePreset} onChange={(event) => commitPublication({ ...publication, pagePreset: event.target.value as PagePreset })}>
                 {(Object.entries(pagePresets) as Array<[PagePreset, typeof pagePresets[PagePreset]]>).map(([key, preset]) => <option key={key} value={key}>{preset.label}</option>)}
@@ -2260,8 +2319,8 @@ export default function Home() {
               <Checkbox id="publication-credit" labelText="Show credit" checked={publication.showCredit} onChange={(_, { checked }) => commitPublication({ ...publication, showCredit: checked })} />
               <Checkbox id="publication-crop" labelText="Crop exports to content" checked={publication.cropToContent} onChange={(_, { checked }) => commitPublication({ ...publication, cropToContent: checked })} />
             </div>
-          </InspectorDisclosure>
-          <InspectorDisclosure className="layers-panel" buttonId="layers-title" label="Layers">
+          </InspectorDisclosure>}
+          {inspectorMode === "document" && <InspectorDisclosure className="layers-panel" buttonId="layers-title" label="Layers">
             {([
               ["grid", "Grid"],
               ["labels", "Labels"],
@@ -2273,7 +2332,8 @@ export default function Home() {
             ] as Array<[keyof LayerVisibility, string]>).map(([key, label]) => (
               <Checkbox id={`layer-${key}`} key={key} labelText={label} checked={layers[key]} onChange={(_, { checked }) => setLayers((current) => ({ ...current, [key]: checked }))} />
             ))}
-          </InspectorDisclosure>
+          </InspectorDisclosure>}
+          </Layer>
         </Column>
       </Grid>
     </main>

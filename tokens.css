@@ -21,7 +21,7 @@
   --color-danger: var(--cds-support-error);
   --color-warning: var(--cds-support-warning);
   --color-success: var(--cds-support-success);
-  --color-shadow: rgb(0 0 0 / 0.16);
+  --color-shadow: color-mix(in srgb, var(--cds-text-primary) 16%, transparent);
 
   --font-display: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
   --font-body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
