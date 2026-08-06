@@ -60,9 +60,12 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.equal([...editor.matchAll(/name="toolbar-menu"/g)].length, 2);
   assert.match(editor, /isNarrowWorkspace\(\)\) setWorkspacePanel\("inspector"\)/);
   assert.match(editor, /setWorkspacePanel\("canvas"\)/);
+  assert.match(editor, /nodes: modelFlowNodes\.filter\(\(node\) => node\.id !== "__paper__"\)/);
+  assert.match(editor, /const \[notice, setNotice\] = useState\("Saved"\)/);
   for (const feature of ['ReactFlow', 'ConnectionMode.Loose', 'diagram-export', 'role="group"', 'className="property-section"', 'BOM CSV', 'Import BOM', 'Arrange overlaps']) assert.match(editor, new RegExp(feature));
   assert.doesNotMatch(editor, /stroke="#1665d8"|BOM↓|BOM↑/);
   assert.doesNotMatch(styles, /100vw|#[0-9a-fA-F]{3,8}|font-family:\s*Arial/);
+  assert.doesNotMatch(styles, /@media\s*\(max-width/);
   assert.match(editor, /href="https:\/\/jorpago2\.github\.io\/"/);
   assert.match(styles, /tailwindcss\/theme\.css/);
   assert.match(styles, /tailwindcss\/utilities\.css/);

@@ -694,7 +694,7 @@ export default function Home() {
   });
   const [past, setPast] = useState<Snapshot[]>([]);
   const [future, setFuture] = useState<Snapshot[]>([]);
-  const [notice, setNotice] = useState("Autosaved locally");
+  const [notice, setNotice] = useState("Saved");
   const [workspacePanel, setWorkspacePanel] = useState<"library" | "canvas" | "inspector">("canvas");
   const [publication, setPublication] = useState(defaultPublication);
   const [experiment, setExperiment] = useState(defaultExperiment);
@@ -793,6 +793,9 @@ export default function Home() {
   const flowTranslateExtent = useMemo(() => [[-160, -160], [dimensions.width + 160, dimensions.height + 160]] as [[number, number], [number, number]], [dimensions]);
   const flowConnectionLineStyle = useMemo(() => ({ stroke: portTypeColors[connectionDomain], strokeWidth: 3 }), [connectionDomain]);
   const isNarrowWorkspace = () => window.matchMedia("(max-width: 59.999rem)").matches;
+  const flowFitViewOptions = isNarrowWorkspace()
+    ? { ...FLOW_FIT_VIEW_OPTIONS, nodes: modelFlowNodes.filter((node) => node.id !== "__paper__"), maxZoom: 1 }
+    : FLOW_FIT_VIEW_OPTIONS;
   const showWorkspacePanel = (panel: "library" | "canvas" | "inspector") => {
     toolbarRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((menu) => { menu.open = false; });
     setWorkspacePanel(panel);
@@ -1784,7 +1787,7 @@ export default function Home() {
                 minZoom={0.25}
                 maxZoom={2.5}
                 fitView
-                fitViewOptions={FLOW_FIT_VIEW_OPTIONS}
+                fitViewOptions={flowFitViewOptions}
                 attributionPosition="bottom-left"
               >
                 <Background gap={20} size={1} color="var(--color-rule)" />

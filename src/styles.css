@@ -190,41 +190,6 @@ button.danger { color: var(--danger); }
 .checklist-row input { margin: 1px 0 0; accent-color: var(--blue); }
 .checklist-row button { min-height: 44px; padding: 0; }
 
-@media (max-width: 1180px) {
-  .toolbar button { padding: 0 6px; }
-}
-
-@media (min-width: 641px) and (max-width: 900px) {
-  .toolbar { grid-column: 1 / -1; justify-content: center; }
-  .toolbar button, .toolbar-export-mobile summary, .connection-type select, .suite-link { min-height: 44px; }
-  .toolbar-export-mobile { position: relative; display: block; }
-  .toolbar-export-mobile summary { display: flex; align-items: center; cursor: pointer; border: 1px solid var(--line); border-radius: 7px; background: var(--color-surface-raised); }
-  .toolbar-export-mobile:not([open]) > .toolbar-export-actions { display: none; }
-  .toolbar-export-mobile[open] > .toolbar-export-actions { position: absolute; z-index: 20; top: calc(100% + 4px); right: 0; width: 190px; display: grid; grid-template-columns: 1fr 1fr; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--color-surface-raised); box-shadow: 0 10px 24px var(--color-shadow); }
-}
-
-@media (max-width: 640px) {
-  html, body { height: auto; min-height: 100%; overflow-x: clip; overflow-y: visible; }
-  button, [role="button"], select, textarea, input:not([type="checkbox"]):not([type="range"]):not([type="file"]), .suite-link { min-height: 44px; }
-  button, [role="button"] { min-width: 44px; }
-  input[type="range"] { min-height: 44px; }
-  .component-grid .favorite { width: 44px; height: 44px; min-height: 44px; padding: 0; }
-  .module-row, .checklist-row { grid-template-columns: 1fr 44px; }
-  .brand, .project-title { justify-content: center; }
-  .toolbar { justify-content: center; }
-  .toolbar button, .toolbar-export-mobile summary, .connection-type select, .suite-link { min-height: 44px; }
-  .toolbar-group + .toolbar-group { padding-left: 0; border-left: 0; }
-  .toolbar-export-mobile { position: relative; display: block; }
-  .toolbar-export-mobile summary { display: flex; align-items: center; cursor: pointer; border: 1px solid var(--line); border-radius: 7px; background: var(--color-surface-raised); }
-  .toolbar-export-mobile:not([open]) > .toolbar-export-actions { display: none; }
-  .toolbar-export-mobile[open] > .toolbar-export-actions { position: absolute; z-index: 20; top: calc(100% + 4px); right: 0; width: 250px; display: grid; grid-template-columns: 1fr 1fr; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--color-surface-raised); box-shadow: 0 10px 24px var(--color-shadow); }
-  .component-grid { grid-template-columns: repeat(3, 1fr); }
-}
-
-@media (max-width: 480px) {
-  .component-grid { grid-template-columns: repeat(2, 1fr); }
-}
-
 @media print {
   @page { size: A4 landscape; margin: 8mm; }
   html, body { height: auto; overflow: visible; }
@@ -548,6 +513,11 @@ summary:active,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.module-row,
+.checklist-row {
+  grid-template-columns: minmax(0, 1fr) 44px;
 }
 
 .mode-note.active {
