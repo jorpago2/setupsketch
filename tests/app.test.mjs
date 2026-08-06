@@ -50,7 +50,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
     'id="app-title"',
     'href="#diagram-workspace"',
     'id="diagram-workspace"',
-    'aria-label="Search components"',
+    'labelText="Search components"',
     'aria-label="Edit actions"',
     'aria-label="File actions"',
     'className="toolbar-export-mobile"',
@@ -74,8 +74,8 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /aria-controls="document-inspector" aria-expanded=/);
   assert.match(editor, /id="selection-inspector"/);
   assert.doesNotMatch(editor, /id="property-inspector"/);
-  const selectionInspector = editor.slice(editor.indexOf('<aside id="selection-inspector"'), editor.indexOf('<aside id="document-inspector"'));
-  const documentInspector = editor.slice(editor.indexOf('<aside id="document-inspector"'));
+  const selectionInspector = editor.slice(editor.indexOf('id="selection-inspector"'), editor.indexOf('id="document-inspector"'));
+  const documentInspector = editor.slice(editor.indexOf('id="document-inspector"'));
   assert.match(selectionInspector, /Engineering parameters/);
   assert.doesNotMatch(selectionInspector, /buttonId="layout-title"/);
   assert.match(documentInspector, /buttonId="layout-title"/);
@@ -83,8 +83,11 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   for (const icon of ["undo", "redo", "link", "project", "export", "delete", "fit", "map"]) {
     assert.match(editor, new RegExp(`<UiIcon name="${icon}"`));
   }
-  for (const icon of ["Grid", "Layers", "SettingsAdjust", "Copy", "TrashCan", "Locked", "Unlocked", "Corner"]) {
+  for (const icon of ["GridIcon", "Layers", "SettingsAdjust", "Copy", "TrashCan", "Locked", "Unlocked", "Corner"]) {
     assert.match(editor, new RegExp(`renderIcon=\\{(?:[^}]* )?${icon}`));
+  }
+  for (const component of ["Grid", "Column", "Search", "TextInput", "NumberInput", "Select", "Slider", "Checkbox", "TextArea"]) {
+    assert.match(editor, new RegExp(`<${component}`));
   }
   assert.doesNotMatch(editor, /↶|↷|toolbar-label-compact/);
   assert.match(editor, /nodes: modelFlowNodes\.filter\(\(node\) => node\.id !== "__paper__"\)/);
@@ -108,7 +111,8 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(styles, /@container sidebar \(min-width: 16rem\)/);
   assert.match(styles, /\.scientific-handle\.connectingto\.valid/);
   assert.match(styles, /\.context-toolbar\s*\{/);
-  assert.match(styles, /\.property-section \.cds--accordion__heading/);
+  assert.match(editor, /<Accordion align="end" isFlush/);
+  assert.doesNotMatch(styles, /\.cds--accordion__|\.cds--popover-content/);
   assert.match(styles, /workspace\[data-panel="document"\] \.document-inspector/);
   assert.match(styles, /workspace\[data-panel="selection"\] \.selection-inspector/);
   assert.match(editor, /href="https:\/\/jorpago2\.github\.io\/"/);

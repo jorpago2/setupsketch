@@ -14,9 +14,18 @@ import {
   Accordion,
   AccordionItem,
   Button,
+  Checkbox,
+  Column,
+  Grid,
   IconButton,
+  NumberInput,
   Popover,
   PopoverContent,
+  Search,
+  Select,
+  Slider,
+  TextArea,
+  TextInput,
 } from "@carbon/react";
 import {
   Close,
@@ -24,7 +33,7 @@ import {
   Corner,
   FitToScreen,
   FolderOpen,
-  Grid,
+  Grid as GridIcon,
   Layers,
   Link,
   Locked,
@@ -131,7 +140,7 @@ function InspectorDisclosure({
   children: ReactNode;
 }) {
   return (
-    <Accordion align="start" size="sm" className={className}>
+    <Accordion align="end" isFlush size="sm" className={className}>
       <AccordionItem title={<span id={buttonId} className="disclosure-title"><span>{label}</span>{meta !== undefined && <span className="disclosure-meta">{meta}</span>}</span>}>
         <div className={panelClassName}>{children}</div>
       </AccordionItem>
@@ -1831,10 +1840,9 @@ export default function Home() {
           <span className="brand-mark" aria-hidden="true">S</span>
           <span><strong>SetupSketch</strong><small>Scientific diagram editor</small></span>
         </a>
-        <label className="project-title">
-          <span className="sr-only">Diagram title</span>
-          <input value={title} onChange={(event) => setTitle(event.target.value)} />
-        </label>
+        <div className="project-title">
+          <TextInput id="diagram-title" size="sm" hideLabel labelText="Diagram title" value={title} onChange={(event) => setTitle(event.target.value)} />
+        </div>
         <div className="toolbar" aria-label="Diagram actions">
           <div className="toolbar-group" role="group" aria-label="Edit actions">
             <IconButton size="sm" kind="ghost" label="Undo" onClick={undo} disabled={!past.length}><UiIcon name="undo" /></IconButton>
@@ -1842,23 +1850,17 @@ export default function Home() {
             <IconButton size="sm" kind="ghost" label={connectFrom ? "Choose connection target" : "Connect components"} isSelected={connectMode} onClick={() => { setConnectMode(!connectMode); setConnectFrom(null); }}><UiIcon name="link" /></IconButton>
           </div>
           {connectMode && <div className="toolbar-group" role="group" aria-label="Connection settings">
-            <label className="connection-type connection-type-active">
-              <span className="sr-only">Connection domain</span>
-              <select value={connectionDomain} onChange={(event) => setConnectionDomain(event.target.value as PortType)}>
+            <Select id="connection-domain" size="sm" hideLabel labelText="Connection domain" className="connection-type connection-type-active" value={connectionDomain} onChange={(event) => setConnectionDomain(event.target.value as PortType)}>
                 {(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <option value={type} key={type}>{label}</option>)}
-              </select>
-            </label>
+            </Select>
           </div>}
           <Popover as="div" className="toolbar-menu toolbar-project" open={projectMenuOpen} align="bottom-end" autoAlign onRequestClose={() => setProjectMenuOpen(false)}>
             <IconButton size="sm" kind="ghost" label="Project" onClick={() => setProjectMenuOpen((open) => !open)}><UiIcon name="project" /></IconButton>
             <PopoverContent className="toolbar-menu-actions">
-              <label className="connection-type">
-                <span>Template</span>
-                <select defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; setProjectMenuOpen(false); }}>
+              <Select id="project-template" size="sm" labelText="Template" className="connection-type" defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; setProjectMenuOpen(false); }}>
                   <option value="" disabled>Choose setup</option>
                   {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
-                </select>
-              </label>
+              </Select>
               <div className="toolbar-group" role="group" aria-label="File actions">
                 <Button size="sm" kind="ghost" onClick={() => { saveJson(); setProjectMenuOpen(false); }}>Save JSON</Button>
                 <Button size="sm" kind="ghost" onClick={() => { fileRef.current?.click(); setProjectMenuOpen(false); }}>Open JSON</Button>
@@ -1878,12 +1880,12 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="workspace" id="diagram-workspace" data-panel={workspacePanel} tabIndex={-1}>
-        <nav className="workspace-switcher" aria-label="Workspace panels">
-          <Button size="sm" kind="ghost" renderIcon={Grid} id="library-toggle" className={workspacePanel === "library" ? "active" : ""} aria-controls="component-library" aria-expanded={workspacePanel === "library"} onClick={() => toggleWorkspacePanel("library")}>Components</Button>
+      <Grid as="section" fullWidth condensed className="workspace" id="diagram-workspace" data-panel={workspacePanel} tabIndex={-1}>
+        <Column as="nav" sm={4} md={1} lg={1} className="workspace-switcher" aria-label="Workspace panels">
+          <Button size="sm" kind="ghost" renderIcon={GridIcon} id="library-toggle" className={workspacePanel === "library" ? "active" : ""} aria-controls="component-library" aria-expanded={workspacePanel === "library"} onClick={() => toggleWorkspacePanel("library")}>Components</Button>
           <Button size="sm" kind="ghost" renderIcon={Layers} id="document-toggle" className={workspacePanel === "document" ? "active" : ""} aria-controls="document-inspector" aria-expanded={workspacePanel === "document"} onClick={() => toggleWorkspacePanel("document")}>Canvas</Button>
-        </nav>
-        <aside id="component-library" className="library sidebar" aria-label="Component library" aria-hidden={workspacePanel !== "library"}>
+        </Column>
+        <Column as="aside" sm={4} md={3} lg={3} id="component-library" className="library sidebar" aria-label="Component library" aria-hidden={workspacePanel !== "library"}>
           <div className="panel-heading">
             <span>Library</span>
             <span className="panel-heading-actions">
@@ -1891,13 +1893,16 @@ export default function Home() {
               <IconButton size="sm" kind="ghost" label="Close component library" onClick={() => closeWorkspacePanel("library")}><Close size={16} aria-hidden={true} /></IconButton>
             </span>
           </div>
-          <input
+          <Search
             className="library-search"
-            type="search"
-            aria-label="Search components"
+            id="component-search"
+            size="sm"
+            labelText="Search components"
+            closeButtonLabelText="Clear component search"
             placeholder="Search components"
             value={libraryQuery}
             onChange={(event) => setLibraryQuery(event.target.value)}
+            onClear={() => setLibraryQuery("")}
           />
           {savedModules.length ? <section className="library-group saved-modules">
             <div className="library-group-title"><span>Reusable modules</span></div>
@@ -1935,9 +1940,9 @@ export default function Home() {
             </section>
           ))}
           <p className="library-help">Add a component, drag it into place, then use Connect to draw signal paths.</p>
-        </aside>
+        </Column>
 
-        <section className="stage-wrap" aria-label="Diagram workspace">
+        <Column as="section" sm={4} md={workspacePanel === "canvas" ? 7 : 4} lg={workspacePanel === "canvas" ? 15 : workspacePanel === "library" ? 12 : 11} className="stage-wrap" aria-label="Diagram workspace">
           <div className="stage-meta">
             <span>{elements.length} components · {connections.length} connections</span>
             <span className={connectMode ? "mode-note active" : "mode-note"} aria-live="polite">{connectMode ? (connectFrom ? `Select ${portTypeLabels[connectionDomain]} destination` : `Select ${portTypeLabels[connectionDomain]} source`) : notice}</span>
@@ -2065,114 +2070,114 @@ export default function Home() {
               ))}
             </svg>
           </div>
-        </section>
+        </Column>
 
-        <aside id="selection-inspector" className="inspector selection-inspector sidebar" aria-label="Selection properties" aria-hidden={workspacePanel !== "selection"}>
+        <Column as="aside" sm={4} md={3} lg={4} id="selection-inspector" className="inspector selection-inspector sidebar" aria-label="Selection properties" aria-hidden={workspacePanel !== "selection"}>
           <div className="panel-heading"><span>{selectedConnection ? "Connection properties" : selectedIds.length > 1 ? "Selection properties" : "Component properties"}</span><IconButton size="sm" kind="ghost" label="Close selection properties" onClick={() => closeWorkspacePanel("selection")}><Close size={16} aria-hidden={true} /></IconButton></div>
           {selected ? (
             <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
-              <label>Label<input value={selected.label} onChange={(event) => updateSelected({ label: event.target.value })} /></label>
+              <TextInput id="component-label" size="sm" labelText="Label" value={selected.label} onChange={(event) => updateSelected({ label: event.target.value })} />
               <div className="property-row">
-                <label>X<input type="number" value={selected.x} min="0" max={dimensions.width} onChange={(event) => updateSelected({ x: Number(event.target.value) })} /></label>
-                <label>Y<input type="number" value={selected.y} min="0" max={dimensions.height} onChange={(event) => updateSelected({ y: Number(event.target.value) })} /></label>
+                <NumberInput id="component-x" size="sm" label="X" value={selected.x} min={0} max={dimensions.width} onChange={(_, { value }) => updateSelected({ x: Number(value) })} />
+                <NumberInput id="component-y" size="sm" label="Y" value={selected.y} min={0} max={dimensions.height} onChange={(_, { value }) => updateSelected({ y: Number(value) })} />
               </div>
-              <label>Rotation<input type="range" min="0" max="345" step="15" value={selected.rotation} onChange={(event) => updateSelected({ rotation: Number(event.target.value) })} /><output>{selected.rotation}°</output></label>
-              <label>Scale<input type="range" min="0.5" max="2" step="0.1" value={selected.scale ?? 1} onChange={(event) => updateSelected({ scale: Number(event.target.value) })} /><output>{(selected.scale ?? 1).toFixed(1)}×</output></label>
+              <Slider id="component-rotation" labelText="Rotation" min={0} max={345} step={15} value={selected.rotation} onChange={({ value }) => updateSelected({ rotation: Number(value) })} />
+              <Slider id="component-scale" labelText="Scale" min={0.5} max={2} step={0.1} value={selected.scale ?? 1} onChange={({ value }) => updateSelected({ scale: Number(value) })} />
               {annotationKinds.has(selected.kind) && <div className="property-row">
-                <label>Width<input type="number" min="40" max="600" value={selected.width ?? annotationDefaultSizes[selected.kind]?.width ?? 180} onChange={(event) => updateSelected({ width: Number(event.target.value) })} /></label>
-                <label>Height<input type="number" min="30" max="500" value={selected.height ?? annotationDefaultSizes[selected.kind]?.height ?? 70} onChange={(event) => updateSelected({ height: Number(event.target.value) })} /></label>
+                <NumberInput id="annotation-width" size="sm" label="Width" min={40} max={600} value={selected.width ?? annotationDefaultSizes[selected.kind]?.width ?? 180} onChange={(_, { value }) => updateSelected({ width: Number(value) })} />
+                <NumberInput id="annotation-height" size="sm" label="Height" min={30} max={500} value={selected.height ?? annotationDefaultSizes[selected.kind]?.height ?? 70} onChange={(_, { value }) => updateSelected({ height: Number(value) })} />
               </div>}
               <label>Color<input className="color-input" type="color" value={selected.color} onChange={(event) => updateSelected({ color: event.target.value })} /></label>
               <InspectorDisclosure className="property-section" label="Engineering parameters" panelClassName="property-section-content">
                   <div className="property-row">
-                    <label>Source power (dBm)<input type="number" step="0.1" value={selected.powerDbm ?? ""} onChange={(event) => updateSelected({ powerDbm: optionalNumber(event.target.value) })} /></label>
-                    <label>Gain (dB)<input type="number" step="0.1" value={selected.gainDb ?? ""} onChange={(event) => updateSelected({ gainDb: optionalNumber(event.target.value) })} /></label>
+                    <NumberInput id="source-power" size="sm" label="Source power (dBm)" step={0.1} allowEmpty value={selected.powerDbm ?? ""} onChange={(_, { value }) => updateSelected({ powerDbm: optionalNumber(String(value)) })} />
+                    <NumberInput id="component-gain" size="sm" label="Gain (dB)" step={0.1} allowEmpty value={selected.gainDb ?? ""} onChange={(_, { value }) => updateSelected({ gainDb: optionalNumber(String(value)) })} />
                   </div>
                   <div className="property-row">
-                    <label>Loss (dB)<input type="number" min="0" step="0.1" value={selected.lossDb ?? ""} onChange={(event) => updateSelected({ lossDb: optionalNumber(event.target.value) })} /></label>
-                    <label>Noise figure (dB)<input type="number" min="0" step="0.1" value={selected.noiseFigureDb ?? ""} onChange={(event) => updateSelected({ noiseFigureDb: optionalNumber(event.target.value) })} /></label>
+                    <NumberInput id="component-loss" size="sm" label="Loss (dB)" min={0} step={0.1} allowEmpty value={selected.lossDb ?? ""} onChange={(_, { value }) => updateSelected({ lossDb: optionalNumber(String(value)) })} />
+                    <NumberInput id="noise-figure" size="sm" label="Noise figure (dB)" min={0} step={0.1} allowEmpty value={selected.noiseFigureDb ?? ""} onChange={(_, { value }) => updateSelected({ noiseFigureDb: optionalNumber(String(value)) })} />
                   </div>
                   <div className="property-row">
-                    <label>Bandwidth (Hz)<input type="number" min="0" step="any" value={selected.bandwidthHz ?? ""} onChange={(event) => updateSelected({ bandwidthHz: optionalNumber(event.target.value) })} /></label>
-                    <label>Wavelength (nm)<input type="number" min="0" step="any" value={selected.wavelengthNm ?? ""} onChange={(event) => updateSelected({ wavelengthNm: optionalNumber(event.target.value) })} /></label>
+                    <NumberInput id="component-bandwidth" size="sm" label="Bandwidth (Hz)" min={0} allowEmpty value={selected.bandwidthHz ?? ""} onChange={(_, { value }) => updateSelected({ bandwidthHz: optionalNumber(String(value)) })} />
+                    <NumberInput id="component-wavelength" size="sm" label="Wavelength (nm)" min={0} allowEmpty value={selected.wavelengthNm ?? ""} onChange={(_, { value }) => updateSelected({ wavelengthNm: optionalNumber(String(value)) })} />
                   </div>
               </InspectorDisclosure>
               <InspectorDisclosure className="property-section" label="Traceability" panelClassName="property-section-content">
-                  <label>Manufacturer<input list="manufacturers" value={selected.manufacturer ?? ""} onChange={(event) => updateSelected({ manufacturer: event.target.value })} placeholder="e.g. Thorlabs" /></label>
+                  <TextInput id="manufacturer" size="sm" labelText="Manufacturer" list="manufacturers" value={selected.manufacturer ?? ""} onChange={(event) => updateSelected({ manufacturer: event.target.value })} placeholder="e.g. Thorlabs" />
                   <datalist id="manufacturers"><option value="Thorlabs" /><option value="Mini-Circuits" /><option value="Keysight" /></datalist>
-                  <label>Part number<input value={selected.model ?? ""} onChange={(event) => updateSelected({ model: event.target.value })} placeholder="Vendor model / part number" /></label>
-                  <label>Specifications<input value={selected.specs ?? ""} onChange={(event) => updateSelected({ specs: event.target.value })} placeholder="Wavelength, bandwidth…" /></label>
-                  <label>Serial number<input value={selected.serialNumber ?? ""} onChange={(event) => updateSelected({ serialNumber: event.target.value })} /></label>
+                  <TextInput id="part-number" size="sm" labelText="Part number" value={selected.model ?? ""} onChange={(event) => updateSelected({ model: event.target.value })} placeholder="Vendor model / part number" />
+                  <TextInput id="specifications" size="sm" labelText="Specifications" value={selected.specs ?? ""} onChange={(event) => updateSelected({ specs: event.target.value })} placeholder="Wavelength, bandwidth…" />
+                  <TextInput id="serial-number" size="sm" labelText="Serial number" value={selected.serialNumber ?? ""} onChange={(event) => updateSelected({ serialNumber: event.target.value })} />
                   <div className="property-row">
-                    <label>Calibrated<input type="date" value={selected.calibrationDate ?? ""} onChange={(event) => updateSelected({ calibrationDate: event.target.value })} /></label>
-                    <label>Calibration due<input type="date" value={selected.calibrationDueDate ?? ""} onChange={(event) => updateSelected({ calibrationDueDate: event.target.value })} /></label>
+                    <TextInput id="calibration-date" size="sm" type="date" labelText="Calibrated" value={selected.calibrationDate ?? ""} onChange={(event) => updateSelected({ calibrationDate: event.target.value })} />
+                    <TextInput id="calibration-due" size="sm" type="date" labelText="Calibration due" value={selected.calibrationDueDate ?? ""} onChange={(event) => updateSelected({ calibrationDueDate: event.target.value })} />
                   </div>
-                  <label>Uncertainty<input value={selected.uncertainty ?? ""} onChange={(event) => updateSelected({ uncertainty: event.target.value })} placeholder="e.g. ±0.2 dB (k=2)" /></label>
-                  <label>Datasheet URL<input type="url" value={selected.datasheetUrl ?? ""} onChange={(event) => updateSelected({ datasheetUrl: event.target.value })} placeholder="https://…" /></label>
-                  <label>Notes<textarea value={selected.notes ?? ""} onChange={(event) => updateSelected({ notes: event.target.value })} /></label>
+                  <TextInput id="uncertainty" size="sm" labelText="Uncertainty" value={selected.uncertainty ?? ""} onChange={(event) => updateSelected({ uncertainty: event.target.value })} placeholder="e.g. ±0.2 dB (k=2)" />
+                  <TextInput id="datasheet-url" size="sm" type="url" labelText="Datasheet URL" value={selected.datasheetUrl ?? ""} onChange={(event) => updateSelected({ datasheetUrl: event.target.value })} placeholder="https://…" />
+                  <TextArea id="component-notes" labelText="Notes" rows={3} value={selected.notes ?? ""} onChange={(event) => updateSelected({ notes: event.target.value })} />
               </InspectorDisclosure>
               <div className="compact-actions">
-                <button onClick={() => changeSelected({ flipX: !selected.flipX })}>Flip horizontal</button>
-                <button onClick={() => changeSelected({ flipY: !selected.flipY })}>Flip vertical</button>
-                <button onClick={() => changeSelected({ locked: !selected.locked })}>{selected.locked ? "Unlock" : "Lock"}</button>
-                <button onClick={() => reorderSelection("front")}>Bring front</button>
-                <button onClick={() => reorderSelection("back")}>Send back</button>
+                <Button size="sm" kind="tertiary" onClick={() => changeSelected({ flipX: !selected.flipX })}>Flip horizontal</Button>
+                <Button size="sm" kind="tertiary" onClick={() => changeSelected({ flipY: !selected.flipY })}>Flip vertical</Button>
+                <Button size="sm" kind="tertiary" onClick={() => changeSelected({ locked: !selected.locked })}>{selected.locked ? "Unlock" : "Lock"}</Button>
+                <Button size="sm" kind="tertiary" onClick={() => reorderSelection("front")}>Bring front</Button>
+                <Button size="sm" kind="tertiary" onClick={() => reorderSelection("back")}>Send back</Button>
               </div>
               <div className="property-actions">
-                <button onClick={duplicateSelected}>Duplicate</button>
-                <button className="button-with-icon danger" onClick={removeSelected}><UiIcon name="delete" />Delete</button>
+                <Button size="sm" kind="tertiary" renderIcon={Copy} onClick={duplicateSelected}>Duplicate</Button>
+                <Button size="sm" kind="danger--tertiary" renderIcon={TrashCan} onClick={removeSelected}>Delete</Button>
               </div>
             </div>
           ) : selectedIds.length > 1 ? (
             <div className="property-form">
               <p className="selection-count">{selectedIds.length} components selected</p>
               <div className="compact-actions">
-                <button onClick={() => alignSelection("y")}>Align row</button>
-                <button onClick={() => alignSelection("x")}>Align column</button>
-                <button onClick={distributeSelection} disabled={selectedIds.length < 3}>Distribute</button>
-                <button onClick={groupSelection}>Group</button>
-                <button onClick={ungroupSelection}>Ungroup</button>
-                <button onClick={saveSelectionAsModule}>Save module</button>
-                <button onClick={() => changeSelected({ locked: true })}>Lock</button>
-                <button onClick={duplicateSelected}>Duplicate</button>
-                <button className="button-with-icon danger" onClick={removeSelected}><UiIcon name="delete" />Delete</button>
+                <Button size="sm" kind="tertiary" onClick={() => alignSelection("y")}>Align row</Button>
+                <Button size="sm" kind="tertiary" onClick={() => alignSelection("x")}>Align column</Button>
+                <Button size="sm" kind="tertiary" onClick={distributeSelection} disabled={selectedIds.length < 3}>Distribute</Button>
+                <Button size="sm" kind="tertiary" onClick={groupSelection}>Group</Button>
+                <Button size="sm" kind="tertiary" onClick={ungroupSelection}>Ungroup</Button>
+                <Button size="sm" kind="tertiary" onClick={saveSelectionAsModule}>Save module</Button>
+                <Button size="sm" kind="tertiary" onClick={() => changeSelected({ locked: true })}>Lock</Button>
+                <Button size="sm" kind="tertiary" renderIcon={Copy} onClick={duplicateSelected}>Duplicate</Button>
+                <Button size="sm" kind="danger--tertiary" renderIcon={TrashCan} onClick={removeSelected}>Delete</Button>
               </div>
             </div>
           ) : selectedConnection ? (
             <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
-              <label>Connection domain<select value={getConnectionDomain(selectedConnection, elements.find((element) => element.id === selectedConnection.from))} onChange={(event) => changeConnectionDomain(event.target.value as PortType)}>
+              <Select id="selected-connection-domain" size="sm" labelText="Connection domain" value={getConnectionDomain(selectedConnection, elements.find((element) => element.id === selectedConnection.from))} onChange={(event) => changeConnectionDomain(event.target.value as PortType)}>
                 {(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <option value={type} key={type}>{label}</option>)}
-              </select></label>
+              </Select>
               {(() => {
                 const from = elements.find((element) => element.id === selectedConnection.from);
                 const to = elements.find((element) => element.id === selectedConnection.to);
                 const domain = getConnectionDomain(selectedConnection, from);
                 return <>
-                  {from && <label>Source port<select value={selectedConnection.fromPort ?? closestPortPair(from, to ?? from, domain).source.id} onChange={(event) => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, fromPort: event.target.value, waypoints: undefined } : connection))}>{portsFor(from).filter((port) => port.type === domain).map((port) => <option key={port.id} value={port.id}>{from.label}: {port.id} · {portTypeLabels[port.type]}</option>)}</select></label>}
-                  {to && <label>Target port<select value={selectedConnection.toPort ?? closestPortPair(from ?? to, to, domain).target.id} onChange={(event) => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, toPort: event.target.value, waypoints: undefined } : connection))}>{portsFor(to).filter((port) => port.type === domain).map((port) => <option key={port.id} value={port.id}>{to.label}: {port.id} · {portTypeLabels[port.type]}</option>)}</select></label>}
+                  {from && <Select id="source-port" size="sm" labelText="Source port" value={selectedConnection.fromPort ?? closestPortPair(from, to ?? from, domain).source.id} onChange={(event) => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, fromPort: event.target.value, waypoints: undefined } : connection))}>{portsFor(from).filter((port) => port.type === domain).map((port) => <option key={port.id} value={port.id}>{from.label}: {port.id} · {portTypeLabels[port.type]}</option>)}</Select>}
+                  {to && <Select id="target-port" size="sm" labelText="Target port" value={selectedConnection.toPort ?? closestPortPair(from ?? to, to, domain).target.id} onChange={(event) => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, toPort: event.target.value, waypoints: undefined } : connection))}>{portsFor(to).filter((port) => port.type === domain).map((port) => <option key={port.id} value={port.id}>{to.label}: {port.id} · {portTypeLabels[port.type]}</option>)}</Select>}
                 </>;
               })()}
               <div className="property-row">
-                <label>Path loss (dB)<input type="number" min="0" step="0.1" value={selectedConnection.lossDb ?? ""} onChange={(event) => updateSelectedConnection({ lossDb: optionalNumber(event.target.value) })} /></label>
-                <label>Bandwidth (Hz)<input type="number" min="0" step="any" value={selectedConnection.bandwidthHz ?? ""} onChange={(event) => updateSelectedConnection({ bandwidthHz: optionalNumber(event.target.value) })} /></label>
+                <NumberInput id="path-loss" size="sm" label="Path loss (dB)" min={0} step={0.1} allowEmpty value={selectedConnection.lossDb ?? ""} onChange={(_, { value }) => updateSelectedConnection({ lossDb: optionalNumber(String(value)) })} />
+                <NumberInput id="path-bandwidth" size="sm" label="Bandwidth (Hz)" min={0} allowEmpty value={selectedConnection.bandwidthHz ?? ""} onChange={(_, { value }) => updateSelectedConnection({ bandwidthHz: optionalNumber(String(value)) })} />
               </div>
-              <label>Routing<select value={selectedConnection.routing ?? "auto"} onChange={(event) => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, routing: event.target.value === "auto" ? undefined : event.target.value as Routing, waypoints: undefined } : connection))}>
+              <Select id="connection-routing" size="sm" labelText="Routing" value={selectedConnection.routing ?? "auto"} onChange={(event) => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, routing: event.target.value === "auto" ? undefined : event.target.value as Routing, waypoints: undefined } : connection))}>
                 <option value="auto">Automatic · {defaultRoutingLabel(getConnectionDomain(selectedConnection, elements.find((element) => element.id === selectedConnection.from)))}</option>
                 <option value="straight">Straight</option><option value="orthogonal">Orthogonal</option>
-              </select></label>
-              <button onClick={addConnectionBend}>Add bend</button>
-              {selectedConnection.waypoints?.length ? <button onClick={() => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, waypoints: undefined } : connection))}>Clear bends</button> : null}
-              <button className="button-with-icon danger" onClick={removeSelected}><UiIcon name="delete" />Delete connection</button>
+              </Select>
+              <Button size="sm" kind="tertiary" renderIcon={Corner} onClick={addConnectionBend}>Add bend</Button>
+              {selectedConnection.waypoints?.length ? <Button size="sm" kind="tertiary" onClick={() => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, waypoints: undefined } : connection))}>Clear bends</Button> : null}
+              <Button size="sm" kind="danger--tertiary" renderIcon={TrashCan} onClick={removeSelected}>Delete connection</Button>
             </div>
           ) : (
             <div className="empty-inspector"><p>Select a component to edit it. On desktop, Shift-click selects several.</p><span>Focused components can be nudged with the arrow keys.</span></div>
           )}
-        </aside>
+        </Column>
 
-        <aside id="document-inspector" className="inspector document-inspector sidebar" aria-label="Canvas settings" aria-hidden={workspacePanel !== "document"}>
+        <Column as="aside" sm={4} md={3} lg={4} id="document-inspector" className="inspector document-inspector sidebar" aria-label="Canvas settings" aria-hidden={workspacePanel !== "document"}>
           <div className="panel-heading"><span>Canvas</span><IconButton size="sm" kind="ghost" label="Close canvas settings" onClick={() => closeWorkspacePanel("document")}><Close size={16} aria-hidden={true} /></IconButton></div>
           <InspectorDisclosure className="layers-panel" buttonId="layout-title" label="Layout">
-            <label className="layer-toggle"><input type="checkbox" checked={snapEnabled} onChange={(event) => setSnapEnabled(event.target.checked)} /><span>Snap to grid</span></label>
+            <Checkbox id="snap-to-grid" labelText="Snap to grid" checked={snapEnabled} onChange={(_, { checked }) => setSnapEnabled(checked)} />
             <div className="port-legend">{(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <span key={type}><i style={{ background: portTypeColors[type] }} />{label}</span>)}</div>
           </InspectorDisclosure>
           <InspectorDisclosure className="layers-panel budget-panel" buttonId="budget-title" label="Path budgets" meta={budgets.length}>
@@ -2187,7 +2192,7 @@ export default function Home() {
           </InspectorDisclosure>
           <InspectorDisclosure className="layers-panel experiment-panel" buttonId="experiment-title" label="Experiment">
             <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
-              <label>Procedure<textarea value={experiment.procedure} onChange={(event) => setExperiment((current) => ({ ...current, procedure: event.target.value }))} placeholder="Alignment, warm-up, acquisition and shutdown procedure…" /></label>
+              <TextArea id="experiment-procedure" labelText="Procedure" rows={4} value={experiment.procedure} onChange={(event) => setExperiment((current) => ({ ...current, procedure: event.target.value }))} placeholder="Alignment, warm-up, acquisition and shutdown procedure…" />
             </div>
             <form className="checklist-add" onSubmit={(event) => {
               event.preventDefault();
@@ -2196,13 +2201,12 @@ export default function Home() {
               commitExperiment({ ...experiment, checklist: [...experiment.checklist, { id: `check-${Date.now()}`, text, done: false }] });
               setChecklistDraft("");
             }}>
-              <label className="sr-only" htmlFor="checklist-draft">New checklist item</label>
-              <input id="checklist-draft" value={checklistDraft} onChange={(event) => setChecklistDraft(event.target.value)} placeholder="Add checklist item" />
-              <button type="submit">Add</button>
+              <TextInput id="checklist-draft" size="sm" hideLabel labelText="New checklist item" value={checklistDraft} onChange={(event) => setChecklistDraft(event.target.value)} placeholder="Add checklist item" />
+              <Button size="sm" kind="tertiary" type="submit">Add</Button>
             </form>
             {experiment.checklist.map((item) => <div className="checklist-row" key={item.id}>
-              <label><input type="checkbox" checked={item.done} onChange={(event) => commitExperiment({ ...experiment, checklist: experiment.checklist.map((candidate) => candidate.id === item.id ? { ...candidate, done: event.target.checked } : candidate) })} /><span>{item.text}</span></label>
-              <button className="danger" aria-label={`Delete ${item.text}`} title={`Delete ${item.text}`} onClick={() => commitExperiment({ ...experiment, checklist: experiment.checklist.filter((candidate) => candidate.id !== item.id) })}><UiIcon name="delete" /></button>
+              <Checkbox id={`checklist-${item.id}`} labelText={item.text} checked={item.done} onChange={(_, { checked }) => commitExperiment({ ...experiment, checklist: experiment.checklist.map((candidate) => candidate.id === item.id ? { ...candidate, done: checked } : candidate) })} />
+              <IconButton size="sm" kind="ghost" label={`Delete ${item.text}`} onClick={() => commitExperiment({ ...experiment, checklist: experiment.checklist.filter((candidate) => candidate.id !== item.id) })}><TrashCan size={16} aria-hidden={true} /></IconButton>
             </div>)}
           </InspectorDisclosure>
           <InspectorDisclosure className="layers-panel validation-panel" buttonId="validation-title" label="Setup checks" meta={validationIssues.length}>
@@ -2215,13 +2219,13 @@ export default function Home() {
           </InspectorDisclosure>
           <InspectorDisclosure className="layers-panel" buttonId="publication-title" label="Publication">
             <div className="property-form">
-              <label>Page<select value={publication.pagePreset} onChange={(event) => commitPublication({ ...publication, pagePreset: event.target.value as PagePreset })}>
+              <Select id="publication-page" size="sm" labelText="Page" value={publication.pagePreset} onChange={(event) => commitPublication({ ...publication, pagePreset: event.target.value as PagePreset })}>
                 {(Object.entries(pagePresets) as Array<[PagePreset, typeof pagePresets[PagePreset]]>).map(([key, preset]) => <option key={key} value={key}>{preset.label}</option>)}
-              </select></label>
-              <label>Label scale<input type="range" min="0.7" max="1.5" step="0.1" value={publication.labelScale} onChange={(event) => commitPublication({ ...publication, labelScale: Number(event.target.value) })} /><output>{publication.labelScale.toFixed(1)}×</output></label>
-              <label className="layer-toggle"><input type="checkbox" checked={publication.monochrome} onChange={(event) => commitPublication({ ...publication, monochrome: event.target.checked })} /><span>Monochrome</span></label>
-              <label className="layer-toggle"><input type="checkbox" checked={publication.showCredit} onChange={(event) => commitPublication({ ...publication, showCredit: event.target.checked })} /><span>Show credit</span></label>
-              <label className="layer-toggle"><input type="checkbox" checked={publication.cropToContent} onChange={(event) => commitPublication({ ...publication, cropToContent: event.target.checked })} /><span>Crop exports to content</span></label>
+              </Select>
+              <Slider id="publication-label-scale" labelText="Label scale" min={0.7} max={1.5} step={0.1} value={publication.labelScale} onChange={({ value }) => commitPublication({ ...publication, labelScale: Number(value) })} />
+              <Checkbox id="publication-monochrome" labelText="Monochrome" checked={publication.monochrome} onChange={(_, { checked }) => commitPublication({ ...publication, monochrome: checked })} />
+              <Checkbox id="publication-credit" labelText="Show credit" checked={publication.showCredit} onChange={(_, { checked }) => commitPublication({ ...publication, showCredit: checked })} />
+              <Checkbox id="publication-crop" labelText="Crop exports to content" checked={publication.cropToContent} onChange={(_, { checked }) => commitPublication({ ...publication, cropToContent: checked })} />
             </div>
           </InspectorDisclosure>
           <InspectorDisclosure className="layers-panel" buttonId="layers-title" label="Layers">
@@ -2234,18 +2238,11 @@ export default function Home() {
               ["signals", "Signal paths"],
               ["annotations", "Annotations"],
             ] as Array<[keyof LayerVisibility, string]>).map(([key, label]) => (
-              <label className="layer-toggle" key={key}>
-                <input
-                  type="checkbox"
-                  checked={layers[key]}
-                  onChange={(event) => setLayers((current) => ({ ...current, [key]: event.target.checked }))}
-                />
-                <span>{label}</span>
-              </label>
+              <Checkbox id={`layer-${key}`} key={key} labelText={label} checked={layers[key]} onChange={(_, { checked }) => setLayers((current) => ({ ...current, [key]: checked }))} />
             ))}
           </InspectorDisclosure>
-        </aside>
-      </section>
+        </Column>
+      </Grid>
     </main>
   );
 }
