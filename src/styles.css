@@ -667,8 +667,8 @@ summary:active,
 .scientific-flow-node::before {
   content: "";
   position: absolute;
-  inset: 4px;
-  border: 2px dashed transparent;
+  inset: 7px;
+  border: 1px solid transparent;
   border-radius: var(--radius-input);
   pointer-events: none;
 }

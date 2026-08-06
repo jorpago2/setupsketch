@@ -2,6 +2,8 @@
 
 import {
   ChangeEvent,
+  memo,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -16,16 +18,18 @@ import {
   MarkerType,
   Position,
   ReactFlow,
-  getSmoothStepPath,
-  getStraightPath,
+  useEdgesState,
+  useNodesState,
   type Connection as ReactFlowConnection,
   type Edge as ReactFlowEdge,
-  type EdgeChange,
   type EdgeProps,
   type Node as ReactFlowNode,
   type NodeChange,
+  type NodeMouseHandler,
   type NodeProps,
   type NodeTypes,
+  type OnNodeDrag,
+  type OnSelectionChangeFunc,
 } from "@xyflow/react";
 import {
   annotationKinds,
@@ -139,6 +143,8 @@ const STORAGE_KEY = "setupsketch-diagram-v1";
 const FAVORITES_KEY = "setupsketch-favorites-v1";
 const MODULES_KEY = "setupsketch-modules-v1";
 const GRID_STEP = 20;
+const FLOW_SNAP_GRID: [number, number] = [GRID_STEP, GRID_STEP];
+const FLOW_FIT_VIEW_OPTIONS = { padding: 0.08 };
 
 const pagePresets: Record<PagePreset, { label: string; width: number; height: number }> = {
   canvas: { label: "Canvas 12:7", width: WIDTH, height: HEIGHT },
@@ -306,9 +312,8 @@ const connectionPath = (connection: Connection, from: DiagramElement, to: Diagra
   const nearest = closestPortPair(from, to);
   const sourcePort = portsFor(from).find((port) => port.id === connection.fromPort) ?? nearest.source;
   const targetPort = portsFor(to).find((port) => port.id === connection.toPort) ?? nearest.target;
-  const centerOpticalAnchor = getConnectionDomain(connection, from) === "optical-free-space";
-  const source = centerOpticalAnchor ? { x: from.x, y: from.y } : sourcePort;
-  const target = centerOpticalAnchor ? { x: to.x, y: to.y } : targetPort;
+  const source = sourcePort;
+  const target = targetPort;
   if (connection.waypoints?.length) {
     if (connection.routing !== "orthogonal") return [source, ...connection.waypoints, target];
     const points: Point[] = [source];
@@ -346,8 +351,8 @@ const svgDataUri = (source: string) => {
   return `data:image/svg+xml;base64,${btoa(binary)}`;
 };
 
-function ElectronicPortStubs({ element }: { element: DiagramElement }) {
-  if (!electronicKinds.has(element.kind)) return null;
+function ComponentPortStubs({ element }: { element: DiagramElement }) {
+  if (annotationKinds.has(element.kind) || mechanicalKinds.has(element.kind)) return null;
   const layout = componentByKind.get(element.kind)?.ports ?? "lr";
   return <>{componentPortLayouts[layout].map((port) => (
     <line
@@ -356,7 +361,7 @@ function ElectronicPortStubs({ element }: { element: DiagramElement }) {
       y1={port.y * 0.58}
       x2={port.x}
       y2={port.y}
-      stroke={element.color}
+      stroke={element.color === "#20242a" ? element.color : portTypeColors[portTypeFor(element.kind, port.id)]}
       strokeWidth="3.2"
       strokeLinecap="round"
       vectorEffect="non-scaling-stroke"
@@ -581,15 +586,23 @@ type PaperNodeData = {
 type ScientificFlowNode = ReactFlowNode<ScientificNodeData, "scientific">;
 type PaperFlowNode = ReactFlowNode<PaperNodeData, "paper">;
 type CanvasFlowNode = ScientificFlowNode | PaperFlowNode;
-type ScientificEdgeData = { connection: Connection };
-type ScientificFlowEdge = ReactFlowEdge<ScientificEdgeData, "scientific">;
+type ScientificEdgeData = { connection: Connection; elements: DiagramElement[] };
+type ScientificFlowEdge = ReactFlowEdge<ScientificEdgeData>;
 
 const scientificNodeSize = (element: DiagramElement) => ({
-  width: Math.max(144, (element.width ?? 120) * (element.scale ?? 1) + 20),
-  height: Math.max(144, (element.height ?? 100) * (element.scale ?? 1) + 36),
+  width: Math.max(128, (element.width ?? 120) * (element.scale ?? 1) + 8),
+  height: Math.max(132, (element.height ?? 100) * (element.scale ?? 1) + 28),
 });
 
-function ScientificFlowNodeComponent({ data, selected }: NodeProps<ScientificFlowNode>) {
+const handlePositionFor = (element: DiagramElement, port: ReturnType<typeof portsFor>[number]) => {
+  const dx = port.x - element.x;
+  const dy = port.y - element.y;
+  return Math.abs(dx) >= Math.abs(dy)
+    ? dx < 0 ? Position.Left : Position.Right
+    : dy < 0 ? Position.Top : Position.Bottom;
+};
+
+const ScientificFlowNodeComponent = memo(function ScientificFlowNodeComponent({ data, selected }: NodeProps<ScientificFlowNode>) {
   const { element } = data;
   const { width, height } = scientificNodeSize(element);
   const renderedElement = data.monochrome ? { ...element, color: "#20242a" } : element;
@@ -598,7 +611,7 @@ function ScientificFlowNodeComponent({ data, selected }: NodeProps<ScientificFlo
       <svg viewBox={`${-width / 2} ${-height / 2} ${width} ${height}`} aria-hidden="true">
         <g transform={`rotate(${element.rotation})`}>
           <g transform={`scale(${(element.scale ?? 1) * (element.flipX ? -1 : 1)} ${(element.scale ?? 1) * (element.flipY ? -1 : 1)})`}>
-            <ElectronicPortStubs element={renderedElement} />
+            <ComponentPortStubs element={renderedElement} />
             <ComponentShape element={renderedElement} monochrome={data.monochrome} />
           </g>
           {data.labelsVisible && !annotationKinds.has(element.kind) && <text y={70 * (element.scale ?? 1)} textAnchor="middle" fill="#252b33" fontSize={14 * data.labelScale} fontWeight="600" fontFamily="Arial, sans-serif" transform={`rotate(${-element.rotation})`}>{element.label}</text>}
@@ -610,7 +623,7 @@ function ScientificFlowNodeComponent({ data, selected }: NodeProps<ScientificFlo
           id={port.id}
           key={port.id}
           type="source"
-          position={Position.Left}
+          position={handlePositionFor(element, port)}
           isConnectable={data.portsVisible}
           aria-label={`${port.id}: ${portTypeLabels[port.type]}`}
           style={{ left: width / 2 + port.x - element.x, top: height / 2 + port.y - element.y, background: portTypeColors[port.type] }}
@@ -618,29 +631,43 @@ function ScientificFlowNodeComponent({ data, selected }: NodeProps<ScientificFlo
       ))}
     </div>
   );
-}
+});
 
-function PaperFlowNodeComponent({ data }: NodeProps<PaperFlowNode>) {
+const PaperFlowNodeComponent = memo(function PaperFlowNodeComponent({ data }: NodeProps<PaperFlowNode>) {
   return (
     <div className={`flow-paper${data.gridVisible ? " has-grid" : ""}`}>
       <strong style={{ fontSize: 25 * data.labelScale }}>{data.title}</strong>
       {data.showCredit && <span style={{ fontSize: 12 * data.labelScale }}>Created with SetupSketch</span>}
     </div>
   );
-}
+});
 
-function ScientificFlowEdgeComponent({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, data, markerEnd, style }: EdgeProps<ScientificFlowEdge>) {
+const portDirection = (position: Position) => position === Position.Left ? { x: -1, y: 0 }
+  : position === Position.Right ? { x: 1, y: 0 }
+    : position === Position.Top ? { x: 0, y: -1 }
+      : { x: 0, y: 1 };
+
+const edgePath = (points: Point[]) => `M ${points.filter((point, index) => !index || point.x !== points[index - 1].x || point.y !== points[index - 1].y).map((point) => `${point.x} ${point.y}`).join(" L ")}`;
+
+const ScientificFlowEdgeComponent = memo(function ScientificFlowEdgeComponent({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, data, markerEnd, style }: EdgeProps<ScientificFlowEdge>) {
   const connection = data?.connection;
-  let path: string;
+  const source = { x: sourceX, y: sourceY };
+  const target = { x: targetX, y: targetY };
+  if (connection?.type === "beam") return <BaseEdge path={edgePath([source, ...(connection.waypoints ?? []), target])} markerEnd={markerEnd} style={style} interactionWidth={18} />;
+  const sourceDirection = portDirection(sourcePosition);
+  const targetDirection = portDirection(targetPosition);
+  const sourceStub = { x: source.x + sourceDirection.x * 24, y: source.y + sourceDirection.y * 24 };
+  const targetStub = { x: target.x + targetDirection.x * 24, y: target.y + targetDirection.y * 24 };
+  let middle: Point[];
   if (connection?.waypoints?.length) {
-    path = `M ${[{ x: sourceX, y: sourceY }, ...connection.waypoints, { x: targetX, y: targetY }].map((point) => `${point.x} ${point.y}`).join(" L ")}`;
-  } else if (connection?.routing === "straight" || connection?.type === "beam") {
-    [path] = getStraightPath({ sourceX, sourceY, targetX, targetY });
+    const anchors = [sourceStub, ...connection.waypoints, targetStub];
+    middle = anchors.slice(1).flatMap((point, index) => [{ x: point.x, y: anchors[index].y }, point]);
   } else {
-    [path] = getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, borderRadius: 0 });
+    middle = routeOrthogonal(sourceStub, targetStub, data?.elements ?? [], []);
   }
+  const path = edgePath([source, sourceStub, ...middle, targetStub, target]);
   return <BaseEdge path={path} markerEnd={markerEnd} style={style} interactionWidth={18} />;
-}
+});
 
 const flowNodeTypes = { scientific: ScientificFlowNodeComponent, paper: PaperFlowNodeComponent } satisfies NodeTypes;
 const flowEdgeTypes = { scientific: ScientificFlowEdgeComponent };
@@ -684,7 +711,6 @@ export default function Home() {
   const skipInitialSave = useRef(true);
   const editBefore = useRef<Snapshot | null>(null);
   const flowDragBefore = useRef<Snapshot | null>(null);
-  const flowDragMoved = useRef(false);
 
   const dimensions = pagePresets[publication.pagePreset];
   const selected = selectedIds.length === 1 ? elements.find((element) => element.id === selectedIds[0]) ?? null : null;
@@ -699,7 +725,7 @@ export default function Home() {
     (kind, portId) => elementKinds.has(kind as ElementKind) ? portTypeFor(kind as ElementKind, portId) : undefined,
   );
   const budgets = calculateBudgets(elements, connections);
-  const flowNodes = useMemo<CanvasFlowNode[]>(() => [
+  const modelFlowNodes = useMemo<CanvasFlowNode[]>(() => [
     {
       id: "__paper__",
       type: "paper",
@@ -737,29 +763,41 @@ export default function Home() {
       };
     }),
   ], [connectMode, dimensions, elements, layers, publication.labelScale, publication.monochrome, publication.showCredit, selectedIds, title]);
-  const flowEdges = useMemo<ScientificFlowEdge[]>(() => connections.map((connection) => {
+  const modelFlowEdges = useMemo<ScientificFlowEdge[]>(() => connections.map((connection) => {
     const type = getConnectionType(connection);
     const color = publication.monochrome ? "#20242a" : connection.color;
+    const from = elements.find((element) => element.id === connection.from);
+    const to = elements.find((element) => element.id === connection.to);
+    const domain = getConnectionDomain(connection, from);
     return {
       id: connection.id,
-      type: "scientific",
+      type: type === "beam" && !connection.waypoints?.length ? "straight" : "scientific",
       source: connection.from,
       target: connection.to,
       sourceHandle: connection.fromPort,
       targetHandle: connection.toPort,
-      data: { connection },
+      data: { connection: { ...connection, type }, elements },
       selected: selectedConnectionId === connection.id,
       hidden: !layers[type === "beam" ? "beams" : "signals"],
       markerEnd: type === "signal" ? { type: MarkerType.ArrowClosed, color } : undefined,
       style: { stroke: color, strokeWidth: selectedConnectionId === connection.id ? 4 : type === "beam" ? 3 : 2.5, strokeDasharray: type === "signal" ? "9 5" : undefined },
       reconnectable: true,
+      ariaLabel: `${portTypeLabels[domain]} connection from ${from?.label ?? "unknown source"} to ${to?.label ?? "unknown destination"}`,
     };
-  }), [connections, layers, publication.monochrome, selectedConnectionId]);
+  }), [connections, elements, layers, publication.monochrome, selectedConnectionId]);
+  const [flowNodes, setFlowNodes, onFlowNodesChange] = useNodesState<CanvasFlowNode>(modelFlowNodes);
+  const [flowEdges, setFlowEdges, onFlowEdgesChange] = useEdgesState<ScientificFlowEdge>(modelFlowEdges);
+  const flowNodeExtent = useMemo(() => [[0, 0], [dimensions.width, dimensions.height]] as [[number, number], [number, number]], [dimensions]);
+  const flowTranslateExtent = useMemo(() => [[-160, -160], [dimensions.width + 160, dimensions.height + 160]] as [[number, number], [number, number]], [dimensions]);
+  const flowConnectionLineStyle = useMemo(() => ({ stroke: portTypeColors[connectionDomain], strokeWidth: 3 }), [connectionDomain]);
   const isNarrowWorkspace = () => window.matchMedia("(max-width: 59.999rem)").matches;
   const showWorkspacePanel = (panel: "library" | "canvas" | "inspector") => {
     toolbarRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((menu) => { menu.open = false; });
     setWorkspacePanel(panel);
   };
+
+  useEffect(() => setFlowNodes(modelFlowNodes), [modelFlowNodes, setFlowNodes]);
+  useEffect(() => setFlowEdges(modelFlowEdges), [modelFlowEdges, setFlowEdges]);
 
   useEffect(() => {
     const closeMenus = () => toolbarRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((menu) => { menu.open = false; });
@@ -823,14 +861,14 @@ export default function Home() {
     localStorage.setItem(MODULES_KEY, JSON.stringify(savedModules));
   }, [savedModules]);
 
-  const commit = (nextElements: DiagramElement[], nextConnections = connections) => {
+  const commit = useCallback((nextElements: DiagramElement[], nextConnections = connections) => {
     const before = editBefore.current ?? cloneSnapshot(elements, connections, publication, experiment);
     editBefore.current = null;
     setPast((items) => [...items.slice(-39), before]);
     setFuture([]);
     setElements(nextElements);
     setConnections(nextConnections);
-  };
+  }, [connections, elements, experiment, publication]);
 
   const commitPublication = (next: PublicationSettings) => {
     setPast((items) => [...items.slice(-39), cloneSnapshot(elements, connections, publication, experiment)]);
@@ -958,7 +996,7 @@ export default function Home() {
     setSelectedIds(copies.map((element) => element.id));
   };
 
-  const connectionFromFlow = (candidate: { source: string | null; target: string | null; sourceHandle?: string | null; targetHandle?: string | null }, ignoredConnectionId?: string): Omit<Connection, "id"> | null => {
+  const connectionFromFlow = useCallback((candidate: { source: string | null; target: string | null; sourceHandle?: string | null; targetHandle?: string | null }, ignoredConnectionId?: string): Omit<Connection, "id"> | null => {
     const from = elements.find((element) => element.id === candidate.source);
     const to = elements.find((element) => element.id === candidate.target);
     if (!from || !to || from.id === to.id || !candidate.sourceHandle || !candidate.targetHandle) return null;
@@ -983,9 +1021,9 @@ export default function Home() {
       toPort: candidate.targetHandle,
       routing: type === "beam" ? "straight" : "orthogonal",
     };
-  };
+  }, [connections, elements]);
 
-  const addFlowConnection = (candidate: ReactFlowConnection) => {
+  const addFlowConnection = useCallback((candidate: ReactFlowConnection) => {
     const connection = connectionFromFlow(candidate);
     if (!connection) {
       setNotice("Choose two compatible, unused ports");
@@ -995,16 +1033,10 @@ export default function Home() {
     setConnectFrom(null);
     setConnectMode(false);
     setNotice("Connection added");
-  };
+  }, [commit, connectionFromFlow, connections, elements]);
 
-  const selectFlowNode = (id: string, additive = false) => {
+  const selectFlowNode = useCallback((id: string) => {
     if (!connectMode) {
-      const element = elements.find((candidate) => candidate.id === id);
-      const ids = element?.groupId ? elements.filter((candidate) => candidate.groupId === element.groupId).map((candidate) => candidate.id) : [id];
-      setSelectedIds((current) => additive
-        ? ids.every((candidate) => current.includes(candidate)) ? current.filter((candidate) => !ids.includes(candidate)) : [...new Set([...current, ...ids])]
-        : ids);
-      setSelectedConnectionId(null);
       if (isNarrowWorkspace()) setWorkspacePanel("inspector");
       return;
     }
@@ -1022,55 +1054,77 @@ export default function Home() {
     }
     const pair = closestPortPair(from, to, connectionDomain);
     addFlowConnection({ source: from.id, target: to.id, sourceHandle: pair.source.id, targetHandle: pair.target.id });
-  };
+  }, [addFlowConnection, connectFrom, connectMode, connectionDomain, elements]);
 
-  const changeFlowNodes = (changes: NodeChange<CanvasFlowNode>[]) => {
-    const removedIds = new Set(changes.flatMap((change) => change.type === "remove" && change.id !== "__paper__" ? [change.id] : []));
-    if (removedIds.size) {
-      commit(
-        elements.filter((element) => !removedIds.has(element.id)),
-        connections.filter((connection) => !removedIds.has(connection.from) && !removedIds.has(connection.to)),
-      );
-      return;
-    }
-    const positions = new Map(changes.flatMap((change) => change.type === "position" && change.id !== "__paper__" && change.position ? [[change.id, change.position] as const] : []));
-    if (!positions.size) return;
+  const changeFlowSelection = useCallback<OnSelectionChangeFunc<CanvasFlowNode, ScientificFlowEdge>>(({ nodes, edges }) => {
+    const nextIds = [...new Set(nodes.flatMap((node) => {
+      if (node.id === "__paper__") return [];
+      const element = elements.find((candidate) => candidate.id === node.id);
+      return element?.groupId ? elements.filter((candidate) => candidate.groupId === element.groupId).map((candidate) => candidate.id) : [node.id];
+    }))];
+    setSelectedIds((current) => current.length === nextIds.length && current.every((id, index) => id === nextIds[index]) ? current : nextIds);
+    const nextEdgeId = edges[0]?.id ?? null;
+    setSelectedConnectionId((current) => current === nextEdgeId ? current : nextEdgeId);
+  }, [elements]);
+
+  const handleFlowNodeClick = useCallback<NodeMouseHandler<CanvasFlowNode>>((_, node) => {
+    if (node.id !== "__paper__") selectFlowNode(node.id);
+  }, [selectFlowNode]);
+
+  const handleFlowEdgeClick = useCallback((_: React.MouseEvent, edge: ScientificFlowEdge) => {
+    setSelectedConnectionId(edge.id);
+    setSelectedIds([]);
+  }, []);
+
+  const clearFlowSelection = useCallback(() => {
+    setSelectedIds([]);
+    setSelectedConnectionId(null);
+  }, []);
+
+  const beginFlowDrag = useCallback<OnNodeDrag<CanvasFlowNode>>(() => {
+    flowDragBefore.current = cloneSnapshot(elements, connections, publication, experiment);
+  }, [connections, elements, experiment, publication]);
+
+  const finishFlowDrag = useCallback<OnNodeDrag<CanvasFlowNode>>((_, __, draggedNodes) => {
+    const positions = new Map(draggedNodes.filter((node) => node.id !== "__paper__").map((node) => [node.id, node.position]));
     let moved = false;
     const nextElements = elements.map((element) => {
       const position = positions.get(element.id);
       if (!position) return element;
       const size = scientificNodeSize(element);
-      const x = position.x + size.width / 2;
-      const y = position.y + size.height / 2;
+      const x = Math.max(size.width / 2, Math.min(dimensions.width - size.width / 2, position.x + size.width / 2));
+      const y = Math.max(size.height / 2, Math.min(dimensions.height - size.height / 2, position.y + size.height / 2));
       if (element.x === x && element.y === y) return element;
       moved = true;
       return { ...element, x, y };
     });
-    if (!moved) return;
-    if (flowDragBefore.current) {
-      flowDragMoved.current = true;
-      setElements(nextElements);
-    } else {
-      commit(nextElements);
-    }
-  };
-
-  const changeFlowEdges = (changes: EdgeChange<ScientificFlowEdge>[]) => {
-    const removedIds = new Set(changes.flatMap((change) => change.type === "remove" ? [change.id] : []));
-    if (removedIds.size) commit(elements, connections.filter((connection) => !removedIds.has(connection.id)));
-  };
-
-  const finishFlowDrag = () => {
     const before = flowDragBefore.current;
-    if (flowDragMoved.current && before) {
+    if (moved && before) {
       setPast((items) => [...items.slice(-39), before]);
       setFuture([]);
+      setElements(nextElements);
     }
     flowDragBefore.current = null;
-    flowDragMoved.current = false;
-  };
+  }, [dimensions, elements]);
 
-  const reconnectFlowEdge = (edge: ScientificFlowEdge, candidate: ReactFlowConnection) => {
+  const changeFlowNodes = useCallback((changes: NodeChange<CanvasFlowNode>[]) => {
+    onFlowNodesChange(changes);
+    if (flowDragBefore.current) return;
+    const positions = new Map(changes.flatMap((change) => change.type === "position" && change.position ? [[change.id, change.position] as const] : []));
+    if (!positions.size) return;
+    commit(elements.map((element) => {
+      const position = positions.get(element.id);
+      if (!position) return element;
+      const size = scientificNodeSize(element);
+      return {
+        ...element,
+        x: Math.max(size.width / 2, Math.min(dimensions.width - size.width / 2, position.x + size.width / 2)),
+        y: Math.max(size.height / 2, Math.min(dimensions.height - size.height / 2, position.y + size.height / 2)),
+      };
+    }));
+  }, [commit, dimensions, elements, onFlowNodesChange]);
+
+  const reconnectFlowEdge = useCallback((edge: ScientificFlowEdge, candidate: ReactFlowConnection) => {
     const replacement = connectionFromFlow(candidate, edge.id);
     if (!replacement) {
       setNotice("Choose a compatible, unused port");
@@ -1078,7 +1132,9 @@ export default function Home() {
     }
     commit(elements, connections.map((connection) => connection.id === edge.id ? { ...connection, ...replacement, waypoints: undefined } : connection));
     setNotice("Connection endpoint moved");
-  };
+  }, [commit, connectionFromFlow, connections, elements]);
+
+  const isValidFlowConnection = useCallback((candidate: ReactFlowConnection | ScientificFlowEdge) => Boolean(connectionFromFlow(candidate)), [connectionFromFlow]);
 
   const groupSelection = () => {
     if (selectedIds.length < 2) return;
@@ -1665,7 +1721,7 @@ export default function Home() {
                   <div className="component-card" key={`${group.title}-${item.kind}`}>
                     <button className="component-add" onClick={() => addElement(item.kind, item.label)}>
                       <svg className="library-icon" viewBox="-60 -55 120 110" aria-hidden="true">
-                        <ElectronicPortStubs element={{ id: "preview", kind: item.kind, label: "", x: 0, y: 0, rotation: 0, color: defaultColor(item.kind) }} />
+                        <ComponentPortStubs element={{ id: "preview", kind: item.kind, label: "", x: 0, y: 0, rotation: 0, color: defaultColor(item.kind) }} />
                         <ComponentShape element={{ id: "preview", kind: item.kind, label: "", x: 0, y: 0, rotation: 0, color: defaultColor(item.kind) }} />
                       </svg>
                       {item.label}
@@ -1698,27 +1754,28 @@ export default function Home() {
                 nodeTypes={flowNodeTypes}
                 edgeTypes={flowEdgeTypes}
                 onNodesChange={changeFlowNodes}
-                onEdgesChange={changeFlowEdges}
-                onNodeClick={(event, node) => node.id !== "__paper__" && selectFlowNode(node.id, event.shiftKey || event.ctrlKey || event.metaKey)}
-                onEdgeClick={(_, edge) => { setSelectedConnectionId(edge.id); setSelectedIds([]); }}
-                onPaneClick={() => { setSelectedIds([]); setSelectedConnectionId(null); }}
-                onNodeDragStart={() => { flowDragBefore.current = cloneSnapshot(elements, connections, publication, experiment); flowDragMoved.current = false; }}
+                onEdgesChange={onFlowEdgesChange}
+                onSelectionChange={changeFlowSelection}
+                onNodeClick={handleFlowNodeClick}
+                onEdgeClick={handleFlowEdgeClick}
+                onPaneClick={clearFlowSelection}
+                onNodeDragStart={beginFlowDrag}
                 onNodeDragStop={finishFlowDrag}
                 onConnect={addFlowConnection}
                 onReconnect={reconnectFlowEdge}
-                isValidConnection={(candidate) => Boolean(connectionFromFlow(candidate))}
+                isValidConnection={isValidFlowConnection}
                 connectionMode={ConnectionMode.Loose}
-                connectionLineStyle={{ stroke: portTypeColors[connectionDomain], strokeWidth: 3 }}
-                nodeExtent={[[0, 0], [dimensions.width, dimensions.height]]}
-                translateExtent={[[-160, -160], [dimensions.width + 160, dimensions.height + 160]]}
+                connectionLineStyle={flowConnectionLineStyle}
+                nodeExtent={flowNodeExtent}
+                translateExtent={flowTranslateExtent}
                 snapToGrid={snapEnabled}
-                snapGrid={[GRID_STEP, GRID_STEP]}
+                snapGrid={FLOW_SNAP_GRID}
                 nodesDraggable={!connectMode}
                 deleteKeyCode={null}
                 minZoom={0.25}
                 maxZoom={2.5}
                 fitView
-                fitViewOptions={{ padding: 0.06 }}
+                fitViewOptions={FLOW_FIT_VIEW_OPTIONS}
                 attributionPosition="bottom-left"
               >
                 <Background gap={20} size={1} color="var(--color-rule)" />
@@ -1778,7 +1835,7 @@ export default function Home() {
                   transform={`translate(${element.x} ${element.y}) rotate(${element.rotation})`}
                 >
                   <g transform={`scale(${(element.scale ?? 1) * (element.flipX ? -1 : 1)} ${(element.scale ?? 1) * (element.flipY ? -1 : 1)})`}>
-                    <ElectronicPortStubs element={publication.monochrome ? { ...element, color: "#20242a" } : element} />
+                    <ComponentPortStubs element={publication.monochrome ? { ...element, color: "#20242a" } : element} />
                     <ComponentShape element={publication.monochrome ? { ...element, color: "#20242a" } : element} monochrome={publication.monochrome} />
                   </g>
                   {layers.labels && !annotationKinds.has(element.kind) && <text className="labels-layer" y={70 * (element.scale ?? 1)} textAnchor="middle" fill="#252b33" fontSize={14 * publication.labelScale} fontWeight="600" fontFamily="Arial, sans-serif" transform={`rotate(${-element.rotation})`}>{element.label}</text>}
