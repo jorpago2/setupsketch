@@ -3,6 +3,41 @@ import test from "node:test";
 import { arrangeOverlaps, calculateBudgets, findOpenPosition, moveElements, parseCsv, routeOrthogonal, validateSetup } from "../src/editorModel.ts";
 import { componentByKind, componentPortLayouts, portTypeFor } from "../src/componentCatalog.ts";
 import { setupTemplates } from "../src/templates.ts";
+import { canvasEdgeTypeFor, defaultRoutingLabel, migrateCanvasRouting } from "../src/canvasRouting.ts";
+
+test("React Flow edge families follow the physical connection domain", () => {
+  assert.equal(canvasEdgeTypeFor("optical-free-space", undefined, false), "straight");
+  assert.equal(canvasEdgeTypeFor("fiber", undefined, false), "bezier");
+  assert.equal(canvasEdgeTypeFor("rf", undefined, false), "smoothstep");
+  assert.equal(canvasEdgeTypeFor("dc", "straight", false), "straight");
+  assert.equal(canvasEdgeTypeFor("optical-free-space", "orthogonal", false), "smoothstep");
+  assert.equal(canvasEdgeTypeFor("fiber", undefined, true), "waypoint");
+  assert.match(defaultRoutingLabel("fiber"), /fiber/);
+});
+
+test("the ring cavity loads as one closed chain of straight optical edges", () => {
+  const ring = setupTemplates.find((template) => template.id === "ring-cavity")!;
+  assert.equal(ring.connections.length, 6);
+  assert.ok(ring.connections.every((connection) =>
+    canvasEdgeTypeFor(connection.portType, connection.routing, Boolean(connection.waypoints?.length)) === "straight"));
+  const adjacency = new Map<string, number>();
+  for (const connection of ring.connections) {
+    adjacency.set(connection.from, (adjacency.get(connection.from) ?? 0) + 1);
+    adjacency.set(connection.to, (adjacency.get(connection.to) ?? 0) + 1);
+  }
+  for (const id of ["input", "m1", "sample", "m2"]) assert.ok((adjacency.get(id) ?? 0) >= 2, `${id} must remain in the cavity loop`);
+});
+
+test("legacy automatic routing migrates without changing manual bends", () => {
+  const migrated = migrateCanvasRouting([
+    { id: "fiber", type: "beam" as const, portType: "fiber" as const, routing: "straight" as const },
+    { id: "rf", type: "signal" as const, portType: "rf" as const, routing: "orthogonal" as const },
+    { id: "manual", type: "signal" as const, portType: "rf" as const, routing: "orthogonal" as const, waypoints: [{ x: 4, y: 8 }] },
+  ], 7);
+  assert.equal(migrated[0].routing, undefined);
+  assert.equal(migrated[1].routing, undefined);
+  assert.equal(migrated[2].routing, "orthogonal");
+});
 
 test("orthogonal routing detours around a component", () => {
   const path = routeOrthogonal(

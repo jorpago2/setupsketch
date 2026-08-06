@@ -1,4 +1,4 @@
-/* Hallmark · macrostructure: Split Studio · N9 knobs: cta=outlined, wordmark=sans, padding=tight · theme: custom · vibe: "layered technical calm" · axes: light / geometric-sans / chromatic-teal · pre-emit critique: P5 H5 E5 S5 R5 V5 · contrast: pass (40–41) · nav: N9 · footer: none (app) · slop: pass (42–49) · mobile: pass (34, 49, 50–57) · icons: pass (30) · studied: no · context: user-provided · v0.8.2 */
+/* Hallmark · macrostructure: Split Studio · N9 knobs: cta=outlined, wordmark=sans, padding=tight · theme: custom · vibe: "layered technical calm" · axes: light / geometric-sans / chromatic-teal · pre-emit critique: P5 H5 E4 S5 R5 V4 · contrast: pass (40–41) · nav: N9 · footer: none (app) · slop: pass (42–49) · mobile: pass (34, 49, 50–57) · icons: pass (30) · studied: no · context: user-provided · v0.9.0 */
 @import "../tokens.css";
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
@@ -569,6 +569,21 @@ summary:active,
 .react-flow {
   color: var(--color-ink);
   font-family: var(--font-body);
+}
+
+.react-flow__edge-path,
+.react-flow__connection-path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.react-flow__edge-interaction {
+  stroke-width: 20;
+}
+
+.react-flow__edge:focus-visible .react-flow__edge-path {
+  outline: none;
+  stroke: var(--color-focus);
 }
 
 .react-flow__node-scientific,

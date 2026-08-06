@@ -6,6 +6,8 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
   const assets = await readdir(new URL("../dist/assets/", import.meta.url));
   const editor = await readFile(new URL("../src/Editor.tsx", import.meta.url), "utf8");
+  const diagramCanvas = await readFile(new URL("../src/DiagramCanvas.tsx", import.meta.url), "utf8");
+  const canvasRouting = await readFile(new URL("../src/canvasRouting.ts", import.meta.url), "utf8");
   const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
   const catalog = await readFile(new URL("../src/componentCatalog.ts", import.meta.url), "utf8");
   const templates = await readFile(new URL("../src/templates.ts", import.meta.url), "utf8");
@@ -70,7 +72,12 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.doesNotMatch(editor, /↶|↷|toolbar-label-compact/);
   assert.match(editor, /nodes: modelFlowNodes\.filter\(\(node\) => node\.id !== "__paper__"\)/);
   assert.match(editor, /const \[notice, setNotice\] = useState\("Saved"\)/);
-  for (const feature of ['ReactFlow', 'ConnectionMode.Loose', 'NodeToolbar', 'EdgeToolbar', 'NodeResizer', 'MiniMap', 'ControlButton', 'onConnectStart', 'onMoveEnd', 'diagram-export', 'role="group"', 'className="property-section"', 'BOM CSV', 'Import BOM', 'Arrange overlaps']) assert.match(editor, new RegExp(feature));
+  for (const feature of ['NodeToolbar', 'EdgeToolbar', 'NodeResizer', 'MiniMap', 'ControlButton', 'onConnectStart', 'onMoveEnd', 'diagram-export', 'role="group"', 'className="property-section"', 'BOM CSV', 'Import BOM', 'Arrange overlaps']) assert.match(editor, new RegExp(feature));
+  for (const feature of ['ReactFlow', 'ConnectionMode.Loose', 'BaseEdge', 'gridVisible']) assert.match(diagramCanvas, new RegExp(feature));
+  assert.match(editor, /<DiagramCanvas<CanvasFlowNode, ScientificFlowEdge>/);
+  assert.match(editor, /connectionLineType=\{flowConnectionLineType\}/);
+  assert.doesNotMatch(editor, /ScientificFlowEdgeComponent|routeOrthogonal\(sourceStub/);
+  for (const edgeType of ['straight', 'bezier', 'smoothstep', 'waypoint']) assert.match(canvasRouting, new RegExp(`"${edgeType}"`));
   assert.match(editor, /viewport: savedViewport/);
   assert.match(editor, /isViewport\(diagram\.viewport\)/);
   assert.match(editor, /textnote: \{ width: 150, height: 70 \}/);

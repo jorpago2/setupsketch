@@ -10,9 +10,7 @@ import {
   useState,
 } from "react";
 import {
-  Background,
-  BaseEdge,
-  ConnectionMode,
+  ConnectionLineType,
   ControlButton,
   Controls,
   EdgeToolbar,
@@ -22,12 +20,9 @@ import {
   NodeResizer,
   NodeToolbar,
   Position,
-  ReactFlow,
-  useEdgesState,
   useNodesState,
   type Connection as ReactFlowConnection,
   type Edge as ReactFlowEdge,
-  type EdgeProps,
   type Node as ReactFlowNode,
   type NodeChange,
   type NodeMouseHandler,
@@ -40,6 +35,7 @@ import {
   type ReactFlowInstance,
   type Viewport,
 } from "@xyflow/react";
+import { canvasEdgeTypeFor, defaultRoutingLabel, migrateCanvasRouting } from "./canvasRouting";
 import {
   annotationKinds,
   componentByKind,
@@ -58,6 +54,7 @@ import {
   type PortType,
 } from "./componentCatalog";
 import { arrangeOverlaps, calculateBudgets, findOpenPosition, moveElements, parseCsv, routeOrthogonal, validateSetup } from "./editorModel";
+import { DiagramCanvas, WaypointEdgeComponent } from "./DiagramCanvas";
 import { setupTemplates } from "./templates";
 
 type LayerVisibility = {
@@ -169,7 +166,7 @@ type SavedModule = {
 
 const WIDTH = 1200;
 const HEIGHT = 700;
-const DIAGRAM_VERSION = 7;
+const DIAGRAM_VERSION = 8;
 const STORAGE_KEY = "setupsketch-diagram-v1";
 const FAVORITES_KEY = "setupsketch-favorites-v1";
 const MODULES_KEY = "setupsketch-modules-v1";
@@ -642,7 +639,7 @@ type PaperNodeData = {
 type ScientificFlowNode = ReactFlowNode<ScientificNodeData, "scientific">;
 type PaperFlowNode = ReactFlowNode<PaperNodeData, "paper">;
 type CanvasFlowNode = ScientificFlowNode | PaperFlowNode;
-type ScientificEdgeData = { connection: Connection; elements: DiagramElement[] };
+type ScientificEdgeData = { connection: Connection; waypoints?: Point[] };
 type ScientificFlowEdge = ReactFlowEdge<ScientificEdgeData>;
 
 const scientificNodeSize = (element: DiagramElement) => {
@@ -719,35 +716,8 @@ const PaperFlowNodeComponent = memo(function PaperFlowNodeComponent({ data }: No
   );
 });
 
-const portDirection = (position: Position) => position === Position.Left ? { x: -1, y: 0 }
-  : position === Position.Right ? { x: 1, y: 0 }
-    : position === Position.Top ? { x: 0, y: -1 }
-      : { x: 0, y: 1 };
-
-const edgePath = (points: Point[]) => `M ${points.filter((point, index) => !index || point.x !== points[index - 1].x || point.y !== points[index - 1].y).map((point) => `${point.x} ${point.y}`).join(" L ")}`;
-
-const ScientificFlowEdgeComponent = memo(function ScientificFlowEdgeComponent({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, data, markerEnd, style }: EdgeProps<ScientificFlowEdge>) {
-  const connection = data?.connection;
-  const source = { x: sourceX, y: sourceY };
-  const target = { x: targetX, y: targetY };
-  if (connection?.type === "beam") return <BaseEdge path={edgePath([source, ...(connection.waypoints ?? []), target])} markerEnd={markerEnd} style={style} interactionWidth={18} />;
-  const sourceDirection = portDirection(sourcePosition);
-  const targetDirection = portDirection(targetPosition);
-  const sourceStub = { x: source.x + sourceDirection.x * 24, y: source.y + sourceDirection.y * 24 };
-  const targetStub = { x: target.x + targetDirection.x * 24, y: target.y + targetDirection.y * 24 };
-  let middle: Point[];
-  if (connection?.waypoints?.length) {
-    const anchors = [sourceStub, ...connection.waypoints, targetStub];
-    middle = anchors.slice(1).flatMap((point, index) => [{ x: point.x, y: anchors[index].y }, point]);
-  } else {
-    middle = routeOrthogonal(sourceStub, targetStub, data?.elements ?? [], []);
-  }
-  const path = edgePath([source, sourceStub, ...middle, targetStub, target]);
-  return <BaseEdge path={path} markerEnd={markerEnd} style={style} interactionWidth={18} />;
-});
-
 const flowNodeTypes = { scientific: ScientificFlowNodeComponent, paper: PaperFlowNodeComponent } satisfies NodeTypes;
-const flowEdgeTypes = { scientific: ScientificFlowEdgeComponent };
+const flowEdgeTypes = { waypoint: WaypointEdgeComponent };
 
 export default function Home() {
   const [elements, setElements] = useState<DiagramElement[]>([]);
@@ -852,14 +822,18 @@ export default function Home() {
     const from = elements.find((element) => element.id === connection.from);
     const to = elements.find((element) => element.id === connection.to);
     const domain = getConnectionDomain(connection, from);
+    const edgeType = canvasEdgeTypeFor(domain, connection.routing, Boolean(connection.waypoints?.length));
     return {
       id: connection.id,
-      type: type === "beam" && !connection.waypoints?.length ? "straight" : "scientific",
+      type: edgeType,
       source: connection.from,
       target: connection.to,
       sourceHandle: connection.fromPort,
       targetHandle: connection.toPort,
-      data: { connection: { ...connection, type }, elements },
+      data: { connection: { ...connection, type }, waypoints: connection.waypoints },
+      pathOptions: edgeType === "smoothstep"
+        ? { offset: 28, borderRadius: 8 }
+        : edgeType === "bezier" ? { curvature: 0.22 } : undefined,
       selected: selectedConnectionId === connection.id,
       hidden: !layers[type === "beam" ? "beams" : "signals"],
       markerEnd: type === "signal" ? { type: MarkerType.ArrowClosed, color } : undefined,
@@ -869,10 +843,12 @@ export default function Home() {
     };
   }), [connections, elements, layers, publication.monochrome, selectedConnectionId]);
   const [flowNodes, setFlowNodes, onFlowNodesChange] = useNodesState<CanvasFlowNode>(modelFlowNodes);
-  const [flowEdges, setFlowEdges, onFlowEdgesChange] = useEdgesState<ScientificFlowEdge>(modelFlowEdges);
   const flowNodeExtent = useMemo(() => [[0, 0], [dimensions.width, dimensions.height]] as [[number, number], [number, number]], [dimensions]);
   const flowTranslateExtent = useMemo(() => [[-160, -160], [dimensions.width + 160, dimensions.height + 160]] as [[number, number], [number, number]], [dimensions]);
   const flowConnectionLineStyle = useMemo(() => ({ stroke: portTypeColors[connectionDomain], strokeWidth: 3 }), [connectionDomain]);
+  const flowConnectionLineType = connectionDomain === "optical-free-space"
+    ? ConnectionLineType.Straight
+    : connectionDomain === "fiber" ? ConnectionLineType.Bezier : ConnectionLineType.SmoothStep;
   const flowFitViewOptions = narrowWorkspace
     ? { ...FLOW_FIT_VIEW_OPTIONS, nodes: modelFlowNodes.filter((node) => node.id !== "__paper__"), maxZoom: 1 }
     : FLOW_FIT_VIEW_OPTIONS;
@@ -920,7 +896,6 @@ export default function Home() {
   }, [selectedIds]);
 
   useEffect(() => setFlowNodes(modelFlowNodes), [modelFlowNodes, setFlowNodes]);
-  useEffect(() => setFlowEdges(modelFlowEdges), [modelFlowEdges, setFlowEdges]);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 59.999rem)");
@@ -962,7 +937,7 @@ export default function Home() {
               : element.id === "detector" && element.rotation === 0 ? { ...element, rotation: 90 } : element);
           }
           setElements(storedElements);
-          setConnections(parsed.connections);
+          setConnections(migrateCanvasRouting(parsed.connections, parsed.version ?? 0));
           if (parsed.publication) setPublication({ ...defaultPublication, ...parsed.publication });
           if (parsed.experiment) setExperiment(parsed.experiment);
           if (parsed.viewport) restoreFlowViewport(parsed.viewport);
@@ -1161,7 +1136,6 @@ export default function Home() {
       portType: sourceType,
       fromPort: candidate.sourceHandle,
       toPort: candidate.targetHandle,
-      routing: type === "beam" ? "straight" : "orthogonal",
     };
   }, [connections, elements]);
 
@@ -1631,7 +1605,7 @@ export default function Home() {
       setPast((items) => [...items, cloneSnapshot(elements, connections, publication, experiment)]);
       setTitle(parsed.title || "Untitled setup");
       setElements(parsed.elements);
-      setConnections(parsed.connections);
+      setConnections(migrateCanvasRouting(parsed.connections, parsed.version ?? 0));
       setPublication(parsed.publication ? { ...defaultPublication, ...parsed.publication } : defaultPublication);
       setExperiment(parsed.experiment ?? defaultExperiment);
       restoreFlowViewport(parsed.viewport ?? DEFAULT_VIEWPORT);
@@ -1676,7 +1650,7 @@ export default function Home() {
         type: connectionType,
         portType: domain,
         color: portTypeColors[domain],
-        routing: connection.routing ?? (connectionType === "beam" ? "straight" : "orthogonal"),
+        routing: connection.routing,
         fromPort: connection.fromPort,
         toPort: connection.toPort,
         waypoints: connection.waypoints,
@@ -1758,7 +1732,6 @@ export default function Home() {
     const middle = points[Math.floor(points.length / 2)];
     commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? {
       ...connection,
-      routing: "orthogonal",
       waypoints: [...(connection.waypoints ?? []), { ...middle }],
     } : connection));
   };
@@ -1778,7 +1751,7 @@ export default function Home() {
       portType: domain,
       type: connectionType,
       color: portTypeColors[domain],
-      routing: connectionType === "beam" ? "straight" : "orthogonal",
+      routing: undefined,
       fromPort: pair.source.id,
       toPort: pair.target.id,
       waypoints: undefined,
@@ -1934,13 +1907,12 @@ export default function Home() {
           <div className="stage">
             {elements.length === 0 && <div className="stage-empty"><strong>Start with a component</strong><p>Add one from the library or load a template from the toolbar.</p></div>}
             <div className="diagram-flow" role="group" aria-label={`${title}, editable scientific setup diagram`}>
-              <ReactFlow<CanvasFlowNode, ScientificFlowEdge>
+              <DiagramCanvas<CanvasFlowNode, ScientificFlowEdge>
                 nodes={flowNodes}
-                edges={flowEdges}
+                edges={modelFlowEdges}
                 nodeTypes={flowNodeTypes}
                 edgeTypes={flowEdgeTypes}
                 onNodesChange={changeFlowNodes}
-                onEdgesChange={onFlowEdgesChange}
                 onSelectionChange={changeFlowSelection}
                 onNodeClick={handleFlowNodeClick}
                 onEdgeClick={handleFlowEdgeClick}
@@ -1952,23 +1924,20 @@ export default function Home() {
                 onConnectEnd={finishFlowConnection}
                 onReconnect={reconnectFlowEdge}
                 isValidConnection={isValidFlowConnection}
-                connectionMode={ConnectionMode.Loose}
+                connectionLineType={flowConnectionLineType}
                 connectionLineStyle={flowConnectionLineStyle}
                 nodeExtent={flowNodeExtent}
                 translateExtent={flowTranslateExtent}
                 snapToGrid={snapEnabled}
                 snapGrid={FLOW_SNAP_GRID}
                 nodesDraggable={!connectMode}
-                deleteKeyCode={null}
-                minZoom={0.25}
-                maxZoom={2.5}
                 fitView
                 fitViewOptions={flowFitViewOptions}
                 onInit={initializeFlow}
                 onMoveEnd={(_, viewport) => rememberFlowViewport(viewport)}
                 attributionPosition="bottom-left"
+                gridVisible={layers.grid}
               >
-                <Background gap={20} size={1} color="var(--color-rule)" />
                 {selectedIds.length > 0 && <NodeToolbar nodeId={selectedIds} isVisible={workspacePanel === "canvas"} className="context-toolbar" position={Position.Top}>
                   <button title="Edit properties" aria-label="Edit properties" onClick={() => setWorkspacePanel("inspector")}><UiIcon name="properties" /><span>Properties</span></button>
                   <button title="Duplicate selection" aria-label="Duplicate selection" onClick={duplicateSelected}><UiIcon name="copy" /><span>Duplicate</span></button>
@@ -1994,7 +1963,7 @@ export default function Home() {
                   maskColor="var(--color-shadow)"
                   maskStrokeColor="var(--color-accent)"
                 />}
-              </ReactFlow>
+              </DiagramCanvas>
             </div>
             <svg
               ref={svgRef}
@@ -2154,7 +2123,8 @@ export default function Home() {
                 <label>Path loss (dB)<input type="number" min="0" step="0.1" value={selectedConnection.lossDb ?? ""} onChange={(event) => updateSelectedConnection({ lossDb: optionalNumber(event.target.value) })} /></label>
                 <label>Bandwidth (Hz)<input type="number" min="0" step="any" value={selectedConnection.bandwidthHz ?? ""} onChange={(event) => updateSelectedConnection({ bandwidthHz: optionalNumber(event.target.value) })} /></label>
               </div>
-              <label>Routing<select value={selectedConnection.routing ?? (getConnectionType(selectedConnection) === "signal" ? "orthogonal" : "straight")} onChange={(event) => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, routing: event.target.value as Routing, waypoints: undefined } : connection))}>
+              <label>Routing<select value={selectedConnection.routing ?? "auto"} onChange={(event) => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, routing: event.target.value === "auto" ? undefined : event.target.value as Routing, waypoints: undefined } : connection))}>
+                <option value="auto">Automatic · {defaultRoutingLabel(getConnectionDomain(selectedConnection, elements.find((element) => element.id === selectedConnection.from)))}</option>
                 <option value="straight">Straight</option><option value="orthogonal">Orthogonal</option>
               </select></label>
               <button onClick={addConnectionBend}>Add bend</button>
