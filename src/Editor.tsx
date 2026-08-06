@@ -13,9 +13,14 @@ import {
   Background,
   BaseEdge,
   ConnectionMode,
+  ControlButton,
   Controls,
+  EdgeToolbar,
   Handle,
   MarkerType,
+  MiniMap,
+  NodeResizer,
+  NodeToolbar,
   Position,
   ReactFlow,
   useEdgesState,
@@ -28,8 +33,12 @@ import {
   type NodeMouseHandler,
   type NodeProps,
   type NodeTypes,
+  type OnConnectEnd,
+  type OnConnectStart,
   type OnNodeDrag,
   type OnSelectionChangeFunc,
+  type ReactFlowInstance,
+  type Viewport,
 } from "@xyflow/react";
 import {
   annotationKinds,
@@ -74,6 +83,12 @@ const uiIconPaths = {
   components: "M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z",
   properties: "M4 7h10m4 0h2m-6-3v6M4 17h2m4 0h10M6 14v6",
   delete: "M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13m-7 4v5m4-5v5",
+  copy: "M8 8h11v11H8zM5 16H4V4h12v1",
+  lock: "M7 10V7a5 5 0 0 1 10 0v3m-9 0h8a2 2 0 0 1 2 2v7H6v-7a2 2 0 0 1 2-2z",
+  unlock: "M7 10V7a5 5 0 0 1 9.5-2M8 10h8a2 2 0 0 1 2 2v7H6v-7a2 2 0 0 1 2-2z",
+  fit: "M9 4H4v5m11-5h5v5M9 20H4v-5m11 5h5v-5",
+  map: "m4 6 5-2 6 2 5-2v14l-5 2-6-2-5 2zM9 4v14m6-12v14",
+  bend: "M4 5h6v10h10M7 2v6M17 12v6",
 } as const;
 
 function UiIcon({ name }: { name: keyof typeof uiIconPaths }) {
@@ -154,13 +169,23 @@ type SavedModule = {
 
 const WIDTH = 1200;
 const HEIGHT = 700;
-const DIAGRAM_VERSION = 6;
+const DIAGRAM_VERSION = 7;
 const STORAGE_KEY = "setupsketch-diagram-v1";
 const FAVORITES_KEY = "setupsketch-favorites-v1";
 const MODULES_KEY = "setupsketch-modules-v1";
 const GRID_STEP = 20;
 const FLOW_SNAP_GRID: [number, number] = [GRID_STEP, GRID_STEP];
 const FLOW_FIT_VIEW_OPTIONS = { padding: 0.08 };
+const DEFAULT_VIEWPORT: Viewport = { x: 0, y: 0, zoom: 1 };
+const resizableAnnotationKinds = new Set<ElementKind>(["textnote", "equation", "region", "legend"]);
+const annotationDefaultSizes: Partial<Record<ElementKind, { width: number; height: number }>> = {
+  textnote: { width: 150, height: 70 },
+  equation: { width: 180, height: 60 },
+  region: { width: 220, height: 150 },
+  dimension: { width: 180, height: 60 },
+  brace: { width: 180, height: 60 },
+  legend: { width: 180, height: 100 },
+};
 
 const pagePresets: Record<PagePreset, { label: string; width: number; height: number }> = {
   canvas: { label: "Canvas 12:7", width: WIDTH, height: HEIGHT },
@@ -250,6 +275,14 @@ type DiagramFile = {
   connections: Connection[];
   publication?: PublicationSettings;
   experiment?: ExperimentRecord;
+  viewport?: Viewport;
+};
+
+const isViewport = (value: unknown): value is Viewport => {
+  if (!value || typeof value !== "object") return false;
+  const viewport = value as Record<string, unknown>;
+  return ["x", "y", "zoom"].every((key) => typeof viewport[key] === "number" && Number.isFinite(viewport[key])) &&
+    (viewport.zoom as number) >= 0.25 && (viewport.zoom as number) <= 2.5;
 };
 
 const isExperimentRecord = (value: unknown): value is ExperimentRecord => {
@@ -278,6 +311,7 @@ const isDiagramFile = (value: unknown): value is DiagramFile => {
   if (diagram.title !== undefined && typeof diagram.title !== "string") return false;
   if (diagram.publication !== undefined && !isPublicationSettings(diagram.publication)) return false;
   if (diagram.experiment !== undefined && !isExperimentRecord(diagram.experiment)) return false;
+  if (diagram.viewport !== undefined && !isViewport(diagram.viewport)) return false;
   if (!Array.isArray(diagram.elements) || !Array.isArray(diagram.connections)) return false;
   const ids = new Set<string>();
   for (const candidate of diagram.elements) {
@@ -486,8 +520,13 @@ function ComponentShape({ element, monochrome = false }: { element: DiagramEleme
       return <><path d={`M${-(element.width ?? 180) / 2} 0H${(element.width ?? 180) / 2}M${-(element.width ?? 180) / 2} -12V12M${(element.width ?? 180) / 2} -12V12`} fill="none" stroke={element.color} strokeWidth="2" /><path d={`M${-(element.width ?? 180) / 2} 0l12 -6v12zM${(element.width ?? 180) / 2} 0l-12 -6v12z`} fill={element.color} /><text y="-10" textAnchor="middle" fill={element.color} fontSize="14" fontFamily="Arial, sans-serif">{element.label}</text></>;
     case "brace":
       return <><path d={`M${-(element.width ?? 180) / 2} 0C${-(element.width ?? 180) / 4} 0 ${-(element.width ?? 180) / 4} -18 0 -18C${(element.width ?? 180) / 4} -18 ${(element.width ?? 180) / 4} 0 ${(element.width ?? 180) / 2} 0`} fill="none" stroke={element.color} strokeWidth="3" /><text y="-29" textAnchor="middle" fill={element.color} fontSize="14" fontFamily="Arial, sans-serif">{element.label}</text></>;
-    case "legend":
-      return <><rect x="-90" y="-50" width="180" height="100" rx="5" fill="#fff" stroke={element.color} strokeWidth="2" /><text x="-74" y="-27" fill={element.color} fontSize="14" fontWeight="700" fontFamily="Arial, sans-serif">{element.label}</text><path d="M-72 -5H-22" stroke={monochrome ? element.color : portTypeColors["optical-free-space"]} strokeWidth="4" /><text x="-10" y="0" fill={element.color} fontSize="12" fontFamily="Arial, sans-serif">Optical beam</text><path d="M-72 25H-22" stroke={element.color} strokeWidth="3" strokeDasharray="7 4" /><text x="-10" y="30" fill={element.color} fontSize="12" fontFamily="Arial, sans-serif">Signal path</text></>;
+    case "legend": {
+      const width = element.width ?? 180;
+      const height = element.height ?? 100;
+      const left = -width / 2;
+      const top = -height / 2;
+      return <><rect x={left} y={top} width={width} height={height} rx="5" fill="#fff" stroke={element.color} strokeWidth="2" /><text x={left + 16} y={top + 23} fill={element.color} fontSize="14" fontWeight="700" fontFamily="Arial, sans-serif">{element.label}</text><path d={`M${left + 18} ${top + 45}h50`} stroke={monochrome ? element.color : portTypeColors["optical-free-space"]} strokeWidth="4" /><text x={left + 80} y={top + 50} fill={element.color} fontSize="12" fontFamily="Arial, sans-serif">Optical beam</text><path d={`M${left + 18} ${top + 75}h50`} stroke={element.color} strokeWidth="3" strokeDasharray="7 4" /><text x={left + 80} y={top + 80} fill={element.color} fontSize="12" fontFamily="Arial, sans-serif">Signal path</text></>;
+    }
     case "source":
       return <><circle r="36" {...common} /><path d="M-24 0C-18 -22 -10 -22 -4 0S10 22 16 0S25 -22 29 0" fill="none" stroke={element.color} strokeWidth="4" /></>;
     case "oscilloscope":
@@ -606,10 +645,14 @@ type CanvasFlowNode = ScientificFlowNode | PaperFlowNode;
 type ScientificEdgeData = { connection: Connection; elements: DiagramElement[] };
 type ScientificFlowEdge = ReactFlowEdge<ScientificEdgeData>;
 
-const scientificNodeSize = (element: DiagramElement) => ({
-  width: Math.max(128, (element.width ?? 120) * (element.scale ?? 1) + 8),
-  height: Math.max(132, (element.height ?? 100) * (element.scale ?? 1) + 28),
-});
+const scientificNodeSize = (element: DiagramElement) => {
+  const defaultSize = annotationDefaultSizes[element.kind] ?? { width: 120, height: 100 };
+  const annotation = annotationKinds.has(element.kind);
+  return {
+    width: Math.max(annotation ? 48 : 128, (element.width ?? defaultSize.width) * (element.scale ?? 1) + 8),
+    height: Math.max(annotation ? 58 : 132, (element.height ?? defaultSize.height) * (element.scale ?? 1) + 28),
+  };
+};
 
 const handlePositionFor = (element: DiagramElement, port: ReturnType<typeof portsFor>[number]) => {
   const dx = port.x - element.x;
@@ -619,12 +662,29 @@ const handlePositionFor = (element: DiagramElement, port: ReturnType<typeof port
     : dy < 0 ? Position.Top : Position.Bottom;
 };
 
-const ScientificFlowNodeComponent = memo(function ScientificFlowNodeComponent({ data, selected }: NodeProps<ScientificFlowNode>) {
+const ScientificFlowNodeComponent = memo(function ScientificFlowNodeComponent({ data, selected, width: liveWidth, height: liveHeight }: NodeProps<ScientificFlowNode>) {
   const { element } = data;
-  const { width, height } = scientificNodeSize(element);
-  const renderedElement = data.monochrome ? { ...element, color: "#20242a" } : element;
+  const modelSize = scientificNodeSize(element);
+  const width = liveWidth ?? modelSize.width;
+  const height = liveHeight ?? modelSize.height;
+  const scale = element.scale ?? 1;
+  const liveElement = resizableAnnotationKinds.has(element.kind) ? {
+    ...element,
+    width: Math.max(40, Math.min(600, (width - 8) / scale)),
+    height: Math.max(30, Math.min(500, (height - 28) / scale)),
+  } : element;
+  const renderedElement = data.monochrome ? { ...liveElement, color: "#20242a" } : liveElement;
   return (
     <div className={`scientific-flow-node${selected ? " is-selected" : ""}${element.locked ? " is-locked" : ""}`} style={{ width, height }}>
+      <NodeResizer
+        isVisible={selected && resizableAnnotationKinds.has(element.kind)}
+        minWidth={48}
+        minHeight={58}
+        maxWidth={608}
+        maxHeight={528}
+        lineClassName="annotation-resize-line"
+        handleClassName="annotation-resize-handle"
+      />
       <svg viewBox={`${-width / 2} ${-height / 2} ${width} ${height}`} aria-hidden="true">
         <g transform={`rotate(${element.rotation})`}>
           <g transform={`scale(${(element.scale ?? 1) * (element.flipX ? -1 : 1)} ${(element.scale ?? 1) * (element.flipY ? -1 : 1)})`}>
@@ -720,6 +780,9 @@ export default function Home() {
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>(() => componentGroups.map((group) => group.title));
   const [savedModules, setSavedModules] = useState<SavedModule[]>([]);
   const [checklistDraft, setChecklistDraft] = useState("");
+  const [showMiniMap, setShowMiniMap] = useState(false);
+  const [savedViewport, setSavedViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
+  const [narrowWorkspace, setNarrowWorkspace] = useState(() => window.matchMedia("(max-width: 59.999rem)").matches);
   const svgRef = useRef<SVGSVGElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bomRef = useRef<HTMLInputElement>(null);
@@ -728,11 +791,14 @@ export default function Home() {
   const skipInitialSave = useRef(true);
   const editBefore = useRef<Snapshot | null>(null);
   const flowDragBefore = useRef<Snapshot | null>(null);
+  const flowInstanceRef = useRef<ReactFlowInstance<CanvasFlowNode, ScientificFlowEdge> | null>(null);
+  const pendingViewportRef = useRef<Viewport | null>(null);
 
   const dimensions = pagePresets[publication.pagePreset];
   const selected = selectedIds.length === 1 ? elements.find((element) => element.id === selectedIds[0]) ?? null : null;
   const selectedConnection = connections.find((connection) => connection.id === selectedConnectionId) ?? null;
   const selection = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const allSelectedLocked = selectedIds.length > 0 && elements.filter((element) => selection.has(element.id)).every((element) => element.locked);
   const validationIssues = validateSetup(
     elements,
     connections,
@@ -807,8 +873,7 @@ export default function Home() {
   const flowNodeExtent = useMemo(() => [[0, 0], [dimensions.width, dimensions.height]] as [[number, number], [number, number]], [dimensions]);
   const flowTranslateExtent = useMemo(() => [[-160, -160], [dimensions.width + 160, dimensions.height + 160]] as [[number, number], [number, number]], [dimensions]);
   const flowConnectionLineStyle = useMemo(() => ({ stroke: portTypeColors[connectionDomain], strokeWidth: 3 }), [connectionDomain]);
-  const isNarrowWorkspace = () => window.matchMedia("(max-width: 59.999rem)").matches;
-  const flowFitViewOptions = isNarrowWorkspace()
+  const flowFitViewOptions = narrowWorkspace
     ? { ...FLOW_FIT_VIEW_OPTIONS, nodes: modelFlowNodes.filter((node) => node.id !== "__paper__"), maxZoom: 1 }
     : FLOW_FIT_VIEW_OPTIONS;
   const toggleWorkspacePanel = (panel: "library" | "inspector") => {
@@ -820,8 +885,49 @@ export default function Home() {
     setWorkspacePanel("canvas");
   };
 
+  const restoreFlowViewport = useCallback((viewport: Viewport) => {
+    setSavedViewport(viewport);
+    pendingViewportRef.current = viewport;
+    requestAnimationFrame(() => {
+      if (!flowInstanceRef.current) return;
+      void flowInstanceRef.current.setViewport(viewport);
+      pendingViewportRef.current = null;
+    });
+  }, []);
+
+  const initializeFlow = useCallback((instance: ReactFlowInstance<CanvasFlowNode, ScientificFlowEdge>) => {
+    flowInstanceRef.current = instance;
+    const viewport = pendingViewportRef.current;
+    if (!viewport) return;
+    requestAnimationFrame(() => {
+      void instance.setViewport(viewport);
+      pendingViewportRef.current = null;
+    });
+  }, []);
+
+  const rememberFlowViewport = useCallback((viewport: Viewport) => {
+    setSavedViewport((current) => current.x === viewport.x && current.y === viewport.y && current.zoom === viewport.zoom ? current : viewport);
+  }, []);
+
+  const fitCanvas = useCallback(() => {
+    const instance = flowInstanceRef.current;
+    if (!instance) return;
+    const visibleNodes = instance.getNodes().filter((node) => !node.hidden && node.id !== "__paper__");
+    const selectedNodes = selectedIds.length ? visibleNodes.filter((node) => selectedIds.includes(node.id)) : [];
+    const nodes = selectedNodes.length ? selectedNodes : visibleNodes.length ? visibleNodes : instance.getNodes().filter((node) => node.id === "__paper__");
+    void instance.fitView({ nodes, padding: selectedNodes.length ? 0.2 : 0.08, maxZoom: selectedNodes.length ? 1.5 : 1 });
+    setNotice(selectedNodes.length ? "Selection fitted" : "Diagram fitted");
+  }, [selectedIds]);
+
   useEffect(() => setFlowNodes(modelFlowNodes), [modelFlowNodes, setFlowNodes]);
   useEffect(() => setFlowEdges(modelFlowEdges), [modelFlowEdges, setFlowEdges]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 59.999rem)");
+    const update = () => setNarrowWorkspace(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     const closeMenus = () => toolbarRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((menu) => { menu.open = false; });
@@ -859,6 +965,7 @@ export default function Home() {
           setConnections(parsed.connections);
           if (parsed.publication) setPublication({ ...defaultPublication, ...parsed.publication });
           if (parsed.experiment) setExperiment(parsed.experiment);
+          if (parsed.viewport) restoreFlowViewport(parsed.viewport);
         }
       } catch {
         setNotice("Local draft could not be read");
@@ -885,8 +992,8 @@ export default function Home() {
       return;
     }
     if (!hydrated.current) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: DIAGRAM_VERSION, title, elements, connections, publication, experiment }));
-  }, [title, elements, connections, publication, experiment]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: DIAGRAM_VERSION, title, elements, connections, publication, experiment, viewport: savedViewport }));
+  }, [title, elements, connections, publication, experiment, savedViewport]);
 
   useEffect(() => {
     localStorage.setItem(FAVORITES_KEY, JSON.stringify(favoriteKinds));
@@ -970,7 +1077,7 @@ export default function Home() {
     setSelectedIds([element.id]);
     setSelectedConnectionId(null);
     setRecentKinds((items) => [kind, ...items.filter((item) => item !== kind)].slice(0, 6));
-    if (isNarrowWorkspace()) setWorkspacePanel("canvas");
+    if (narrowWorkspace) setWorkspacePanel("canvas");
   };
 
   const arrangeDiagram = () => {
@@ -1070,9 +1177,21 @@ export default function Home() {
     setNotice("Connection added");
   }, [commit, connectionFromFlow, connections, elements]);
 
+  const beginFlowConnection = useCallback<OnConnectStart>((_, { nodeId, handleId }) => {
+    const element = elements.find((candidate) => candidate.id === nodeId);
+    if (!element || !handleId) return;
+    const domain = portTypeFor(element.kind, handleId);
+    setConnectionDomain(domain);
+    setNotice(`Connect to an unused ${portTypeLabels[domain]} port`);
+  }, [elements]);
+
+  const finishFlowConnection = useCallback<OnConnectEnd>((_, state) => {
+    if (!state.isValid) setNotice("No connection added: choose a compatible unused port");
+  }, []);
+
   const selectFlowNode = useCallback((id: string) => {
     if (!connectMode) {
-      if (isNarrowWorkspace()) setWorkspacePanel("inspector");
+      if (narrowWorkspace) setWorkspacePanel("inspector");
       return;
     }
     if (!connectFrom) {
@@ -1089,7 +1208,7 @@ export default function Home() {
     }
     const pair = closestPortPair(from, to, connectionDomain);
     addFlowConnection({ source: from.id, target: to.id, sourceHandle: pair.source.id, targetHandle: pair.target.id });
-  }, [addFlowConnection, connectFrom, connectMode, connectionDomain, elements]);
+  }, [addFlowConnection, connectFrom, connectMode, connectionDomain, elements, narrowWorkspace]);
 
   const changeFlowSelection = useCallback<OnSelectionChangeFunc<CanvasFlowNode, ScientificFlowEdge>>(({ nodes, edges }) => {
     const nextIds = [...new Set(nodes.flatMap((node) => {
@@ -1146,6 +1265,26 @@ export default function Home() {
     onFlowNodesChange(changes);
     if (flowDragBefore.current) return;
     const positions = new Map(changes.flatMap((change) => change.type === "position" && change.position ? [[change.id, change.position] as const] : []));
+    const activeResize = changes.some((change) => change.type === "dimensions" && change.resizing === true);
+    if (activeResize) return;
+    const resize = changes.find((change) => change.type === "dimensions" && change.resizing === false && change.dimensions);
+    if (resize?.type === "dimensions" && resize.dimensions) {
+      const resizedDimensions = resize.dimensions;
+      commit(elements.map((element) => {
+        if (element.id !== resize.id || !resizableAnnotationKinds.has(element.kind)) return element;
+        const scale = element.scale ?? 1;
+        const oldSize = scientificNodeSize(element);
+        const position = positions.get(element.id) ?? { x: element.x - oldSize.width / 2, y: element.y - oldSize.height / 2 };
+        return {
+          ...element,
+          width: Math.max(40, Math.min(600, (resizedDimensions.width - 8) / scale)),
+          height: Math.max(30, Math.min(500, (resizedDimensions.height - 28) / scale)),
+          x: Math.max(resizedDimensions.width / 2, Math.min(dimensions.width - resizedDimensions.width / 2, position.x + resizedDimensions.width / 2)),
+          y: Math.max(resizedDimensions.height / 2, Math.min(dimensions.height - resizedDimensions.height / 2, position.y + resizedDimensions.height / 2)),
+        };
+      }));
+      return;
+    }
     if (!positions.size) return;
     commit(elements.map((element) => {
       const position = positions.get(element.id);
@@ -1410,7 +1549,7 @@ export default function Home() {
   };
 
   const saveJson = () => download(
-    new Blob([JSON.stringify({ version: DIAGRAM_VERSION, title, elements, connections, publication, experiment }, null, 2)], { type: "application/json" }),
+    new Blob([JSON.stringify({ version: DIAGRAM_VERSION, title, elements, connections, publication, experiment, viewport: savedViewport }, null, 2)], { type: "application/json" }),
     `${safeFilename(title)}.json`,
   );
 
@@ -1495,6 +1634,7 @@ export default function Home() {
       setConnections(parsed.connections);
       setPublication(parsed.publication ? { ...defaultPublication, ...parsed.publication } : defaultPublication);
       setExperiment(parsed.experiment ?? defaultExperiment);
+      restoreFlowViewport(parsed.viewport ?? DEFAULT_VIEWPORT);
       setFuture([]);
       setSelectedIds([]);
       setNotice("Diagram loaded");
@@ -1593,7 +1733,7 @@ export default function Home() {
     commit([...elements, ...nextElements], [...connections, ...nextConnections]);
     setSelectedIds(nextElements.map((element) => element.id));
     setNotice("Reusable module inserted");
-    if (isNarrowWorkspace()) setWorkspacePanel("canvas");
+    if (narrowWorkspace) setWorkspacePanel("canvas");
   };
 
   const toggleFavorite = (kind: ElementKind) => setFavoriteKinds((items) =>
@@ -1644,6 +1784,15 @@ export default function Home() {
       waypoints: undefined,
     } : connection));
   };
+
+  const selectedConnectionToolbarPosition = (() => {
+    if (!selectedConnection) return null;
+    const from = elements.find((element) => element.id === selectedConnection.from);
+    const to = elements.find((element) => element.id === selectedConnection.to);
+    if (!from || !to) return null;
+    const points = connectionPath(selectedConnection, from, to, elements);
+    return points[Math.floor(points.length / 2)];
+  })();
 
   const renderExportActions = () => <>
     <button onClick={exportSvg}>SVG</button>
@@ -1723,7 +1872,7 @@ export default function Home() {
           <button id="library-toggle" className={workspacePanel === "library" ? "active" : ""} aria-controls="component-library" aria-expanded={workspacePanel === "library"} onClick={() => toggleWorkspacePanel("library")}><UiIcon name="components" />Components</button>
           <button id="inspector-toggle" className={workspacePanel === "inspector" ? "active" : ""} aria-controls="property-inspector" aria-expanded={workspacePanel === "inspector"} onClick={() => toggleWorkspacePanel("inspector")}><UiIcon name="properties" />Properties</button>
         </nav>
-        <aside id="component-library" className="library min-h-0 min-w-0 overflow-y-auto bg-ui-surface p-4" aria-label="Component library" aria-hidden={workspacePanel !== "library"}>
+        <aside id="component-library" className="library @container/sidebar min-h-0 min-w-0 overflow-y-auto bg-ui-surface p-4" aria-label="Component library" aria-hidden={workspacePanel !== "library"}>
           <div className="panel-heading">
             <span>Library</span>
             <span className="panel-heading-actions">
@@ -1799,6 +1948,8 @@ export default function Home() {
                 onNodeDragStart={beginFlowDrag}
                 onNodeDragStop={finishFlowDrag}
                 onConnect={addFlowConnection}
+                onConnectStart={beginFlowConnection}
+                onConnectEnd={finishFlowConnection}
                 onReconnect={reconnectFlowEdge}
                 isValidConnection={isValidFlowConnection}
                 connectionMode={ConnectionMode.Loose}
@@ -1813,10 +1964,36 @@ export default function Home() {
                 maxZoom={2.5}
                 fitView
                 fitViewOptions={flowFitViewOptions}
+                onInit={initializeFlow}
+                onMoveEnd={(_, viewport) => rememberFlowViewport(viewport)}
                 attributionPosition="bottom-left"
               >
                 <Background gap={20} size={1} color="var(--color-rule)" />
-                <Controls showInteractive={false} />
+                {selectedIds.length > 0 && <NodeToolbar nodeId={selectedIds} isVisible={workspacePanel === "canvas"} className="context-toolbar" position={Position.Top}>
+                  <button title="Edit properties" aria-label="Edit properties" onClick={() => setWorkspacePanel("inspector")}><UiIcon name="properties" /><span>Properties</span></button>
+                  <button title="Duplicate selection" aria-label="Duplicate selection" onClick={duplicateSelected}><UiIcon name="copy" /><span>Duplicate</span></button>
+                  <button title={allSelectedLocked ? "Unlock selection" : "Lock selection"} aria-label={allSelectedLocked ? "Unlock selection" : "Lock selection"} onClick={() => changeSelected({ locked: !allSelectedLocked })}><UiIcon name={allSelectedLocked ? "unlock" : "lock"} /><span>{allSelectedLocked ? "Unlock" : "Lock"}</span></button>
+                  <button className="danger" title="Delete selection" aria-label="Delete selection" onClick={removeSelected}><UiIcon name="delete" /><span>Delete</span></button>
+                </NodeToolbar>}
+                {selectedConnection && selectedConnectionToolbarPosition && <EdgeToolbar edgeId={selectedConnection.id} x={selectedConnectionToolbarPosition.x} y={selectedConnectionToolbarPosition.y} isVisible={workspacePanel === "canvas"} className="context-toolbar">
+                  <button title="Add connection bend" aria-label="Add connection bend" onClick={addConnectionBend}><UiIcon name="bend" /><span>Add bend</span></button>
+                  <button className="danger" title="Delete connection" aria-label="Delete connection" onClick={removeSelected}><UiIcon name="delete" /><span>Delete</span></button>
+                </EdgeToolbar>}
+                <Controls showFitView={false} showInteractive={false} orientation={narrowWorkspace ? "horizontal" : "vertical"}>
+                  <ControlButton onClick={fitCanvas} title={selectedIds.length ? "Fit selection" : "Fit diagram"} aria-label={selectedIds.length ? "Fit selection" : "Fit diagram"}><UiIcon name="fit" /></ControlButton>
+                  <ControlButton onClick={() => setShowMiniMap((visible) => !visible)} title={showMiniMap ? "Hide overview" : "Show overview"} aria-label={showMiniMap ? "Hide overview" : "Show overview"} aria-pressed={showMiniMap}><UiIcon name="map" /></ControlButton>
+                </Controls>
+                {showMiniMap && <MiniMap<CanvasFlowNode>
+                  ariaLabel="Diagram overview"
+                  pannable
+                  zoomable
+                  nodeColor={(node) => node.type === "scientific" ? node.data.element.color : "var(--color-paper-3)"}
+                  nodeStrokeColor="var(--color-surface-raised)"
+                  nodeStrokeWidth={3}
+                  bgColor="var(--color-surface)"
+                  maskColor="var(--color-shadow)"
+                  maskStrokeColor="var(--color-accent)"
+                />}
               </ReactFlow>
             </div>
             <svg
@@ -1882,7 +2059,7 @@ export default function Home() {
           </div>
         </section>
 
-        <aside id="property-inspector" className="inspector min-h-0 min-w-0 overflow-y-auto bg-ui-surface p-4" aria-label="Properties" aria-hidden={workspacePanel !== "inspector"}>
+        <aside id="property-inspector" className="inspector @container/sidebar min-h-0 min-w-0 overflow-y-auto bg-ui-surface p-4" aria-label="Properties" aria-hidden={workspacePanel !== "inspector"}>
           <div className="panel-heading"><span>Properties</span><button className="panel-close" aria-label="Close properties" onClick={() => closeWorkspacePanel("inspector")}>×</button></div>
           {selected ? (
             <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
@@ -1894,8 +2071,8 @@ export default function Home() {
               <label>Rotation<input type="range" min="0" max="345" step="15" value={selected.rotation} onChange={(event) => updateSelected({ rotation: Number(event.target.value) })} /><output>{selected.rotation}°</output></label>
               <label>Scale<input type="range" min="0.5" max="2" step="0.1" value={selected.scale ?? 1} onChange={(event) => updateSelected({ scale: Number(event.target.value) })} /><output>{(selected.scale ?? 1).toFixed(1)}×</output></label>
               {annotationKinds.has(selected.kind) && <div className="property-row">
-                <label>Width<input type="number" min="40" max="600" value={selected.width ?? (selected.kind === "region" ? 220 : 180)} onChange={(event) => updateSelected({ width: Number(event.target.value) })} /></label>
-                <label>Height<input type="number" min="30" max="500" value={selected.height ?? (selected.kind === "region" ? 150 : 70)} onChange={(event) => updateSelected({ height: Number(event.target.value) })} /></label>
+                <label>Width<input type="number" min="40" max="600" value={selected.width ?? annotationDefaultSizes[selected.kind]?.width ?? 180} onChange={(event) => updateSelected({ width: Number(event.target.value) })} /></label>
+                <label>Height<input type="number" min="30" max="500" value={selected.height ?? annotationDefaultSizes[selected.kind]?.height ?? 70} onChange={(event) => updateSelected({ height: Number(event.target.value) })} /></label>
               </div>}
               <label>Color<input className="color-input" type="color" value={selected.color} onChange={(event) => updateSelected({ color: event.target.value })} /></label>
               <details className="property-section">

@@ -33,11 +33,17 @@ SetupSketch uses a modern-minimal, technical-austere system shared with the scie
 - Components and Properties are keyboard-accessible disclosure buttons with `aria-expanded` state. Repeating the active control, pressing Escape, or using the panel close button returns to the canvas.
 - Universal actions and destructive text buttons use the same 16 px outline icon language. Domain-specific operations and file formats remain text-first; icon-only controls always keep an accessible name and title.
 - React Flow viewer controls form one compact surface with square 44 px targets. Inspector disclosures use a tinted closed row, chevron, and stronger open state so their hierarchy does not depend on whitespace alone.
+- Canvas controls are horizontal below 60 rem and vertical above it. One adaptive framing action fits the selection when present and the complete diagram otherwise; the overview map is opt-in.
+- A selected component or connection exposes a compact contextual toolbar on the canvas. The inspector remains the complete editing surface; the toolbar contains only frequent actions.
+- Compatible and incompatible ports are distinguished by outline as well as colour during a connection gesture. Resizable handles are limited to annotations whose geometry is editorial rather than scientific.
+- Viewport position and zoom persist in local drafts and diagram JSON. Imported projects restore their saved working view.
+- Logical groups remain model-level `groupId` collections rather than React Flow parent nodes. This preserves absolute coordinates across JSON, SVG, TeX, PowerPoint and netlist exports.
 
 ## Responsive contract
 
 - 320–959 px: the canvas is the default layer; one contextual panel may replace it at a time, controlled by a persistent two-button bottom switcher. The toolbar stays one line and scrolls horizontally rather than wrapping controls.
 - 960 px and above: canvas stays visible; one contextual rail may open beside it.
+- Sidebars are named Tailwind containers. Component and property grids respond to the available rail width rather than the viewport alone.
 - No horizontal page scroll, `100vw`, hover-only actions, or wrapped primary control labels.
 
 ## Exports

@@ -124,7 +124,7 @@ button.danger { color: var(--danger); }
 .library-group { margin-bottom: 16px; }
 .library-search { width: 100%; margin: 0 0 12px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 7px; font-size: 12px; }
 .library-group-title { width: 100%; display: flex; justify-content: space-between; margin: 0 0 9px; padding: 3px 0; border: 0; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-.component-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.component-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 7px; }
 .component-card { position: relative; min-width: 0; }
 .component-grid .component-add { width: 100%; min-height: 62px; display: grid; place-items: center; align-content: center; gap: 3px; padding: 5px 3px; color: var(--color-neutral); font-size: 9px; line-height: 1.15; }
 .component-grid .favorite { position: absolute; top: 3px; right: 3px; min-height: 0; padding: 2px 4px; border: 0; background: transparent; color: var(--color-rule-2); font-size: 12px; }
@@ -149,7 +149,7 @@ button.danger { color: var(--danger); }
 .property-form label { position: relative; display: grid; gap: 6px; color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; }
 .property-form input, .property-form select, .property-form textarea { width: 100%; min-width: 0; padding: 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--color-surface-raised); color: var(--ink); }
 .property-form textarea { min-height: 70px; resize: vertical; }
-.property-row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.property-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 9px; }
 .property-form output { position: absolute; right: 0; top: 0; color: var(--ink); }
 .property-form input[type="range"] { padding: 0; }
 .property-form .color-input { height: 38px; padding: 3px; }
@@ -655,8 +655,34 @@ summary:active,
   visibility: visible;
 }
 
+.scientific-handle.connectingfrom,
+.scientific-handle.connectingto {
+  opacity: 1;
+  visibility: visible;
+  outline: 2px solid var(--color-danger);
+  outline-offset: 3px;
+}
+
+.scientific-handle.connectingfrom,
+.scientific-handle.connectingto.valid {
+  outline-color: var(--color-accent);
+}
+
+.annotation-resize-line {
+  border-color: var(--color-accent);
+}
+
+.annotation-resize-handle {
+  width: 12px;
+  height: 12px;
+  border-color: var(--color-accent);
+  border-radius: 50%;
+  background: var(--color-surface-raised);
+}
+
 .react-flow__controls {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-2xs);
   padding: var(--space-2xs);
   overflow: visible;
@@ -664,6 +690,10 @@ summary:active,
   border-radius: var(--radius-input);
   background: var(--color-surface);
   box-shadow: var(--shadow-card);
+}
+
+.react-flow__controls.horizontal {
+  flex-direction: row;
 }
 
 .react-flow__controls-button {
@@ -692,6 +722,47 @@ summary:active,
   height: 18px;
   max-width: none;
   fill: currentColor;
+}
+
+.react-flow__controls-button .button-icon {
+  fill: none;
+  stroke: currentColor;
+}
+
+.context-toolbar {
+  display: flex;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-input);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.context-toolbar button {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2xs);
+  padding-inline: var(--space-xs);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.context-toolbar span {
+  display: none;
+}
+
+.react-flow__minimap {
+  width: 132px;
+  height: 90px;
+  overflow: clip;
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-input);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 .react-flow__attribution {
@@ -781,7 +852,7 @@ summary:active,
 }
 
 .component-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-xs);
 }
 
@@ -970,6 +1041,18 @@ button.danger {
   font-size: var(--text-xs);
 }
 
+@container sidebar (min-width: 16rem) {
+  .component-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container sidebar (min-width: 18rem) {
+  .property-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (hover: hover) and (pointer: fine) {
   button:hover,
   .suite-link:hover,
@@ -1010,6 +1093,15 @@ button.danger {
     inset-inline: auto 0;
     top: calc(100% + var(--space-2xs));
     width: 260px;
+  }
+
+  .context-toolbar span {
+    display: inline;
+  }
+
+  .react-flow__minimap {
+    width: 180px;
+    height: 120px;
   }
 }
 

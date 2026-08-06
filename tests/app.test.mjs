@@ -58,22 +58,32 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /<summary id="publication-title">Publication<\/summary>/);
   assert.doesNotMatch(editor, /toolbar-export-desktop/);
   assert.equal([...editor.matchAll(/name="toolbar-menu"/g)].length, 2);
-  assert.match(editor, /isNarrowWorkspace\(\)\) setWorkspacePanel\("inspector"\)/);
+  assert.match(editor, /if \(narrowWorkspace\) setWorkspacePanel\("inspector"\)/);
   assert.match(editor, /current === panel \? "canvas" : panel/);
   assert.match(editor, /aria-controls="component-library" aria-expanded=/);
   assert.match(editor, /aria-controls="property-inspector" aria-expanded=/);
   assert.doesNotMatch(editor, />Canvas<\/button>/);
-  for (const icon of ["undo", "redo", "link", "project", "export", "components", "properties", "delete"]) {
+  for (const icon of ["undo", "redo", "link", "project", "export", "components", "properties", "delete", "copy", "fit", "map", "bend"]) {
     assert.match(editor, new RegExp(`<UiIcon name="${icon}"`));
   }
+  assert.match(editor, /allSelectedLocked \? "unlock" : "lock"/);
   assert.doesNotMatch(editor, /↶|↷|toolbar-label-compact/);
   assert.match(editor, /nodes: modelFlowNodes\.filter\(\(node\) => node\.id !== "__paper__"\)/);
   assert.match(editor, /const \[notice, setNotice\] = useState\("Saved"\)/);
-  for (const feature of ['ReactFlow', 'ConnectionMode.Loose', 'diagram-export', 'role="group"', 'className="property-section"', 'BOM CSV', 'Import BOM', 'Arrange overlaps']) assert.match(editor, new RegExp(feature));
+  for (const feature of ['ReactFlow', 'ConnectionMode.Loose', 'NodeToolbar', 'EdgeToolbar', 'NodeResizer', 'MiniMap', 'ControlButton', 'onConnectStart', 'onMoveEnd', 'diagram-export', 'role="group"', 'className="property-section"', 'BOM CSV', 'Import BOM', 'Arrange overlaps']) assert.match(editor, new RegExp(feature));
+  assert.match(editor, /viewport: savedViewport/);
+  assert.match(editor, /isViewport\(diagram\.viewport\)/);
+  assert.match(editor, /textnote: \{ width: 150, height: 70 \}/);
+  assert.match(editor, /annotation \? 48 : 128/);
+  assert.match(editor, /orientation=\{narrowWorkspace \? "horizontal" : "vertical"\}/);
+  assert.match(editor, /@container\/sidebar/);
   assert.doesNotMatch(editor, /stroke="#1665d8"|BOM↓|BOM↑/);
   assert.doesNotMatch(styles, /100vw|#[0-9a-fA-F]{3,8}|font-family:\s*Arial/);
   assert.doesNotMatch(styles, /@media\s*\(max-width/);
   assert.match(styles, /\.react-flow__controls-button\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;/s);
+  assert.match(styles, /@container sidebar \(min-width: 16rem\)/);
+  assert.match(styles, /\.scientific-handle\.connectingto\.valid/);
+  assert.match(styles, /\.context-toolbar\s*\{/);
   assert.match(styles, /\.layers-panel\[open\] > summary\s*\{/);
   assert.match(editor, /href="https:\/\/jorpago2\.github\.io\/"/);
   assert.match(styles, /tailwindcss\/theme\.css/);
