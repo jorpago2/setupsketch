@@ -32,6 +32,7 @@ import {
   LockClosedIcon,
   LockOpenIcon,
   MapIcon,
+  RectangleStackIcon,
   Squares2X2Icon,
   TrashIcon,
   XMarkIcon,
@@ -97,6 +98,7 @@ type LayerVisibility = {
 type Point = { x: number; y: number };
 type Routing = "straight" | "orthogonal";
 type PagePreset = "canvas" | "a4" | "a3" | "single" | "double";
+type WorkspacePanel = "library" | "canvas" | "document" | "selection";
 
 const uiIcons = {
   undo: ArrowUturnLeftIcon,
@@ -105,6 +107,7 @@ const uiIcons = {
   project: FolderOpenIcon,
   export: ArrowUpTrayIcon,
   components: Squares2X2Icon,
+  canvas: RectangleStackIcon,
   properties: AdjustmentsHorizontalIcon,
   delete: TrashIcon,
   copy: DocumentDuplicateIcon,
@@ -795,7 +798,7 @@ export default function Home() {
   const [past, setPast] = useState<Snapshot[]>([]);
   const [future, setFuture] = useState<Snapshot[]>([]);
   const [notice, setNotice] = useState("Saved");
-  const [workspacePanel, setWorkspacePanel] = useState<"library" | "canvas" | "inspector">("canvas");
+  const [workspacePanel, setWorkspacePanel] = useState<WorkspacePanel>("canvas");
   const [publication, setPublication] = useState(defaultPublication);
   const [experiment, setExperiment] = useState(defaultExperiment);
   const [snapEnabled, setSnapEnabled] = useState(true);
@@ -821,6 +824,7 @@ export default function Home() {
   const dimensions = pagePresets[publication.pagePreset];
   const selected = selectedIds.length === 1 ? elements.find((element) => element.id === selectedIds[0]) ?? null : null;
   const selectedConnection = connections.find((connection) => connection.id === selectedConnectionId) ?? null;
+  const hasSelection = selectedIds.length > 0 || selectedConnection !== null;
   const selection = useMemo(() => new Set(selectedIds), [selectedIds]);
   const allSelectedLocked = selectedIds.length > 0 && elements.filter((element) => selection.has(element.id)).every((element) => element.locked);
   const validationIssues = validateSetup(
@@ -906,11 +910,11 @@ export default function Home() {
   const flowFitViewOptions = narrowWorkspace
     ? { ...FLOW_FIT_VIEW_OPTIONS, nodes: modelFlowNodes.filter((node) => node.id !== "__paper__"), maxZoom: 1 }
     : FLOW_FIT_VIEW_OPTIONS;
-  const toggleWorkspacePanel = (panel: "library" | "inspector") => {
+  const toggleWorkspacePanel = (panel: "library" | "document") => {
     setWorkspacePanel((current) => current === panel ? "canvas" : panel);
   };
-  const closeWorkspacePanel = (panel: "library" | "inspector") => {
-    document.getElementById(`${panel}-toggle`)?.focus();
+  const closeWorkspacePanel = (panel: Exclude<WorkspacePanel, "canvas">) => {
+    document.getElementById(panel === "selection" ? "diagram-workspace" : `${panel}-toggle`)?.focus();
     setWorkspacePanel("canvas");
   };
 
@@ -965,6 +969,10 @@ export default function Home() {
     document.addEventListener("keydown", dismissWithEscape);
     return () => document.removeEventListener("keydown", dismissWithEscape);
   }, [workspacePanel]);
+
+  useEffect(() => {
+    if (!hasSelection && workspacePanel === "selection") setWorkspacePanel("canvas");
+  }, [hasSelection, workspacePanel]);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -1209,7 +1217,7 @@ export default function Home() {
 
   const selectFlowNode = useCallback((id: string) => {
     if (!connectMode) {
-      if (narrowWorkspace) setWorkspacePanel("inspector");
+      if (narrowWorkspace) setWorkspacePanel("selection");
       return;
     }
     if (!connectFrom) {
@@ -1246,7 +1254,8 @@ export default function Home() {
   const handleFlowEdgeClick = useCallback((_: React.MouseEvent, edge: ScientificFlowEdge) => {
     setSelectedConnectionId(edge.id);
     setSelectedIds([]);
-  }, []);
+    if (narrowWorkspace) setWorkspacePanel("selection");
+  }, [narrowWorkspace]);
 
   const clearFlowSelection = useCallback(() => {
     setSelectedIds([]);
@@ -1887,7 +1896,7 @@ export default function Home() {
       <section className="workspace grid min-h-0 min-w-0 grid-cols-1 grid-rows-[minmax(0,1fr)_auto] bg-ui-canvas-muted" id="diagram-workspace" data-panel={workspacePanel} tabIndex={-1}>
         <nav className="workspace-switcher grid grid-cols-2 gap-1 bg-ui-surface" aria-label="Workspace panels">
           <button id="library-toggle" className={workspacePanel === "library" ? "active" : ""} aria-controls="component-library" aria-expanded={workspacePanel === "library"} onClick={() => toggleWorkspacePanel("library")}><UiIcon name="components" />Components</button>
-          <button id="inspector-toggle" className={workspacePanel === "inspector" ? "active" : ""} aria-controls="property-inspector" aria-expanded={workspacePanel === "inspector"} onClick={() => toggleWorkspacePanel("inspector")}><UiIcon name="properties" />Properties</button>
+          <button id="document-toggle" className={workspacePanel === "document" ? "active" : ""} aria-controls="document-inspector" aria-expanded={workspacePanel === "document"} onClick={() => toggleWorkspacePanel("document")}><UiIcon name="canvas" />Canvas</button>
         </nav>
         <aside id="component-library" className="library @container/sidebar min-h-0 min-w-0 overflow-y-auto bg-ui-surface p-4" aria-label="Component library" aria-hidden={workspacePanel !== "library"}>
           <div className="panel-heading">
@@ -1983,12 +1992,13 @@ export default function Home() {
                 gridVisible={layers.grid}
               >
                 {selectedIds.length > 0 && <NodeToolbar nodeId={selectedIds} isVisible={workspacePanel === "canvas"} className="context-toolbar" position={Position.Top}>
-                  <button title="Edit properties" aria-label="Edit properties" onClick={() => setWorkspacePanel("inspector")}><UiIcon name="properties" /><span>Properties</span></button>
+                  <button title="Edit properties" aria-label="Edit properties" onClick={() => setWorkspacePanel("selection")}><UiIcon name="properties" /><span>Properties</span></button>
                   <button title="Duplicate selection" aria-label="Duplicate selection" onClick={duplicateSelected}><UiIcon name="copy" /><span>Duplicate</span></button>
                   <button title={allSelectedLocked ? "Unlock selection" : "Lock selection"} aria-label={allSelectedLocked ? "Unlock selection" : "Lock selection"} onClick={() => changeSelected({ locked: !allSelectedLocked })}><UiIcon name={allSelectedLocked ? "unlock" : "lock"} /><span>{allSelectedLocked ? "Unlock" : "Lock"}</span></button>
                   <button className="danger" title="Delete selection" aria-label="Delete selection" onClick={removeSelected}><UiIcon name="delete" /><span>Delete</span></button>
                 </NodeToolbar>}
                 {selectedConnection && selectedConnectionToolbarPosition && <EdgeToolbar edgeId={selectedConnection.id} x={selectedConnectionToolbarPosition.x} y={selectedConnectionToolbarPosition.y} isVisible={workspacePanel === "canvas"} className="context-toolbar">
+                  <button title="Edit connection properties" aria-label="Edit connection properties" onClick={() => setWorkspacePanel("selection")}><UiIcon name="properties" /><span>Properties</span></button>
                   <button title="Add connection bend" aria-label="Add connection bend" onClick={addConnectionBend}><UiIcon name="bend" /><span>Add bend</span></button>
                   <button className="danger" title="Delete connection" aria-label="Delete connection" onClick={removeSelected}><UiIcon name="delete" /><span>Delete</span></button>
                 </EdgeToolbar>}
@@ -2072,8 +2082,8 @@ export default function Home() {
           </div>
         </section>
 
-        <aside id="property-inspector" className="inspector @container/sidebar min-h-0 min-w-0 overflow-y-auto bg-ui-surface p-4" aria-label="Properties" aria-hidden={workspacePanel !== "inspector"}>
-          <div className="panel-heading"><span>Properties</span><button className="panel-close" aria-label="Close properties" title="Close properties" onClick={() => closeWorkspacePanel("inspector")}><XMarkIcon className="button-icon" aria-hidden={true} /></button></div>
+        <aside id="selection-inspector" className="inspector selection-inspector @container/sidebar min-h-0 min-w-0 overflow-y-auto bg-ui-surface p-4" aria-label="Selection properties" aria-hidden={workspacePanel !== "selection"}>
+          <div className="panel-heading"><span>{selectedConnection ? "Connection properties" : selectedIds.length > 1 ? "Selection properties" : "Component properties"}</span><button className="panel-close" aria-label="Close selection properties" title="Close selection properties" onClick={() => closeWorkspacePanel("selection")}><XMarkIcon className="button-icon" aria-hidden={true} /></button></div>
           {selected ? (
             <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
               <label>Label<input value={selected.label} onChange={(event) => updateSelected({ label: event.target.value })} /></label>
@@ -2172,6 +2182,10 @@ export default function Home() {
           ) : (
             <div className="empty-inspector"><p>Select a component to edit it. On desktop, Shift-click selects several.</p><span>Focused components can be nudged with the arrow keys.</span></div>
           )}
+        </aside>
+
+        <aside id="document-inspector" className="inspector document-inspector @container/sidebar min-h-0 min-w-0 overflow-y-auto bg-ui-surface p-4" aria-label="Canvas settings" aria-hidden={workspacePanel !== "document"}>
+          <div className="panel-heading"><span>Canvas</span><button className="panel-close" aria-label="Close canvas settings" title="Close canvas settings" onClick={() => closeWorkspacePanel("document")}><XMarkIcon className="button-icon" aria-hidden={true} /></button></div>
           <InspectorDisclosure className="layers-panel" buttonId="layout-title" label="Layout">
             <label className="layer-toggle"><input type="checkbox" checked={snapEnabled} onChange={(event) => setSnapEnabled(event.target.checked)} /><span>Snap to grid</span></label>
             <div className="port-legend">{(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <span key={type}><i style={{ background: portTypeColors[type] }} />{label}</span>)}</div>

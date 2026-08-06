@@ -1,4 +1,4 @@
-/* Hallmark · macrostructure: Split Studio · N9 knobs: cta=outlined, wordmark=sans, padding=tight · theme: custom · vibe: "layered technical calm" · axes: light / geometric-sans / chromatic-teal · pre-emit critique: P5 H5 E4 S5 R5 V4 · contrast: pass (40–41) · nav: N9 · footer: none (app) · slop: pass (42–49) · mobile: pass (34, 49, 50–57) · icons: pass (30) · studied: no · context: user-provided · v0.9.0 */
+/* Hallmark · macrostructure: Split Studio · N9 knobs: cta=outlined, wordmark=sans, padding=tight · theme: custom · vibe: "layered technical calm" · axes: light / geometric-sans / chromatic-teal · pre-emit critique: P5 H5 E5 S5 R5 V4 · contrast: pass (40–41) · nav: N9 · footer: none (app) · slop: pass (42–49) · mobile: pass (34, 49, 50–57) · icons: pass (30) · studied: no · context: user-provided · v0.9.1 */
 @import "../tokens.css";
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
@@ -495,7 +495,8 @@ button:active,
 }
 
 .workspace[data-panel="library"] .library,
-.workspace[data-panel="inspector"] .inspector {
+.workspace[data-panel="document"] .document-inspector,
+.workspace[data-panel="selection"] .selection-inspector {
   display: block;
 }
 
@@ -1141,7 +1142,8 @@ button.danger {
     grid-template-areas: "switch library stage";
   }
 
-  .workspace[data-panel="inspector"] {
+  .workspace[data-panel="document"],
+  .workspace[data-panel="selection"] {
     grid-template-columns: 84px minmax(0, 1fr) minmax(280px, 320px);
     grid-template-areas: "switch stage inspector";
   }
@@ -1149,7 +1151,7 @@ button.danger {
   .workspace-switcher {
     grid-area: switch;
     grid-template-columns: 1fr;
-    grid-template-rows: repeat(2, 54px);
+    grid-auto-rows: 54px;
     align-content: start;
     gap: var(--space-xs);
     padding: var(--space-md) var(--space-xs);
@@ -1182,7 +1184,8 @@ button.danger {
 
   .stage-wrap,
   .workspace[data-panel="library"] .stage-wrap,
-  .workspace[data-panel="inspector"] .stage-wrap {
+  .workspace[data-panel="document"] .stage-wrap,
+  .workspace[data-panel="selection"] .stage-wrap {
     grid-area: stage;
     display: grid;
   }

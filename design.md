@@ -4,7 +4,7 @@ SetupSketch uses a modern-minimal, technical-austere system shared with the scie
 
 ## Structure
 
-- App macrostructure: **Split Studio**. The canvas is the base work surface; Components and Properties are mutually exclusive contextual rails. Their controls toggle the rails open and closed, so the canvas needs no dedicated button.
+- App macrostructure: **Split Studio**. The canvas is the base work surface; Components and Canvas are the two persistent rails. Selection properties are a separate contextual rail opened only from a selected component or connection.
 - Navigation: **N9 edge-aligned minimal**, adapted as an application header. The wordmark, editable project name, essential edit controls, and two disclosures are the only persistent items.
 - Content pages, if added later: **Long Document**, with stacked section heads and no decorative eyebrows.
 - Marketing pages: not defined; this repository is an editor, not a landing page.
@@ -30,18 +30,18 @@ SetupSketch uses a modern-minimal, technical-austere system shared with the scie
 - Controls have default, hover, focus-visible, active, and disabled states without border-width changes.
 - Touch targets are at least 44 × 44 px below 60 rem.
 - Motion is cut to state colour changes and native disclosure behaviour. Reduced motion collapses all optional transitions.
-- Components and Properties are keyboard-accessible disclosure buttons with `aria-expanded` state. Repeating the active control, pressing Escape, or using the panel close button returns to the canvas.
+- Components and Canvas are keyboard-accessible disclosure buttons with `aria-expanded` state. Repeating the active control, pressing Escape, or using the panel close button returns to the canvas.
 - Universal actions and destructive text buttons use the same 16 px outline icon language. Domain-specific operations and file formats remain text-first; icon-only controls always keep an accessible name and title.
 - React Flow viewer controls form one compact surface with square 44 px targets. Inspector disclosures use a tinted closed row, chevron, and stronger open state so their hierarchy does not depend on whitespace alone.
 - Canvas controls are horizontal below 60 rem and vertical above it. One adaptive framing action fits the selection when present and the complete diagram otherwise; the overview map is opt-in.
-- A selected component or connection exposes a compact contextual toolbar on the canvas. The inspector remains the complete editing surface; the toolbar contains only frequent actions.
+- A selected component or connection exposes a compact contextual toolbar on the canvas. Its dedicated selection inspector contains only properties and actions for that selection; layout, paths, experiment, validation, publication, and layers stay in the separate Canvas inspector.
 - Compatible and incompatible ports are distinguished by outline as well as colour during a connection gesture. Resizable handles are limited to annotations whose geometry is editorial rather than scientific.
 - Viewport position and zoom persist in local drafts and diagram JSON. Imported projects restore their saved working view.
 - Logical groups remain model-level `groupId` collections rather than React Flow parent nodes. This preserves absolute coordinates across JSON, SVG, TeX, PowerPoint and netlist exports.
 
 ## Responsive contract
 
-- 320–959 px: the canvas is the default layer; one contextual panel may replace it at a time, controlled by a persistent two-button bottom switcher. The toolbar stays one line and scrolls horizontally rather than wrapping controls.
+- 320–959 px: the canvas is the default layer; Components or Canvas may replace it through the persistent two-button bottom switcher. Selecting a component or connection opens its separate contextual inspector. The toolbar stays one line and scrolls horizontally rather than wrapping controls.
 - 960 px and above: canvas stays visible; one contextual rail may open beside it.
 - Sidebars are named Tailwind containers. Component and property grids respond to the available rail width rather than the viewport alone.
 - No horizontal page scroll, `100vw`, hover-only actions, or wrapped primary control labels.

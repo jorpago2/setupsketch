@@ -63,12 +63,19 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.doesNotMatch(editor, /<details|<summary|uiIconPaths/);
   assert.match(editor, /from "@headlessui\/react"/);
   assert.match(editor, /from "@heroicons\/react\/24\/outline"/);
-  assert.match(editor, /if \(narrowWorkspace\) setWorkspacePanel\("inspector"\)/);
+  assert.match(editor, /if \(narrowWorkspace\) setWorkspacePanel\("selection"\)/);
   assert.match(editor, /current === panel \? "canvas" : panel/);
   assert.match(editor, /aria-controls="component-library" aria-expanded=/);
-  assert.match(editor, /aria-controls="property-inspector" aria-expanded=/);
-  assert.doesNotMatch(editor, />Canvas<\/button>/);
-  for (const icon of ["undo", "redo", "link", "project", "export", "components", "properties", "delete", "copy", "fit", "map", "bend"]) {
+  assert.match(editor, /aria-controls="document-inspector" aria-expanded=/);
+  assert.match(editor, /id="selection-inspector"/);
+  assert.doesNotMatch(editor, /id="property-inspector"/);
+  const selectionInspector = editor.slice(editor.indexOf('<aside id="selection-inspector"'), editor.indexOf('<aside id="document-inspector"'));
+  const documentInspector = editor.slice(editor.indexOf('<aside id="document-inspector"'));
+  assert.match(selectionInspector, /Engineering parameters/);
+  assert.doesNotMatch(selectionInspector, /buttonId="layout-title"/);
+  assert.match(documentInspector, /buttonId="layout-title"/);
+  assert.doesNotMatch(documentInspector, /Engineering parameters/);
+  for (const icon of ["undo", "redo", "link", "project", "export", "components", "canvas", "properties", "delete", "copy", "fit", "map", "bend"]) {
     assert.match(editor, new RegExp(`<UiIcon name="${icon}"`));
   }
   assert.match(editor, /allSelectedLocked \? "unlock" : "lock"/);
@@ -95,6 +102,8 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(styles, /\.scientific-handle\.connectingto\.valid/);
   assert.match(styles, /\.context-toolbar\s*\{/);
   assert.match(styles, /\.layers-panel > \.disclosure-button\[data-open\]\s*\{/);
+  assert.match(styles, /workspace\[data-panel="document"\] \.document-inspector/);
+  assert.match(styles, /workspace\[data-panel="selection"\] \.selection-inspector/);
   assert.match(editor, /href="https:\/\/jorpago2\.github\.io\/"/);
   assert.match(styles, /tailwindcss\/theme\.css/);
   assert.match(styles, /tailwindcss\/utilities\.css/);
