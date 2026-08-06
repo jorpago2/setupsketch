@@ -11,8 +11,8 @@ export const componentGroups = [
     title: "Optics & photonics",
     items: [
       { kind: "laser", label: "Laser", layer: "optics", color: "#d55e00", ports: "lr" },
-      { kind: "mirror", label: "Mirror", layer: "optics", color: BLUE, ports: "cross" },
-      { kind: "curvedmirror", label: "Curved mirror", layer: "optics", color: BLUE, ports: "cross" },
+      { kind: "mirror", label: "Mirror", layer: "optics", color: BLUE, ports: "reflector" },
+      { kind: "curvedmirror", label: "Curved mirror", layer: "optics", color: BLUE, ports: "reflector" },
       { kind: "beamsplitter", label: "Beam splitter", layer: "optics", color: BLUE, ports: "cross" },
       { kind: "lens", label: "Lens", layer: "optics", color: BLUE, ports: "lr" },
       { kind: "waveplate", label: "Wave plate", layer: "optics", color: BLUE, ports: "lr" },
@@ -149,6 +149,10 @@ export type ElementKind = (typeof componentGroups)[number]["items"][number]["kin
 export type PortLayout = (typeof componentGroups)[number]["items"][number]["ports"];
 export const componentPortLayouts: Record<PortLayout, Array<{ id: string; x: number; y: number }>> = {
   lr: [{ id: "left", x: -58, y: 0 }, { id: "right", x: 58, y: 0 }],
+  reflector: [
+    { id: "left", x: -8, y: 0 }, { id: "right", x: 8, y: 0 },
+    { id: "top", x: 0, y: -8 }, { id: "bottom", x: 0, y: 8 },
+  ],
   cross: [
     { id: "left", x: -58, y: 0 }, { id: "right", x: 58, y: 0 },
     { id: "top", x: 0, y: -58 }, { id: "bottom", x: 0, y: 58 },

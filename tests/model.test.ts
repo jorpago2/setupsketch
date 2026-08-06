@@ -101,6 +101,13 @@ test("typed ports distinguish optical, fiber, RF, DC, trigger and digital domain
   assert.ok(issues.some((issue) => issue.message.includes("incompatible port")));
 });
 
+test("reflector ports meet at the optical surface", () => {
+  assert.ok(componentPortLayouts.reflector.every((port) => Math.hypot(port.x, port.y) <= 8));
+  const ring = setupTemplates.find((template) => template.id === "ring-cavity")!;
+  assert.equal(ring.elements.find((element) => element.id === "sample")?.rotation, 47);
+  assert.equal(ring.elements.find((element) => element.id === "detector")?.rotation, 90);
+});
+
 test("every template connects existing, compatible and unoccupied ports", () => {
   for (const template of setupTemplates) {
     const elements = new Map(template.elements.map((element) => [element.id, element]));

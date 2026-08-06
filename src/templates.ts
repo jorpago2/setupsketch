@@ -86,9 +86,9 @@ export const setupTemplates: SetupTemplate[] = [
       { id: "laser", kind: "laser", label: "Laser", x: 140, y: 480 },
       { id: "input", kind: "beamsplitter", label: "Input coupler", x: 350, y: 480 },
       { id: "m1", kind: "curvedmirror", label: "M1", x: 620, y: 180, rotation: 90 },
-      { id: "sample", kind: "sample", label: "Intracavity sample", x: 760, y: 330, rotation: -43 },
+      { id: "sample", kind: "sample", label: "Intracavity sample", x: 760, y: 330, rotation: 47 },
       { id: "m2", kind: "curvedmirror", label: "M2", x: 900, y: 480, rotation: -157 },
-      { id: "detector", kind: "detector", label: "Transmission", x: 350, y: 600 },
+      { id: "detector", kind: "detector", label: "Transmission", x: 350, y: 600, rotation: 90 },
     ],
     connections: [
       { from: "laser", to: "input", portType: "optical-free-space", fromPort: "right", toPort: "left" },

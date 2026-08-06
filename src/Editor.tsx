@@ -139,7 +139,7 @@ type SavedModule = {
 
 const WIDTH = 1200;
 const HEIGHT = 700;
-const DIAGRAM_VERSION = 5;
+const DIAGRAM_VERSION = 6;
 const STORAGE_KEY = "setupsketch-diagram-v1";
 const FAVORITES_KEY = "setupsketch-favorites-v1";
 const MODULES_KEY = "setupsketch-modules-v1";
@@ -823,7 +823,13 @@ export default function Home() {
         if (isDiagramFile(parsed)) {
           setTitle(parsed.title || title);
           const storedPage = parsed.publication?.pagePreset ?? defaultPublication.pagePreset;
-          setElements(parsed.version === DIAGRAM_VERSION ? parsed.elements : arrangeOverlaps(parsed.elements, pagePresets[storedPage]));
+          let storedElements = (parsed.version ?? 0) < 5 ? arrangeOverlaps(parsed.elements, pagePresets[storedPage]) : parsed.elements;
+          if ((parsed.version ?? 0) < DIAGRAM_VERSION && parsed.title === "Ring cavity") {
+            storedElements = storedElements.map((element) => element.id === "sample" && element.rotation === -43
+              ? { ...element, rotation: 47 }
+              : element.id === "detector" && element.rotation === 0 ? { ...element, rotation: 90 } : element);
+          }
+          setElements(storedElements);
           setConnections(parsed.connections);
           if (parsed.publication) setPublication({ ...defaultPublication, ...parsed.publication });
           if (parsed.experiment) setExperiment(parsed.experiment);
