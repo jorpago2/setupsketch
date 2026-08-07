@@ -86,6 +86,7 @@ import { useWorkspaceMediaQuery } from "../../hooks/useWorkspaceMediaQuery";
 import { InspectorDisclosure, UiIcon } from "../../components/ui/EditorControls";
 import type { Connection, DiagramElement, ExperimentRecord, InspectorMode, LayerVisibility, PagePreset, Point, PublicationSettings, Routing, SavedModule, Snapshot, ViewportMode } from "./editorTypes";
 import { annotationDefaultSizes, defaultCollapsedGroups, defaultExperiment, defaultPublication, DEFAULT_VIEWPORT, DIAGRAM_VERSION, FLOW_SNAP_GRID, FAVORITES_KEY, GRID_STEP, MODULES_KEY, pagePresets, resizableAnnotationKinds, STORAGE_KEY } from "./editorConfig";
+import { cloneSnapshot, download, safeFilename } from "./model/editorPersistence";
 
 const rotatePoint = (point: Point, angle: number): Point => {
   const radians = angle * Math.PI / 180;
@@ -123,33 +124,6 @@ const getConnectionType = (connection: Connection): ConnectionType =>
 
 const getConnectionDomain = (connection: Connection, from?: DiagramElement): PortType =>
   connection.portType ?? (from && connection.fromPort ? portTypeFor(from.kind, connection.fromPort) : getConnectionType(connection) === "beam" ? "optical-free-space" : "rf");
-
-const cloneSnapshot = (
-  elements: DiagramElement[],
-  connections: Connection[],
-  publication: PublicationSettings = defaultPublication,
-  experiment: ExperimentRecord = defaultExperiment,
-): Snapshot => ({
-  elements: elements.map((element) => ({ ...element })),
-  connections: connections.map((connection) => ({
-    ...connection,
-    waypoints: connection.waypoints?.map((point) => ({ ...point })),
-  })),
-  publication: { ...publication },
-  experiment: { procedure: experiment.procedure, checklist: experiment.checklist.map((item) => ({ ...item })) },
-});
-
-const download = (blob: Blob, filename: string) => {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-};
-
-const safeFilename = (name: string) =>
-  name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "setup";
 
 type DiagramFile = {
   version?: number;
