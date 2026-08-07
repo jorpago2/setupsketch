@@ -7,6 +7,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   const assets = await readdir(new URL("../dist/assets/", import.meta.url));
   const editor = await readFile(new URL("../src/Editor.tsx", import.meta.url), "utf8");
   const workspaceNavigation = await readFile(new URL("../src/ui/WorkspaceNavigation.tsx", import.meta.url), "utf8");
+  const componentLibrary = await readFile(new URL("../src/ui/ComponentLibrary.tsx", import.meta.url), "utf8");
   const diagramCanvas = await readFile(new URL("../src/DiagramCanvas.tsx", import.meta.url), "utf8");
   const canvasRouting = await readFile(new URL("../src/canvasRouting.ts", import.meta.url), "utf8");
   const styles = await readFile(new URL("../src/styles.scss", import.meta.url), "utf8");
@@ -34,9 +35,10 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   for (const layer of ["optics", "electronics", "beams", "signals", "labels", "grid"]) {
     assert.match(editor, new RegExp(`\\[\\"${layer}\\",`));
   }
-  for (const feature of ["connectionPath", "orthogonal", "fromPort", "selectedIds", "exportBom", "Publication", "Search components"]) {
+  for (const feature of ["connectionPath", "orthogonal", "fromPort", "selectedIds", "exportBom", "Publication"]) {
     assert.match(editor, new RegExp(feature));
   }
+  assert.match(componentLibrary, /Search components/);
   for (const feature of ["saveSelectionAsModule", "reconnectFlowEdge", "cropToContent", "loadBom", "Setup checks", "Flip horizontal"]) {
     assert.match(editor, new RegExp(feature));
   }
@@ -52,11 +54,11 @@ test("builds a static TypeScript, React, and Vite app", async () => {
     'id="app-title"',
     'href="#diagram-workspace"',
     'id="diagram-workspace"',
-    'labelText="Search components"',
     'aria-label="Edit actions"',
     'aria-label="File actions"',
     'className="toolbar-export-mobile"',
   ]) assert.match(editor, new RegExp(feature));
+  assert.match(componentLibrary, /labelText="Search components"/);
   assert.doesNotMatch(editor, /ref=\{(?:fileRef|bomRef)\} className="sr-only"/);
   assert.match(editor, /useState<DiagramElement\[]>\(\[\]\)/);
   assert.match(editor, /componentGroups\.map\(\(group\) => group\.title\)/);
@@ -95,9 +97,10 @@ test("builds a static TypeScript, React, and Vite app", async () => {
     assert.match(editor, new RegExp(`renderIcon=\\{(?:[^}]* )?${icon}`));
   }
   for (const icon of ["GridIcon", "Layers", "Chemistry", "Inspection"]) assert.match(workspaceNavigation, new RegExp(`<${icon} size=\\{16\\}`));
-  for (const component of ["Grid", "Column", "Search", "TextInput", "NumberInput", "Select", "Slider", "Checkbox", "TextArea"]) {
+  for (const component of ["Grid", "Column", "TextInput", "NumberInput", "Select", "Slider", "Checkbox", "TextArea"]) {
     assert.match(editor, new RegExp(`<${component}`));
   }
+  assert.match(componentLibrary, /<Search/);
   assert.doesNotMatch(editor, /↶|↷|toolbar-label-compact/);
   assert.match(editor, /const contentNodes = nodes\.filter\(\(node\) => node\.id !== "__paper__"\)/);
   assert.match(editor, /minZoom: compactViewport \? 0\.6 : 0\.25/);

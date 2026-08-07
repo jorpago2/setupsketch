@@ -22,14 +22,12 @@ import {
   NumberInput,
   Popover,
   PopoverContent,
-  Search,
   Select,
   Slider,
   TextArea,
   TextInput,
 } from "@carbon/react";
 import {
-  Close,
   Copy,
   Corner,
   FitToScreen,
@@ -91,6 +89,8 @@ import {
 import { arrangeOverlaps, calculateBudgets, findOpenPosition, moveElements, parseCsv, routeOrthogonal, validateSetup } from "./editorModel";
 import { DiagramCanvas, WaypointEdgeComponent } from "./DiagramCanvas";
 import { setupTemplates } from "./templates";
+import { ComponentLibrary } from "./ui/ComponentLibrary";
+import { InspectorPanel } from "./ui/InspectorPanel";
 import { WorkspaceNavigation } from "./ui/WorkspaceNavigation";
 
 type LayerVisibility = {
@@ -1915,6 +1915,11 @@ export default function Home() {
     <Button size="sm" kind="primary" onClick={() => { exportPdf(); close(); }}>PDF</Button>
   </>;
 
+  const renderLibraryPreview = (kind: ElementKind) => {
+    const element = { id: "preview", kind, label: "", x: 0, y: 0, rotation: 0, color: defaultColor(kind) } as DiagramElement;
+    return <svg className="library-icon" viewBox="-60 -55 120 110" aria-hidden="true"><ComponentPortStubs element={element} /><ComponentShape element={element} /></svg>;
+  };
+
   return (
     <main className="app-shell" aria-labelledby="app-title">
       <a className="skip-link" href="#diagram-workspace">Skip to diagram workspace</a>
@@ -1973,64 +1978,25 @@ export default function Home() {
 
       <Grid as="section" fullWidth condensed className="workspace" id="diagram-workspace" data-library-open={libraryOpen} data-inspector-open={Boolean(inspectorMode)} data-inspector={inspectorMode ?? "none"} tabIndex={-1}>
         <WorkspaceNavigation libraryOpen={libraryOpen} activeInspector={inspectorMode} onToggleLibrary={toggleLibrary} onToggleInspector={toggleInspector} />
-        <Column as="aside" sm={4} md={3} lg={3} id="component-library" className="library sidebar" aria-label="Component library" aria-hidden={!libraryOpen}>
-          <Layer withBackground className="sidebar-layer">
-          <div className="panel-heading">
-            <span>Library</span>
-            <span className="panel-heading-actions">
-              <Button size="sm" kind="danger--ghost" renderIcon={TrashCan} onClick={clearDiagram}>Clear</Button>
-              <IconButton size="sm" kind="ghost" label="Close component library" onClick={closeLibrary}><Close size={16} aria-hidden={true} /></IconButton>
-            </span>
-          </div>
-          <Search
-            className="library-search"
-            id="component-search"
-            size="sm"
-            labelText="Search components"
-            closeButtonLabelText="Clear component search"
-            placeholder="Search components"
-            value={libraryQuery}
-            onChange={(event) => setLibraryQuery(event.target.value)}
-            onClear={() => setLibraryQuery("")}
-          />
-          {savedModules.length ? <section className="library-group saved-modules">
-            <div className="library-group-title"><span>Reusable modules</span></div>
-            {savedModules.map((module) => <div className="module-row" key={module.id}>
-              <button onClick={() => insertModule(module.id)}>{module.name}</button>
-              <button className="danger" aria-label={`Delete ${module.name}`} title={`Delete ${module.name}`} onClick={() => setSavedModules((items) => items.filter((item) => item.id !== module.id))}><UiIcon name="delete" /></button>
-            </div>)}
-          </section> : null}
-          {visibleGroups.map((group) => (
-            <section className="library-group" key={group.title}>
-              <button
-                className="library-group-title"
-                onClick={() => setCollapsedGroups((items) => items.includes(group.title) ? items.filter((title) => title !== group.title) : [...items, group.title])}
-                aria-expanded={searchIsActive || !collapsedGroups.includes(group.title)}
-              >{group.title}<span>{searchIsActive || !collapsedGroups.includes(group.title) ? "−" : "+"}</span></button>
-              {(searchIsActive || !collapsedGroups.includes(group.title)) && <div className="component-grid">
-                {group.items.map((item) => (
-                  <div className="component-card" key={`${group.title}-${item.kind}`}>
-                    <button className="component-add" onClick={() => addElement(item.kind, item.label)}>
-                      <svg className="library-icon" viewBox="-60 -55 120 110" aria-hidden="true">
-                        <ComponentPortStubs element={{ id: "preview", kind: item.kind, label: "", x: 0, y: 0, rotation: 0, color: defaultColor(item.kind) }} />
-                        <ComponentShape element={{ id: "preview", kind: item.kind, label: "", x: 0, y: 0, rotation: 0, color: defaultColor(item.kind) }} />
-                      </svg>
-                      {item.label}
-                    </button>
-                    <button
-                      className={favoriteKinds.includes(item.kind) ? "favorite active" : "favorite"}
-                      onClick={() => toggleFavorite(item.kind)}
-                      aria-label={`${favoriteKinds.includes(item.kind) ? "Remove" : "Add"} ${item.label} ${favoriteKinds.includes(item.kind) ? "from" : "to"} favorites`}
-                      title="Favorite"
-                    >★</button>
-                  </div>
-                ))}
-              </div>}
-            </section>
-          ))}
-          <p className="library-help">Add a component, drag it into place, then use Connect to draw signal paths.</p>
-          </Layer>
-        </Column>
+        <ComponentLibrary
+          open={libraryOpen}
+          groups={visibleGroups}
+          savedModules={savedModules}
+          query={libraryQuery}
+          searchIsActive={searchIsActive}
+          collapsedGroups={collapsedGroups}
+          favoriteKinds={favoriteKinds}
+          onClose={closeLibrary}
+          onClear={clearDiagram}
+          onQueryChange={setLibraryQuery}
+          onInsertModule={insertModule}
+          onDeleteModule={(id) => setSavedModules((items) => items.filter((item) => item.id !== id))}
+          onToggleGroup={(title) => setCollapsedGroups((items) => items.includes(title) ? items.filter((item) => item !== title) : [...items, title])}
+          onAddElement={addElement}
+          onToggleFavorite={toggleFavorite}
+          renderPreview={renderLibraryPreview}
+          renderDeleteIcon={() => <UiIcon name="delete" />}
+        />
 
         <Column as="section" sm={4} md={8} lg={16} className="stage-wrap" aria-label="Diagram workspace">
           <div className="stage">
@@ -2160,9 +2126,14 @@ export default function Home() {
           </div>
         </Column>
 
-        <Column as="aside" sm={4} md={3} lg={4} id="selection-inspector" className="inspector selection-inspector sidebar" aria-label="Selection properties" aria-hidden={inspectorMode !== "selection"}>
-          <Layer withBackground className="sidebar-layer">
-          <div className="panel-heading"><span>{selectedConnection ? "Connection properties" : selectedIds.length > 1 ? "Selection properties" : "Component properties"}</span><IconButton size="sm" kind="ghost" label="Close selection properties" onClick={closeInspector}><Close size={16} aria-hidden={true} /></IconButton></div>
+        <InspectorPanel
+          id="selection-inspector"
+          label={selectedConnection ? "Connection properties" : selectedIds.length > 1 ? "Selection properties" : "Component properties"}
+          ariaLabel="Selection properties"
+          hidden={inspectorMode !== "selection"}
+          closeLabel="Close selection properties"
+          onClose={closeInspector}
+        >
           {selected ? (
             <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
               <TextInput id="component-label" size="sm" labelText="Label" value={selected.label} onChange={(event) => updateSelected({ label: event.target.value })} />
@@ -2261,12 +2232,16 @@ export default function Home() {
           ) : (
             <div className="empty-inspector"><p>Select a component to edit it. On desktop, Shift-click selects several.</p><span>Focused components can be nudged with the arrow keys.</span></div>
           )}
-          </Layer>
-        </Column>
+        </InspectorPanel>
 
-        <Column as="aside" sm={4} md={3} lg={4} id="document-inspector" className="inspector document-inspector sidebar" aria-label={`${inspectorMode ?? "Workspace"} settings`} aria-hidden={!inspectorMode || inspectorMode === "selection"}>
-          <Layer withBackground className="sidebar-layer">
-          <div className="panel-heading"><span>{inspectorMode === "experiment" ? "Experiment" : inspectorMode === "review" ? "Review" : "Canvas"}</span><IconButton size="sm" kind="ghost" label={`Close ${inspectorMode ?? "workspace"} settings`} onClick={closeInspector}><Close size={16} aria-hidden={true} /></IconButton></div>
+        <InspectorPanel
+          id="document-inspector"
+          label={inspectorMode === "experiment" ? "Experiment" : inspectorMode === "review" ? "Review" : "Canvas"}
+          ariaLabel={`${inspectorMode ?? "Workspace"} settings`}
+          hidden={!inspectorMode || inspectorMode === "selection"}
+          closeLabel={`Close ${inspectorMode ?? "workspace"} settings`}
+          onClose={closeInspector}
+        >
           {inspectorMode === "document" && <InspectorDisclosure className="layers-panel" buttonId="layout-title" label="Layout" initiallyOpen>
             <Checkbox id="snap-to-grid" labelText="Snap to grid" checked={snapEnabled} onChange={(_, { checked }) => setSnapEnabled(checked)} />
             <div className="port-legend">{(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <span key={type}><i style={{ background: portTypeColors[type] }} />{label}</span>)}</div>
@@ -2332,8 +2307,7 @@ export default function Home() {
               <Checkbox id={`layer-${key}`} key={key} labelText={label} checked={layers[key]} onChange={(_, { checked }) => setLayers((current) => ({ ...current, [key]: checked }))} />
             ))}
           </InspectorDisclosure>}
-          </Layer>
-        </Column>
+        </InspectorPanel>
       </Grid>
     </main>
   );

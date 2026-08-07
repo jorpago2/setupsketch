@@ -27,7 +27,7 @@
   grid-template-areas: "stage" "switch";
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .workspace > .workspace-switcher,
