@@ -700,11 +700,10 @@ export default function Home() {
     const contentNodes = nodes.filter((node) => node.id !== "__paper__");
     const paper = nodes.find((node) => node.id === "__paper__");
     const targets = narrowWorkspace && contentNodes.length ? contentNodes : paper ? [paper] : nodes;
-    const compactViewport = window.matchMedia("(max-width: 41.999rem)").matches;
     return instance.fitView({
       nodes: targets,
       padding: narrowWorkspace ? 0.12 : 0.04,
-      minZoom: compactViewport ? 0.6 : 0.25,
+      minZoom: 0.25,
       maxZoom: 1,
     });
   }, [narrowWorkspace]);
@@ -914,7 +913,7 @@ export default function Home() {
       color: defaultColor(kind),
     };
     commit([...elements, element]);
-    setSelectedIds([element.id]);
+    requestAnimationFrame(() => setSelectedIds([element.id]));
     setSelectedConnectionId(null);
     setRecentKinds((items) => [kind, ...items.filter((item) => item !== kind)].slice(0, 6));
     if (narrowWorkspace) setLibraryOpen(false);
@@ -1112,6 +1111,8 @@ export default function Home() {
     if (activeResize) return;
     const resize = changes.find((change) => change.type === "dimensions" && change.resizing === false && change.dimensions);
     if (resize?.type === "dimensions" && resize.dimensions) {
+      const resizedElement = elements.find((element) => element.id === resize.id);
+      if (!resizedElement || !resizableAnnotationKinds.has(resizedElement.kind)) return;
       const resizedDimensions = resize.dimensions;
       commit(elements.map((element) => {
         if (element.id !== resize.id || !resizableAnnotationKinds.has(element.kind)) return element;
@@ -1679,7 +1680,7 @@ export default function Home() {
                 {(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <option value={type} key={type}>{label}</option>)}
             </Select>
           </div>}
-          <Popover as="div" className="toolbar-menu toolbar-project" open={projectMenuOpen} align={narrowWorkspace ? "bottom" : "bottom-end"} autoAlign onRequestClose={() => setProjectMenuOpen(false)}>
+          <Popover as="div" className="toolbar-menu toolbar-project" open={projectMenuOpen} align={narrowWorkspace ? "bottom" : "bottom-end"} onRequestClose={() => setProjectMenuOpen(false)}>
             <IconButton size="sm" kind="ghost" label="Project" onClick={() => setProjectMenuOpen((open) => !open)}><UiIcon name="project" /></IconButton>
             <PopoverContent>
               <Layer withBackground className="toolbar-menu-actions">
@@ -1697,7 +1698,7 @@ export default function Home() {
               </Layer>
             </PopoverContent>
           </Popover>
-          <Popover as="div" className="toolbar-export-mobile" open={exportMenuOpen} align={narrowWorkspace ? "bottom" : "bottom-end"} autoAlign onRequestClose={() => setExportMenuOpen(false)}>
+          <Popover as="div" className="toolbar-export-mobile" open={exportMenuOpen} align={narrowWorkspace ? "bottom" : "bottom-end"} onRequestClose={() => setExportMenuOpen(false)}>
             <IconButton size="sm" kind="ghost" label="Export" onClick={() => setExportMenuOpen((open) => !open)}><UiIcon name="export" /></IconButton>
             <PopoverContent aria-label="Export actions">
               <Layer withBackground className="toolbar-export-actions">{renderExportActions(() => setExportMenuOpen(false))}</Layer>

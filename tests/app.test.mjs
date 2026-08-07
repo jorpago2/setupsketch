@@ -105,7 +105,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(componentLibrary, /<Search/);
   assert.doesNotMatch(editor, /↶|↷|toolbar-label-compact/);
   assert.match(editor, /const contentNodes = nodes\.filter\(\(node\) => node\.id !== "__paper__"\)/);
-  assert.match(editor, /minZoom: compactViewport \? 0\.6 : 0\.25/);
+  assert.match(editor, /minZoom: 0\.25/);
   assert.match(editor, /const \[notice, setNotice\] = useState\("Saved"\)/);
   for (const feature of ['NodeToolbar', 'EdgeToolbar', 'NodeResizer', 'MiniMap', 'ControlButton', 'onConnectStart', 'onMoveEnd', 'diagram-export', 'role="group"', 'className="property-section"', 'BOM CSV', 'Import BOM', 'Arrange overlaps']) assert.match(editor, new RegExp(feature));
   for (const feature of ['ReactFlow', 'ConnectionMode.Loose', 'BaseEdge', 'gridVisible']) assert.match(diagramCanvas, new RegExp(feature));

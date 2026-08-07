@@ -49,6 +49,8 @@
 
 .workspace > .workspace-switcher {
   grid-area: switch;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   width: auto;
   padding: 0 max(var(--space-xs), env(safe-area-inset-right)) max(0px, env(safe-area-inset-bottom)) max(var(--space-xs), env(safe-area-inset-left));
 }
@@ -83,7 +85,11 @@
 
 .workspace-switcher .cds--btn {
   min-width: 0;
-  width: 100%;
+  width: auto;
+  max-width: none;
+  padding-inline: var(--space-2xs);
+  white-space: nowrap;
+  font-size: var(--text-xs);
 }
 
 .sidebar-layer {
@@ -138,6 +144,9 @@
   }
 
   .workspace > .workspace-switcher {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(4, minmax(64px, auto));
+    align-content: start;
     padding: 0;
     border-top: 0;
     border-inline-end: var(--rule-hair) solid var(--color-rule);
@@ -168,6 +177,9 @@
   }
 
   .workspace-switcher .cds--btn {
+    width: 100%;
+    padding-inline: var(--space-xs);
+    font-size: var(--text-sm);
     min-height: 64px;
     border-bottom: 0;
     border-inline-start: 3px solid transparent;

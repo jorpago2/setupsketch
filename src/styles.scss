@@ -297,7 +297,9 @@ button:not([class*="cds--"]):active,
 
 .stage {
   display: grid;
-  place-items: center;
+  grid-template-rows: minmax(0, 1fr);
+  place-items: stretch;
+  min-height: 0;
   overflow: auto;
   border-color: var(--color-rule-2);
   border-radius: var(--radius-card);
@@ -306,7 +308,10 @@ button:not([class*="cds--"]):active,
 }
 
 .diagram-flow {
+  grid-area: 1 / 1;
   width: 100%;
+  min-width: 0;
+  min-height: 0;
   max-width: none;
   height: 100%;
   max-height: none;
@@ -534,8 +539,9 @@ button:not([class*="cds--"]):active,
 }
 
 .stage-empty {
-  z-index: var(--z-raised);
   grid-area: 1 / 1;
+  place-self: center;
+  z-index: var(--z-raised);
   max-width: 32ch;
   padding: var(--space-lg);
   color: var(--color-muted);
