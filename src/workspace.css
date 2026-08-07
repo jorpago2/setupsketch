@@ -32,6 +32,10 @@
   margin: 0;
 }
 
+.workspace > .sidebar {
+  container: sidebar / inline-size;
+}
+
 .workspace > .workspace-switcher {
   grid-area: switch;
   display: grid;
@@ -87,6 +91,11 @@
   overflow-x: clip;
   overflow-y: auto;
   background: var(--color-surface);
+}
+
+.sidebar-content {
+  min-width: 0;
+  padding: 0 var(--space-md) var(--space-lg);
 }
 
 .component-grid,

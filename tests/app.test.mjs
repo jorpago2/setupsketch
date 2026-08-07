@@ -8,6 +8,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   const editor = await readFile(new URL("../src/features/diagram-editor/DiagramEditor.tsx", import.meta.url), "utf8");
   const workspaceNavigation = await readFile(new URL("../src/components/ui/WorkspaceNavigation.tsx", import.meta.url), "utf8");
   const componentLibrary = await readFile(new URL("../src/features/diagram-editor/library/ComponentLibrary.tsx", import.meta.url), "utf8");
+  const inspectorPanel = await readFile(new URL("../src/features/diagram-editor/inspector/InspectorPanel.tsx", import.meta.url), "utf8");
   const diagramCanvas = await readFile(new URL("../src/features/diagram-editor/canvas/DiagramCanvas.tsx", import.meta.url), "utf8");
   const canvasRouting = await readFile(new URL("../src/features/diagram-editor/canvas/canvasRouting.ts", import.meta.url), "utf8");
   const styles = await readFile(new URL("../src/styles.scss", import.meta.url), "utf8");
@@ -97,7 +98,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   for (const icon of ["undo", "redo", "link", "project", "export", "delete", "fit", "map"]) {
     assert.match(editor, new RegExp(`<UiIcon name="${icon}"`));
   }
-  for (const icon of ["SettingsAdjust", "Copy", "TrashCan", "Locked", "Unlocked", "Corner"]) {
+  for (const icon of ["SettingsAdjust", "Copy", "TrashCan", "Locked", "Unlocked", "Corner", "ReflectHorizontal", "ReflectVertical", "BringToFront", "SendToBack"]) {
     assert.match(editor, new RegExp(`(?:renderIcon=\\{(?:[^}]* )?${icon}|<${icon} size=\\{16\\})`));
   }
   for (const icon of ["GridIcon", "Layers", "Chemistry", "Inspection"]) assert.match(workspaceNavigation, new RegExp(`<${icon} size=\\{16\\}`));
@@ -105,6 +106,8 @@ test("builds a static TypeScript, React, and Vite app", async () => {
     assert.match(editor, new RegExp(`<${component}`));
   }
   assert.match(componentLibrary, /<Search/);
+  assert.match(componentLibrary, /className="sidebar-content"/);
+  assert.match(inspectorPanel, /className="sidebar-content"/);
   assert.doesNotMatch(editor, /↶|↷|toolbar-label-compact/);
   assert.match(editor, /const contentNodes = nodes\.filter\(\(node\) => node\.id !== "__paper__"\)/);
   assert.match(editor, /minZoom: 0\.25/);
@@ -140,6 +143,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.doesNotMatch(styles, /\.cds--accordion__|\.cds--popover-content/);
   assert.match(workspaceStyles, /workspace\[data-library-open="true"\]/);
   assert.match(workspaceStyles, /workspace\[data-inspector-open="true"\]/);
+  assert.match(workspaceStyles, /container:\s*sidebar \/ inline-size/);
   assert.match(workspaceStyles, /workspace\[data-inspector="document"\]/);
   assert.match(workspaceStyles, /workspace\[data-library-open="true"\]\[data-inspector="selection"\]/);
   assert.match(editor, /if \(next && \(!dualPanelWorkspace \|\| inspectorMode !== "selection"\)\) setInspectorMode\(null\)/);

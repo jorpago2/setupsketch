@@ -18,9 +18,9 @@ export function InspectorPanel({ id, label, ariaLabel, hidden, closeLabel, onClo
       <Layer withBackground className="sidebar-layer">
         <div className="panel-heading">
           <span>{label}</span>
-          <IconButton size="sm" kind="ghost" label={closeLabel} onClick={onClose}><Close size={16} aria-hidden={true} /></IconButton>
+          <IconButton size="sm" kind="ghost" align="bottom-end" label={closeLabel} onClick={onClose}><Close size={16} aria-hidden={true} /></IconButton>
         </div>
-        {children}
+        <div className="sidebar-content">{children}</div>
       </Layer>
     </aside>
   );

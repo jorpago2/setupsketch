@@ -29,8 +29,12 @@ import {
   Theme,
 } from "@carbon/react";
 import {
+  BringToFront,
   Corner,
   Locked,
+  ReflectHorizontal,
+  ReflectVertical,
+  SendToBack,
   SettingsAdjust,
   Unlocked,
   Copy, TrashCan,
@@ -1917,11 +1921,11 @@ export default function Home() {
                   <TextArea id="component-notes" labelText="Notes" rows={3} value={selected.notes ?? ""} onChange={(event) => updateSelected({ notes: event.target.value })} />
               </InspectorDisclosure>
               <div className="compact-actions">
-                <Button size="sm" kind="tertiary" onClick={() => changeSelected({ flipX: !selected.flipX })}>Flip horizontal</Button>
-                <Button size="sm" kind="tertiary" onClick={() => changeSelected({ flipY: !selected.flipY })}>Flip vertical</Button>
-                <Button size="sm" kind="tertiary" onClick={() => changeSelected({ locked: !selected.locked })}>{selected.locked ? "Unlock" : "Lock"}</Button>
-                <Button size="sm" kind="tertiary" onClick={() => reorderSelection("front")}>Bring front</Button>
-                <Button size="sm" kind="tertiary" onClick={() => reorderSelection("back")}>Send back</Button>
+                <Button size="sm" kind="tertiary" renderIcon={ReflectHorizontal} onClick={() => changeSelected({ flipX: !selected.flipX })}>Flip horizontal</Button>
+                <Button size="sm" kind="tertiary" renderIcon={ReflectVertical} onClick={() => changeSelected({ flipY: !selected.flipY })}>Flip vertical</Button>
+                <Button size="sm" kind="tertiary" renderIcon={selected.locked ? Unlocked : Locked} onClick={() => changeSelected({ locked: !selected.locked })}>{selected.locked ? "Unlock" : "Lock"}</Button>
+                <Button size="sm" kind="tertiary" renderIcon={BringToFront} onClick={() => reorderSelection("front")}>Bring front</Button>
+                <Button size="sm" kind="tertiary" renderIcon={SendToBack} onClick={() => reorderSelection("back")}>Send back</Button>
               </div>
               <div className="property-actions">
                 <Button size="sm" kind="tertiary" renderIcon={Copy} onClick={duplicateSelected}>Duplicate</Button>
