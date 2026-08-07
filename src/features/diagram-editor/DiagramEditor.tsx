@@ -94,22 +94,7 @@ import { InspectorPanel } from "./inspector/InspectorPanel";
 import { WorkspaceNavigation } from "../../components/ui/WorkspaceNavigation";
 import { WorkspaceShell } from "../../components/ui/WorkspaceShell";
 import { useWorkspaceMediaQuery } from "../../hooks/useWorkspaceMediaQuery";
-
-type LayerVisibility = {
-  grid: boolean;
-  labels: boolean;
-  optics: boolean;
-  electronics: boolean;
-  beams: boolean;
-  signals: boolean;
-  annotations: boolean;
-};
-
-type Point = { x: number; y: number };
-type Routing = "straight" | "orthogonal";
-type PagePreset = "canvas" | "a4" | "a3" | "single" | "double";
-type InspectorMode = "document" | "experiment" | "review" | "selection";
-type ViewportMode = "narrow" | "wide";
+import type { ChecklistItem, Connection, DiagramElement, ExperimentRecord, InspectorMode, LayerVisibility, PagePreset, Point, PublicationSettings, Routing, SavedModule, Snapshot, ViewportMode } from "./editorTypes";
 
 const uiIcons = {
   undo: Undo,
@@ -152,78 +137,6 @@ function InspectorDisclosure({
     </Accordion>
   );
 }
-
-type PublicationSettings = {
-  pagePreset: PagePreset;
-  monochrome: boolean;
-  showCredit: boolean;
-  labelScale: number;
-  cropToContent: boolean;
-};
-
-type DiagramElement = {
-  id: string;
-  kind: ElementKind;
-  label: string;
-  x: number;
-  y: number;
-  rotation: number;
-  color: string;
-  manufacturer?: string;
-  model?: string;
-  specs?: string;
-  notes?: string;
-  groupId?: string;
-  scale?: number;
-  flipX?: boolean;
-  flipY?: boolean;
-  locked?: boolean;
-  width?: number;
-  height?: number;
-  powerDbm?: number;
-  gainDb?: number;
-  lossDb?: number;
-  noiseFigureDb?: number;
-  bandwidthHz?: number;
-  wavelengthNm?: number;
-  serialNumber?: string;
-  calibrationDate?: string;
-  calibrationDueDate?: string;
-  uncertainty?: string;
-  datasheetUrl?: string;
-};
-
-type Connection = {
-  id: string;
-  from: string;
-  to: string;
-  color: string;
-  type?: ConnectionType;
-  fromPort?: string;
-  toPort?: string;
-  routing?: Routing;
-  waypoints?: Point[];
-  portType?: PortType;
-  lossDb?: number;
-  bandwidthHz?: number;
-};
-
-type ChecklistItem = { id: string; text: string; done: boolean };
-type ExperimentRecord = { procedure: string; checklist: ChecklistItem[] };
-
-type Snapshot = {
-  elements: DiagramElement[];
-  connections: Connection[];
-  publication: PublicationSettings;
-  experiment: ExperimentRecord;
-};
-
-type SavedModule = {
-  id: string;
-  name: string;
-  elements: DiagramElement[];
-  connections: Connection[];
-};
 
 const WIDTH = 1200;
 const HEIGHT = 700;
