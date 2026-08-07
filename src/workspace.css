@@ -179,18 +179,20 @@
   }
 
   .workspace-switcher .cds--btn {
-    flex-direction: row;
-    justify-content: space-between;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-xs);
     width: 100%;
-    padding-inline: var(--space-md);
-    font-size: var(--text-sm);
+    padding-inline: var(--space-xs);
+    font-size: var(--text-xs);
     min-height: 64px;
     border-bottom: 0;
     border-inline-start: 3px solid transparent;
   }
 
-  .workspace-switcher .cds--btn > span {
-    order: -1;
+  .workspace-switcher .cds--btn > svg {
+    width: 24px;
+    height: 24px;
   }
 
   .workspace-switcher .cds--btn.active {
