@@ -75,7 +75,8 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /<PopoverContent/);
   assert.match(editor, /<PopoverContent>\s*<Layer id="project-menu" withBackground className="toolbar-menu-actions">/);
   assert.match(editor, /<PopoverContent aria-label="Export actions">\s*<Layer id="export-menu" withBackground className="toolbar-export-actions">/);
-  assert.equal([...editor.matchAll(/align="bottom-end"/g)].length, 2);
+  assert.equal([...editor.matchAll(/<Popover[^>]*align="bottom-end"/g)].length, 2);
+  assert.equal([...editor.matchAll(/<IconButton[^>]*align="bottom-end"/g)].length, 5);
   assert.equal([...editor.matchAll(/aria-expanded=\{(?:project|export)MenuOpen\}/g)].length, 2);
   assert.match(editor, /<IconButton/);
   assert.match(editor, /if \(narrowWorkspace\) openSelectionInspector\(\)/);

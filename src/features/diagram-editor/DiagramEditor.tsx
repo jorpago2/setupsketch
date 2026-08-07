@@ -1679,9 +1679,9 @@ export default function Home() {
         </div>
         <HeaderGlobalBar className="toolbar" aria-label="Diagram actions">
           <div className="toolbar-group" role="group" aria-label="Edit actions">
-            <IconButton size="sm" kind="ghost" label="Undo" onClick={undo} disabled={!past.length}><UiIcon name="undo" /></IconButton>
-            <IconButton size="sm" kind="ghost" label="Redo" onClick={redo} disabled={!future.length}><UiIcon name="redo" /></IconButton>
-            <IconButton size="sm" kind="ghost" label={connectFrom ? "Choose connection target" : "Connect components"} isSelected={connectMode} onClick={() => { setConnectMode(!connectMode); setConnectFrom(null); }}><UiIcon name="link" /></IconButton>
+            <IconButton size="sm" kind="ghost" align="bottom-end" label="Undo" onClick={undo} disabled={!past.length}><UiIcon name="undo" /></IconButton>
+            <IconButton size="sm" kind="ghost" align="bottom-end" label="Redo" onClick={redo} disabled={!future.length}><UiIcon name="redo" /></IconButton>
+            <IconButton size="sm" kind="ghost" align="bottom-end" label={connectFrom ? "Choose connection target" : "Connect components"} isSelected={connectMode} onClick={() => { setConnectMode(!connectMode); setConnectFrom(null); }}><UiIcon name="link" /></IconButton>
           </div>
           {connectMode && <div className="toolbar-group" role="group" aria-label="Connection settings">
             <Select id="connection-domain" size="sm" hideLabel labelText="Connection domain" className="connection-type connection-type-active" value={connectionDomain} onChange={(event) => setConnectionDomain(event.target.value as PortType)}>
@@ -1689,7 +1689,7 @@ export default function Home() {
             </Select>
           </div>}
           <Popover as="div" className="toolbar-menu toolbar-project" open={projectMenuOpen} align="bottom-end" onRequestClose={() => setProjectMenuOpen(false)}>
-            <IconButton id="project-toggle" size="sm" kind="ghost" label="Project" aria-expanded={projectMenuOpen} aria-controls="project-menu" aria-haspopup="dialog" onClick={() => setProjectMenuOpen((open) => !open)}><UiIcon name="project" /></IconButton>
+            <IconButton id="project-toggle" size="sm" kind="ghost" align="bottom-end" label="Project" aria-expanded={projectMenuOpen} aria-controls="project-menu" aria-haspopup="dialog" onClick={() => setProjectMenuOpen((open) => !open)}><UiIcon name="project" /></IconButton>
             <PopoverContent>
               <Layer id="project-menu" withBackground className="toolbar-menu-actions">
                 <Select id="project-template" size="sm" labelText="Template" className="connection-type" defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; setProjectMenuOpen(false); }}>
@@ -1707,7 +1707,7 @@ export default function Home() {
             </PopoverContent>
           </Popover>
           <Popover as="div" className="toolbar-export-mobile" open={exportMenuOpen} align="bottom-end" onRequestClose={() => setExportMenuOpen(false)}>
-            <IconButton id="export-toggle" size="sm" kind="ghost" label="Export" aria-expanded={exportMenuOpen} aria-controls="export-menu" aria-haspopup="dialog" onClick={() => setExportMenuOpen((open) => !open)}><UiIcon name="export" /></IconButton>
+            <IconButton id="export-toggle" size="sm" kind="ghost" align="bottom-end" label="Export" aria-expanded={exportMenuOpen} aria-controls="export-menu" aria-haspopup="dialog" onClick={() => setExportMenuOpen((open) => !open)}><UiIcon name="export" /></IconButton>
             <PopoverContent aria-label="Export actions">
               <Layer id="export-menu" withBackground className="toolbar-export-actions">{renderExportActions(() => setExportMenuOpen(false))}</Layer>
             </PopoverContent>
