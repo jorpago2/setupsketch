@@ -4,27 +4,12 @@
   position: fixed;
   inset: 0;
   display: grid;
-  grid-template-rows: 48px 48px minmax(0, 1fr);
+  grid-template-rows: 48px minmax(0, 1fr);
   min-width: 0;
   height: 100dvh;
   overflow: hidden;
   background: var(--color-paper);
   color: var(--color-ink);
-}
-
-.document-bar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  min-width: 0;
-}
-
-.document-bar .project-title {
-  min-width: 0;
-}
-
-.document-bar .toolbar {
-  min-width: 0;
-  overflow: visible;
 }
 
 .workspace {
@@ -116,19 +101,6 @@
     grid-template-rows: minmax(0, 1fr);
     grid-template-columns: 80px minmax(0, 1fr);
     grid-template-areas: "switch stage";
-  }
-
-  .document-bar {
-    grid-template-columns: minmax(16rem, 1fr) auto;
-  }
-
-  .document-bar .project-title {
-    border-bottom: 0;
-  }
-
-  .document-bar .toolbar {
-    justify-content: flex-end;
-    overflow: visible;
   }
 
   .workspace[data-library-open="true"] {

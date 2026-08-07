@@ -75,7 +75,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /<PopoverContent/);
   assert.match(editor, /<PopoverContent>\s*<Layer id="project-menu" withBackground className="toolbar-menu-actions">/);
   assert.match(editor, /<PopoverContent aria-label="Export actions">\s*<Layer id="export-menu" withBackground className="toolbar-export-actions">/);
-  assert.equal([...editor.matchAll(/align=\{narrowWorkspace \? "bottom" : "bottom-end"\}/g)].length, 2);
+  assert.equal([...editor.matchAll(/align="bottom-end"/g)].length, 2);
   assert.equal([...editor.matchAll(/aria-expanded=\{(?:project|export)MenuOpen\}/g)].length, 2);
   assert.match(editor, /<IconButton/);
   assert.match(editor, /if \(narrowWorkspace\) openSelectionInspector\(\)/);
@@ -141,7 +141,10 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(workspaceStyles, /workspace\[data-inspector-open="true"\]/);
   assert.match(styles, /@media \(min-width: 42rem\)/);
   assert.match(styles, /@media \(min-width: 66rem\)/);
-  assert.match(editor, /href="https:\/\/jorpago2\.github\.io\/"/);
+  assert.match(editor, /<Theme as=\{Header\} theme="g100" className=/);
+  assert.match(editor, /<HeaderGlobalBar className="toolbar"/);
+  assert.match(editor, /<Grid as="main"[^>]*aria-labelledby="app-title"/);
+  assert.doesNotMatch(editor, /All tools|document-bar|suite-link/);
   assert.match(styles, /@use "@carbon\/react"/);
   assert.doesNotMatch(styles, /tailwindcss|@theme inline/);
   assert.match(main, /<Theme theme="g10">/);

@@ -14,6 +14,8 @@ import {
   Checkbox,
   Column,
   Grid,
+  Header,
+  HeaderGlobalBar,
   IconButton,
   Layer,
   NumberInput,
@@ -21,8 +23,10 @@ import {
   PopoverContent,
   Select,
   Slider,
+  SkipToContent,
   TextArea,
   TextInput,
+  Theme,
 } from "@carbon/react";
 import {
   Corner,
@@ -1661,22 +1665,19 @@ export default function Home() {
 
   return (
     <WorkspaceShell>
-      <a className="skip-link" href="#diagram-workspace">Skip to diagram workspace</a>
       <h1 className="sr-only" id="app-title">SetupSketch scientific diagram editor</h1>
       <style>{`@media print { @page { size: ${publication.pagePreset === "a3" ? "A3 landscape" : "A4 landscape"}; margin: 8mm; } }`}</style>
-      <header className="global-header">
+      <Theme as={Header} theme="g100" className={`global-header${connectMode ? " is-connecting" : ""}`} aria-label="SetupSketch scientific diagram editor">
+        <SkipToContent href="#diagram-workspace">Skip to diagram workspace</SkipToContent>
         <span className="brand">
           <span className="brand-mark" aria-hidden="true">S</span>
-          <span><strong>SetupSketch</strong><small>Scientific diagram editor</small></span>
+          <span className="brand-copy"><strong>SetupSketch</strong><small>Scientific diagram editor</small></span>
         </span>
-        <a className="suite-link" href="https://jorpago2.github.io/">All tools</a>
-      </header>
-      <section className="document-bar" aria-label="Document controls">
         <div className="project-title">
           <TextInput id="diagram-title" size="sm" hideLabel labelText="Diagram title" value={title} onChange={(event) => setTitle(event.target.value)} />
           <span className="document-status" aria-live="polite">{notice}</span>
         </div>
-        <div className="toolbar" aria-label="Diagram actions">
+        <HeaderGlobalBar className="toolbar" aria-label="Diagram actions">
           <div className="toolbar-group" role="group" aria-label="Edit actions">
             <IconButton size="sm" kind="ghost" label="Undo" onClick={undo} disabled={!past.length}><UiIcon name="undo" /></IconButton>
             <IconButton size="sm" kind="ghost" label="Redo" onClick={redo} disabled={!future.length}><UiIcon name="redo" /></IconButton>
@@ -1687,7 +1688,7 @@ export default function Home() {
                 {(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <option value={type} key={type}>{label}</option>)}
             </Select>
           </div>}
-          <Popover as="div" className="toolbar-menu toolbar-project" open={projectMenuOpen} align={narrowWorkspace ? "bottom" : "bottom-end"} autoAlign onRequestClose={() => setProjectMenuOpen(false)}>
+          <Popover as="div" className="toolbar-menu toolbar-project" open={projectMenuOpen} align="bottom-end" onRequestClose={() => setProjectMenuOpen(false)}>
             <IconButton id="project-toggle" size="sm" kind="ghost" label="Project" aria-expanded={projectMenuOpen} aria-controls="project-menu" aria-haspopup="dialog" onClick={() => setProjectMenuOpen((open) => !open)}><UiIcon name="project" /></IconButton>
             <PopoverContent>
               <Layer id="project-menu" withBackground className="toolbar-menu-actions">
@@ -1705,17 +1706,17 @@ export default function Home() {
               </Layer>
             </PopoverContent>
           </Popover>
-          <Popover as="div" className="toolbar-export-mobile" open={exportMenuOpen} align={narrowWorkspace ? "bottom" : "bottom-end"} autoAlign onRequestClose={() => setExportMenuOpen(false)}>
+          <Popover as="div" className="toolbar-export-mobile" open={exportMenuOpen} align="bottom-end" onRequestClose={() => setExportMenuOpen(false)}>
             <IconButton id="export-toggle" size="sm" kind="ghost" label="Export" aria-expanded={exportMenuOpen} aria-controls="export-menu" aria-haspopup="dialog" onClick={() => setExportMenuOpen((open) => !open)}><UiIcon name="export" /></IconButton>
             <PopoverContent aria-label="Export actions">
               <Layer id="export-menu" withBackground className="toolbar-export-actions">{renderExportActions(() => setExportMenuOpen(false))}</Layer>
             </PopoverContent>
           </Popover>
           <input ref={bomRef} hidden aria-label="Import bill of materials" type="file" accept="text/csv,.csv" onChange={loadBom} />
-        </div>
-      </section>
+        </HeaderGlobalBar>
+      </Theme>
 
-      <Grid as="section" fullWidth condensed className="workspace" id="diagram-workspace" data-library-open={libraryOpen} data-inspector-open={Boolean(inspectorMode)} data-inspector={inspectorMode ?? "none"} tabIndex={-1}>
+      <Grid as="main" fullWidth condensed className="workspace" id="diagram-workspace" aria-labelledby="app-title" data-library-open={libraryOpen} data-inspector-open={Boolean(inspectorMode)} data-inspector={inspectorMode ?? "none"} tabIndex={-1}>
         <WorkspaceNavigation libraryOpen={libraryOpen} activeInspector={inspectorMode} onToggleLibrary={toggleLibrary} onToggleInspector={toggleInspector} />
         <ComponentLibrary
           open={libraryOpen}
