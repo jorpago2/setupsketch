@@ -18,6 +18,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   const templates = await readFile(new URL("../src/features/diagram-editor/model/templates.ts", import.meta.url), "utf8");
   const model = await readFile(new URL("../src/features/diagram-editor/model/editorModel.ts", import.meta.url), "utf8");
   const editorConfig = await readFile(new URL("../src/features/diagram-editor/editorConfig.ts", import.meta.url), "utf8");
+  const editorControls = await readFile(new URL("../src/components/ui/EditorControls.tsx", import.meta.url), "utf8");
   const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   assert.match(html, /SetupSketch/);
   for (const metadata of ["theme-color", "canonical", "og:site_name", "og:url", "og:image:alt", "twitter:title", "twitter:description", "twitter:image:alt"]) {
@@ -70,7 +71,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.doesNotMatch(editor, /<details|<summary|uiIconPaths/);
   assert.match(editor, /from "@carbon\/react"/);
   assert.match(editor, /from "@carbon\/react\/icons"/);
-  assert.match(editor, /<Accordion /);
+  assert.match(editorControls, /<Accordion /);
   assert.match(editor, /<PopoverContent/);
   assert.match(editor, /<PopoverContent>\s*<Layer withBackground className="toolbar-menu-actions">/);
   assert.match(editor, /<PopoverContent aria-label="Export actions">\s*<Layer withBackground className="toolbar-export-actions">/);
@@ -133,7 +134,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(styles, /\.component-grid \.component-add\s*\{[^}]*width:\s*100%;[^}]*min-width:\s*0;/s);
   assert.match(styles, /\.scientific-handle\.connectingto\.valid/);
   assert.match(styles, /\.context-toolbar\s*\{/);
-  assert.match(editor, /<Accordion align="end" isFlush/);
+  assert.match(editorControls, /<Accordion align="end" isFlush/);
   assert.doesNotMatch(styles, /\.cds--accordion__|\.cds--popover-content/);
   assert.match(workspaceStyles, /workspace\[data-library-open="true"\]/);
   assert.match(workspaceStyles, /workspace\[data-inspector-open="true"\]/);

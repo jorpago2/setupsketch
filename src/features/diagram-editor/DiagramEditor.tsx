@@ -3,7 +3,6 @@
 import {
   ChangeEvent,
   memo,
-  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -11,8 +10,6 @@ import {
   useState,
 } from "react";
 import {
-  Accordion,
-  AccordionItem,
   Button,
   Checkbox,
   Column,
@@ -28,19 +25,11 @@ import {
   TextInput,
 } from "@carbon/react";
 import {
-  Copy,
   Corner,
-  FitToScreen,
-  FolderOpen,
-  Link,
   Locked,
-  Map as MapView,
-  Redo,
   SettingsAdjust,
-  TrashCan,
-  Undo,
   Unlocked,
-  Upload,
+  Copy, TrashCan,
 } from "@carbon/react/icons";
 import {
   ConnectionLineType,
@@ -94,50 +83,9 @@ import { InspectorPanel } from "./inspector/InspectorPanel";
 import { WorkspaceNavigation } from "../../components/ui/WorkspaceNavigation";
 import { WorkspaceShell } from "../../components/ui/WorkspaceShell";
 import { useWorkspaceMediaQuery } from "../../hooks/useWorkspaceMediaQuery";
+import { InspectorDisclosure, UiIcon } from "../../components/ui/EditorControls";
 import type { Connection, DiagramElement, ExperimentRecord, InspectorMode, LayerVisibility, PagePreset, Point, PublicationSettings, Routing, SavedModule, Snapshot, ViewportMode } from "./editorTypes";
 import { annotationDefaultSizes, defaultCollapsedGroups, defaultExperiment, defaultPublication, DEFAULT_VIEWPORT, DIAGRAM_VERSION, FLOW_SNAP_GRID, FAVORITES_KEY, GRID_STEP, MODULES_KEY, pagePresets, resizableAnnotationKinds, STORAGE_KEY } from "./editorConfig";
-
-const uiIcons = {
-  undo: Undo,
-  redo: Redo,
-  link: Link,
-  project: FolderOpen,
-  export: Upload,
-  delete: TrashCan,
-  fit: FitToScreen,
-  map: MapView,
-} as const;
-
-function UiIcon({ name }: { name: keyof typeof uiIcons }) {
-  const Icon = uiIcons[name];
-  return <Icon className="button-icon" size={16} aria-hidden={true} />;
-}
-
-function InspectorDisclosure({
-  className,
-  label,
-  meta,
-  buttonId,
-  initiallyOpen = false,
-  panelClassName = "disclosure-panel",
-  children,
-}: {
-  className: string;
-  label: ReactNode;
-  meta?: ReactNode;
-  buttonId?: string;
-  initiallyOpen?: boolean;
-  panelClassName?: string;
-  children: ReactNode;
-}) {
-  return (
-    <Accordion align="end" isFlush size="sm" className={className}>
-      <AccordionItem open={initiallyOpen} title={<span id={buttonId} className="disclosure-title"><span>{label}</span>{meta !== undefined && <span className="disclosure-meta">{meta}</span>}</span>}>
-        <div className={panelClassName}>{children}</div>
-      </AccordionItem>
-    </Accordion>
-  );
-}
 
 const rotatePoint = (point: Point, angle: number): Point => {
   const radians = angle * Math.PI / 180;
