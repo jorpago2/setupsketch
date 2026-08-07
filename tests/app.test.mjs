@@ -85,8 +85,9 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /current === mode \? null : mode/);
   assert.match(editor, /data-library-open=\{libraryOpen\}/);
   assert.match(editor, /data-inspector-open=\{Boolean\(inspectorMode\)\}/);
-  assert.match(workspaceNavigation, /aria-controls="component-library" aria-expanded=/);
-  assert.match(workspaceNavigation, /aria-controls="document-inspector" aria-expanded=/);
+  assert.match(workspaceNavigation, /controls: "component-library"/);
+  assert.match(workspaceNavigation, /aria-controls=\{option\.controls\}/);
+  assert.match(workspaceNavigation, /aria-expanded=\{option\.active\}/);
   assert.match(editor, /id="selection-inspector"/);
   assert.doesNotMatch(editor, /id="property-inspector"/);
   const selectionInspector = editor.slice(editor.indexOf('id="selection-inspector"'), editor.indexOf('id="document-inspector"'));
@@ -101,7 +102,8 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   for (const icon of ["SettingsAdjust", "Copy", "TrashCan", "Locked", "Unlocked", "Corner", "ReflectHorizontal", "ReflectVertical", "BringToFront", "SendToBack"]) {
     assert.match(editor, new RegExp(`(?:renderIcon=\\{(?:[^}]* )?${icon}|<${icon} size=\\{16\\})`));
   }
-  for (const icon of ["GridIcon", "Layers", "Chemistry", "Inspection"]) assert.match(workspaceNavigation, new RegExp(`<${icon} size=\\{16\\}`));
+  for (const icon of ["GridIcon", "Layers", "Chemistry", "Inspection"]) assert.match(workspaceNavigation, new RegExp(`icon: ${icon}`));
+  assert.match(workspaceNavigation, /<option\.icon size=\{16\}/);
   for (const component of ["Grid", "Column", "TextInput", "NumberInput", "Select", "Slider", "Checkbox", "TextArea"]) {
     assert.match(editor, new RegExp(`<${component}`));
   }
@@ -150,7 +152,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /const toggleInspector = \(mode:[\s\S]*?setLibraryOpen\(false\)/);
   assert.match(styles, /@media \(min-width: 42rem\)/);
   assert.match(styles, /@media \(min-width: 66rem\)/);
-  assert.match(editor, /<Theme as=\{Header\} theme="g100" className=/);
+  assert.match(editor, /<Theme as=\{Header\} theme="g10" className=/);
   assert.match(editor, /<HeaderGlobalBar className="toolbar"/);
   assert.match(editor, /className="status-check" aria-hidden="true">✓<\/span>/);
   assert.match(editor, /<Grid as="main"[^>]*aria-labelledby="app-title"/);

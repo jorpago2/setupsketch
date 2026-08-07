@@ -571,7 +571,7 @@ export default function Home() {
   const [checklistDraft, setChecklistDraft] = useState("");
   const [showMiniMap, setShowMiniMap] = useState(false);
   const [savedViewport, setSavedViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
-  const narrowWorkspace = useWorkspaceMediaQuery("(max-width: 65.999rem)");
+  const narrowWorkspace = useWorkspaceMediaQuery("(max-width: 63.999rem)");
   const dualPanelWorkspace = useWorkspaceMediaQuery("(min-width: 99rem)");
   const svgRef = useRef<SVGSVGElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -1671,7 +1671,7 @@ export default function Home() {
     <WorkspaceShell>
       <h1 className="sr-only" id="app-title">SetupSketch scientific diagram editor</h1>
       <style>{`@media print { @page { size: ${publication.pagePreset === "a3" ? "A3 landscape" : "A4 landscape"}; margin: 8mm; } }`}</style>
-      <Theme as={Header} theme="g100" className={`global-header${connectMode ? " is-connecting" : ""}`} aria-label="SetupSketch scientific diagram editor">
+      <Theme as={Header} theme="g10" className={`global-header${connectMode ? " is-connecting" : ""}`} aria-label="SetupSketch scientific diagram editor">
         <SkipToContent href="#diagram-workspace">Skip to diagram workspace</SkipToContent>
         <span className="brand">
           <span className="brand-mark" aria-hidden="true">S</span>

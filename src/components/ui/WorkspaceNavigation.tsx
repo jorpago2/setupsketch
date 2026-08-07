@@ -14,24 +14,31 @@ export function WorkspaceNavigation({
   onToggleLibrary,
   onToggleInspector,
 }: WorkspaceNavigationProps) {
+  const navOptions = [
+    { id: "library", active: libraryOpen, controls: "component-library", onClick: onToggleLibrary, label: "Components", icon: GridIcon },
+    { id: "document", active: activeInspector === "document", controls: "document-inspector", onClick: () => onToggleInspector("document"), label: "Canvas", icon: Layers },
+    { id: "experiment", active: activeInspector === "experiment", controls: "document-inspector", onClick: () => onToggleInspector("experiment"), label: "Experiment", icon: Chemistry },
+    { id: "review", active: activeInspector === "review", controls: "document-inspector", onClick: () => onToggleInspector("review"), label: "Review", icon: Inspection },
+  ];
+
   return (
     <nav className="workspace-switcher" aria-label="Workspace panels">
-      <Button size="sm" kind="ghost" id="library-toggle" className={libraryOpen ? "active" : ""} aria-controls="component-library" aria-expanded={libraryOpen} onClick={onToggleLibrary}>
-        <GridIcon size={16} aria-hidden={true} />
-        <span>Components</span>
-      </Button>
-      <Button size="sm" kind="ghost" id="document-toggle" className={activeInspector === "document" ? "active" : ""} aria-controls="document-inspector" aria-expanded={activeInspector === "document"} onClick={() => onToggleInspector("document")}>
-        <Layers size={16} aria-hidden={true} />
-        <span>Canvas</span>
-      </Button>
-      <Button size="sm" kind="ghost" id="experiment-toggle" className={activeInspector === "experiment" ? "active" : ""} aria-controls="document-inspector" aria-expanded={activeInspector === "experiment"} onClick={() => onToggleInspector("experiment")}>
-        <Chemistry size={16} aria-hidden={true} />
-        <span>Experiment</span>
-      </Button>
-      <Button size="sm" kind="ghost" id="review-toggle" className={activeInspector === "review" ? "active" : ""} aria-controls="document-inspector" aria-expanded={activeInspector === "review"} onClick={() => onToggleInspector("review")}>
-        <Inspection size={16} aria-hidden={true} />
-        <span>Review</span>
-      </Button>
+      {navOptions.map((option) => (
+        <Button
+          key={option.id}
+          size="sm"
+          kind="ghost"
+          id={`${option.id}-toggle`}
+          aria-controls={option.controls}
+          aria-expanded={option.active}
+          aria-current={option.active ? "page" : undefined}
+          className={option.active ? "active" : ""}
+          onClick={option.onClick}
+        >
+          <option.icon size={16} aria-hidden={true} />
+          <span>{option.label}</span>
+        </Button>
+      ))}
     </nav>
   );
 }

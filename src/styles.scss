@@ -957,7 +957,7 @@ button:not([class*="cds--"]).danger {
 /* Carbon workspace shell. Domain-specific canvas visuals remain custom. */
 
 .app-shell {
-  grid-template-rows: 48px minmax(0, 1fr);
+  grid-template-rows: 64px minmax(0, 1fr);
 }
 
 .global-header {
@@ -965,14 +965,17 @@ button:not([class*="cds--"]).danger {
   z-index: var(--z-sticky);
   display: flex;
   min-width: 0;
-  height: 48px;
+  height: 64px;
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+  background: var(--color-surface);
+  color: var(--color-ink);
   overflow: visible;
 }
 
 .global-header .brand {
   flex: 0 0 auto;
   min-width: 0;
-  padding-inline: var(--space-sm);
+  padding-inline: var(--space-lg);
   color: inherit;
 }
 
@@ -981,12 +984,12 @@ button:not([class*="cds--"]).danger {
 }
 
 .global-header .brand-mark {
-  background: var(--cds-icon-on-color);
-  color: var(--cds-background-inverse);
+  background: var(--color-ink);
+  color: var(--color-paper);
 }
 
 .global-header .brand small {
-  color: var(--cds-text-on-color);
+  color: var(--color-muted);
 }
 
 .global-header .project-title {
@@ -1014,8 +1017,8 @@ button:not([class*="cds--"]).danger {
   position: static;
   flex: 0 0 auto;
   min-width: 0;
-  height: 48px;
-  min-height: 48px;
+  height: 64px;
+  min-height: 64px;
   margin-inline-start: auto;
   justify-content: flex-end;
   padding: 0 var(--space-xs) 0 0;
@@ -1072,11 +1075,17 @@ button:not([class*="cds--"]).danger {
   position: sticky;
   z-index: var(--z-base);
   top: 0;
-  min-height: 48px;
-  margin: 0 0 var(--space-md);
-  padding-inline: var(--space-md) var(--space-2xs);
+  min-height: 64px;
+  margin: 0 0 var(--space-lg);
+  padding-inline: var(--space-lg) var(--space-xs);
   border-bottom: var(--rule-hair) solid var(--color-rule);
   background: var(--color-surface);
+}
+
+.panel-heading > span:first-child {
+  font-size: var(--text-lg);
+  font-weight: 400;
+  letter-spacing: -0.02em;
 }
 
 .sidebar-content > .layers-panel:first-child {
