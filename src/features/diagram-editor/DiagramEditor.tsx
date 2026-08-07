@@ -1074,12 +1074,15 @@ export default function Home() {
       return element?.groupId ? elements.filter((candidate) => candidate.groupId === element.groupId).map((candidate) => candidate.id) : [node.id];
     }))];
     setSelectedIds((current) => current.length === nextIds.length && current.every((id, index) => id === nextIds[index]) ? current : nextIds);
-    const nextEdgeId = edges[0]?.id ?? null;
+    const nextEdgeId = nextIds.length ? null : edges[0]?.id ?? null;
     setSelectedConnectionId((current) => current === nextEdgeId ? current : nextEdgeId);
   }, [elements]);
 
   const handleFlowNodeClick = useCallback<NodeMouseHandler<CanvasFlowNode>>((_, node) => {
-    if (node.id !== "__paper__") selectFlowNode(node.id);
+    if (node.id !== "__paper__") {
+      setSelectedConnectionId(null);
+      selectFlowNode(node.id);
+    }
   }, [selectFlowNode]);
 
   const handleFlowEdgeClick = useCallback((_: React.MouseEvent, edge: ScientificFlowEdge) => {
@@ -1876,7 +1879,7 @@ export default function Home() {
 
         <InspectorPanel
           id="selection-inspector"
-          label={selectedConnection ? "Connection properties" : selectedIds.length > 1 ? "Selection properties" : "Component properties"}
+          label={selectedIds.length > 1 ? "Selection properties" : selected ? "Component properties" : selectedConnection ? "Connection properties" : "Properties"}
           ariaLabel="Selection properties"
           hidden={inspectorMode !== "selection"}
           closeLabel="Close selection properties"
@@ -1973,9 +1976,11 @@ export default function Home() {
                 <option value="auto">Automatic · {defaultRoutingLabel(getConnectionDomain(selectedConnection, elements.find((element) => element.id === selectedConnection.from)))}</option>
                 <option value="straight">Straight</option><option value="orthogonal">Orthogonal</option>
               </Select>
-              <Button size="sm" kind="tertiary" renderIcon={Corner} onClick={addConnectionBend}>Add bend</Button>
-              {selectedConnection.waypoints?.length ? <Button size="sm" kind="tertiary" onClick={() => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, waypoints: undefined } : connection))}>Clear bends</Button> : null}
-              <Button size="sm" kind="danger--tertiary" renderIcon={TrashCan} onClick={removeSelected}>Delete connection</Button>
+              <div className="property-actions connection-actions">
+                <Button size="sm" kind="tertiary" renderIcon={Corner} onClick={addConnectionBend}>Add bend</Button>
+                {selectedConnection.waypoints?.length ? <Button size="sm" kind="tertiary" onClick={() => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, waypoints: undefined } : connection))}>Clear bends</Button> : null}
+                <Button size="sm" kind="danger--tertiary" renderIcon={TrashCan} onClick={removeSelected}>Delete connection</Button>
+              </div>
             </div>
           ) : (
             <div className="empty-inspector"><p>Select a component to edit it. On desktop, Shift-click selects several.</p><span>Focused components can be nudged with the arrow keys.</span></div>

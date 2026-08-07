@@ -82,6 +82,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /<IconButton/);
   assert.match(editor, /if \(narrowWorkspace\) openSelectionInspector\(\)/);
   assert.match(editor, /setSelectedIds\(\[id\]\);\s+openSelectionInspector\(\)/);
+  assert.match(editor, /const nextEdgeId = nextIds\.length \? null : edges\[0\]\?\.id \?\? null/);
   assert.match(editor, /current === mode \? null : mode/);
   assert.match(editor, /data-library-open=\{libraryOpen\}/);
   assert.match(editor, /data-inspector-open=\{Boolean\(inspectorMode\)\}/);

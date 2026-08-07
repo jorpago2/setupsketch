@@ -194,6 +194,10 @@ body {
   display: block;
 }
 
+.toolbar-export-mobile {
+  margin-inline-end: var(--space-xs);
+}
+
 .toolbar-menu-button {
   display: flex;
   align-items: center;
@@ -498,6 +502,10 @@ body {
   box-shadow: var(--shadow-card);
 }
 
+.react-flow__minimap.bottom {
+  bottom: calc(44px + var(--space-xs));
+}
+
 .react-flow__attribution {
   color: var(--color-muted);
   font-size: var(--text-xs);
@@ -767,6 +775,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-xs);
+  padding-inline-end: var(--space-sm);
 }
 
 .disclosure-meta {
@@ -819,6 +828,13 @@ body {
   display: grid;
 }
 
+.checklist-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: end;
+  gap: var(--space-xs);
+}
+
 .budget-result strong,
 .budget-result span,
 .model-note,
@@ -851,10 +867,21 @@ body {
   .property-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .compact-actions > :last-child:nth-child(odd),
+  .connection-actions > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
 }
 
-@container sidebar (min-width: 24rem) {
+@container sidebar (min-width: 22rem) {
   .compact-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container sidebar (min-width: 42rem) {
+  .component-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -869,6 +896,10 @@ body {
 @media (min-width: 23rem) {
   .toolbar-menu-label {
     display: inline;
+  }
+
+  .react-flow__minimap.bottom {
+    bottom: 0;
   }
 }
 
@@ -888,6 +919,13 @@ body {
   .react-flow__minimap {
     width: 180px;
     height: 120px;
+  }
+
+  /* Carbon reserves 25% of accordion content at this viewport breakpoint. */
+  .component-grid,
+  .property-section-content,
+  .layers-panel .disclosure-panel {
+    width: calc(100% / 0.75);
   }
 }
 
