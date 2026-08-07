@@ -5,18 +5,18 @@ import test from "node:test";
 test("builds a static TypeScript, React, and Vite app", async () => {
   const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
   const assets = await readdir(new URL("../dist/assets/", import.meta.url));
-  const editor = await readFile(new URL("../src/Editor.tsx", import.meta.url), "utf8");
-  const workspaceNavigation = await readFile(new URL("../src/ui/WorkspaceNavigation.tsx", import.meta.url), "utf8");
-  const componentLibrary = await readFile(new URL("../src/ui/ComponentLibrary.tsx", import.meta.url), "utf8");
-  const diagramCanvas = await readFile(new URL("../src/DiagramCanvas.tsx", import.meta.url), "utf8");
-  const canvasRouting = await readFile(new URL("../src/canvasRouting.ts", import.meta.url), "utf8");
+  const editor = await readFile(new URL("../src/features/diagram-editor/DiagramEditor.tsx", import.meta.url), "utf8");
+  const workspaceNavigation = await readFile(new URL("../src/components/ui/WorkspaceNavigation.tsx", import.meta.url), "utf8");
+  const componentLibrary = await readFile(new URL("../src/features/diagram-editor/library/ComponentLibrary.tsx", import.meta.url), "utf8");
+  const diagramCanvas = await readFile(new URL("../src/features/diagram-editor/canvas/DiagramCanvas.tsx", import.meta.url), "utf8");
+  const canvasRouting = await readFile(new URL("../src/features/diagram-editor/canvas/canvasRouting.ts", import.meta.url), "utf8");
   const styles = await readFile(new URL("../src/styles.scss", import.meta.url), "utf8");
   const workspaceStyles = await readFile(new URL("../src/workspace.css", import.meta.url), "utf8");
   const main = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
   const viteConfig = await readFile(new URL("../vite.config.ts", import.meta.url), "utf8");
-  const catalog = await readFile(new URL("../src/componentCatalog.ts", import.meta.url), "utf8");
-  const templates = await readFile(new URL("../src/templates.ts", import.meta.url), "utf8");
-  const model = await readFile(new URL("../src/editorModel.ts", import.meta.url), "utf8");
+  const catalog = await readFile(new URL("../src/features/diagram-editor/library/componentCatalog.ts", import.meta.url), "utf8");
+  const templates = await readFile(new URL("../src/features/diagram-editor/model/templates.ts", import.meta.url), "utf8");
+  const model = await readFile(new URL("../src/features/diagram-editor/model/editorModel.ts", import.meta.url), "utf8");
   const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   assert.match(html, /SetupSketch/);
   for (const metadata of ["theme-color", "canonical", "og:site_name", "og:url", "og:image:alt", "twitter:title", "twitter:description", "twitter:image:alt"]) {

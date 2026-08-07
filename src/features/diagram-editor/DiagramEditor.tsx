@@ -68,7 +68,7 @@ import {
   type ReactFlowInstance,
   type Viewport,
 } from "@xyflow/react";
-import { canvasEdgeTypeFor, defaultRoutingLabel, migrateCanvasRouting } from "./canvasRouting";
+import { canvasEdgeTypeFor, defaultRoutingLabel, migrateCanvasRouting } from "./canvas/canvasRouting";
 import {
   annotationKinds,
   componentByKind,
@@ -85,15 +85,15 @@ import {
   type ConnectionType,
   type ElementKind,
   type PortType,
-} from "./componentCatalog";
-import { arrangeOverlaps, calculateBudgets, findOpenPosition, moveElements, parseCsv, routeOrthogonal, validateSetup } from "./editorModel";
-import { DiagramCanvas, WaypointEdgeComponent } from "./DiagramCanvas";
-import { setupTemplates } from "./templates";
-import { ComponentLibrary } from "./ui/ComponentLibrary";
-import { InspectorPanel } from "./ui/InspectorPanel";
-import { WorkspaceNavigation } from "./ui/WorkspaceNavigation";
-import { WorkspaceShell } from "./ui/WorkspaceShell";
-import { useWorkspaceMediaQuery } from "./useWorkspaceMediaQuery";
+} from "./library/componentCatalog";
+import { arrangeOverlaps, calculateBudgets, findOpenPosition, moveElements, parseCsv, routeOrthogonal, validateSetup } from "./model/editorModel";
+import { DiagramCanvas, WaypointEdgeComponent } from "./canvas/DiagramCanvas";
+import { setupTemplates } from "./model/templates";
+import { ComponentLibrary } from "./library/ComponentLibrary";
+import { InspectorPanel } from "./inspector/InspectorPanel";
+import { WorkspaceNavigation } from "../../components/ui/WorkspaceNavigation";
+import { WorkspaceShell } from "../../components/ui/WorkspaceShell";
+import { useWorkspaceMediaQuery } from "../../hooks/useWorkspaceMediaQuery";
 
 type LayerVisibility = {
   grid: boolean;

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { arrangeOverlaps, calculateBudgets, findOpenPosition, moveElements, parseCsv, routeOrthogonal, validateSetup } from "../src/editorModel.ts";
-import { componentByKind, componentPortLayouts, portTypeFor } from "../src/componentCatalog.ts";
-import { setupTemplates } from "../src/templates.ts";
-import { canvasEdgeTypeFor, defaultRoutingLabel, migrateCanvasRouting } from "../src/canvasRouting.ts";
+import { arrangeOverlaps, calculateBudgets, findOpenPosition, moveElements, parseCsv, routeOrthogonal, validateSetup } from "../src/features/diagram-editor/model/editorModel.ts";
+import { componentByKind, componentPortLayouts, portTypeFor } from "../src/features/diagram-editor/library/componentCatalog.ts";
+import { setupTemplates } from "../src/features/diagram-editor/model/templates.ts";
+import { canvasEdgeTypeFor, defaultRoutingLabel, migrateCanvasRouting } from "../src/features/diagram-editor/canvas/canvasRouting.ts";
 
 test("React Flow edge families follow the physical connection domain", () => {
   assert.equal(canvasEdgeTypeFor("optical-free-space", undefined, false), "straight");

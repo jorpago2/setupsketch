@@ -1,4 +1,4 @@
-import type { ElementKind, PortType } from "./componentCatalog";
+import type { ElementKind, PortType } from "../library/componentCatalog";
 
 export type SetupTemplate = {
   id: string;

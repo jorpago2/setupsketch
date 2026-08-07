@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Button, IconButton, Layer, Search } from "@carbon/react";
 import { Close, TrashCan } from "@carbon/react/icons";
-import type { ElementKind } from "../componentCatalog";
+import type { ElementKind } from "./componentCatalog";
 
 type LibraryGroup = {
   title: string;

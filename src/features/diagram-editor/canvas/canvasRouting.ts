@@ -1,4 +1,4 @@
-import type { PortType } from "./componentCatalog";
+import type { PortType } from "../library/componentCatalog";
 
 export type CanvasEdgeType = "straight" | "bezier" | "smoothstep" | "waypoint";
 
