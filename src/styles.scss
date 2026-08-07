@@ -35,30 +35,6 @@
   transform: translateY(0);
 }
 
-.app-shell {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  min-width: 0;
-  height: 100dvh;
-  overflow: hidden;
-  background: var(--color-paper);
-  color: var(--color-ink);
-}
-
-.topbar {
-  position: relative;
-  z-index: var(--z-sticky);
-  display: grid;
-  grid-template-columns: auto minmax(7rem, 1fr);
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-sm);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-card);
-}
-
 html,
 body {
   height: 100%;
@@ -137,11 +113,6 @@ button:not([class*="cds--"]):active,
   border-radius: var(--radius-input);
   background: var(--color-ink);
   color: var(--color-paper);
-}
-
-.topbar {
-  min-height: 0;
-  border-color: var(--color-rule);
 }
 
 .brand {
@@ -928,16 +899,6 @@ button:not([class*="cds--"]).danger {
   button:not([class*="cds--"]),
   .suite-link {
     min-height: 44px;
-  }
-
-  .app-shell {
-    grid-template-rows: 64px minmax(0, 1fr);
-  }
-
-  .topbar {
-    grid-template-columns: 210px minmax(180px, 1fr) auto;
-    gap: var(--space-md);
-    padding-block: var(--space-xs);
   }
 
   .project-title {
