@@ -769,7 +769,13 @@ export default function Home() {
   useEffect(() => {
     const dismissWithEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (inspectorMode) {
+      if (projectMenuOpen) {
+        document.getElementById("project-toggle")?.focus();
+        setProjectMenuOpen(false);
+      } else if (exportMenuOpen) {
+        document.getElementById("export-toggle")?.focus();
+        setExportMenuOpen(false);
+      } else if (inspectorMode) {
         document.getElementById(inspectorMode === "selection" ? "diagram-workspace" : `${inspectorMode}-toggle`)?.focus();
         setInspectorMode(null);
       } else if (libraryOpen) {
@@ -779,7 +785,7 @@ export default function Home() {
     };
     document.addEventListener("keydown", dismissWithEscape);
     return () => document.removeEventListener("keydown", dismissWithEscape);
-  }, [inspectorMode, libraryOpen]);
+  }, [exportMenuOpen, inspectorMode, libraryOpen, projectMenuOpen]);
 
   useEffect(() => {
     if (!hasSelection && inspectorMode === "selection") setInspectorMode(null);
@@ -1185,6 +1191,13 @@ export default function Home() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setConnectMode(false);
+        setConnectFrom(null);
+        setSelectedIds([]);
+        setSelectedConnectionId(null);
+        return;
+      }
       const target = event.target instanceof Element ? event.target : null;
       const interfaceControl = target?.closest("input, textarea, select, button, a, [contenteditable='true']");
       if (interfaceControl) return;
@@ -1209,12 +1222,6 @@ export default function Home() {
         const dx = event.key === "ArrowLeft" ? -distance : event.key === "ArrowRight" ? distance : 0;
         const dy = event.key === "ArrowUp" ? -distance : event.key === "ArrowDown" ? distance : 0;
         commit(moveElements(elements, selection, dx, dy, dimensions));
-      }
-      if (event.key === "Escape") {
-        setConnectMode(false);
-        setConnectFrom(null);
-        setSelectedIds([]);
-        setSelectedConnectionId(null);
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -1680,10 +1687,10 @@ export default function Home() {
                 {(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <option value={type} key={type}>{label}</option>)}
             </Select>
           </div>}
-          <Popover as="div" className="toolbar-menu toolbar-project" open={projectMenuOpen} align={narrowWorkspace ? "bottom" : "bottom-end"} onRequestClose={() => setProjectMenuOpen(false)}>
-            <IconButton size="sm" kind="ghost" label="Project" onClick={() => setProjectMenuOpen((open) => !open)}><UiIcon name="project" /></IconButton>
+          <Popover as="div" className="toolbar-menu toolbar-project" open={projectMenuOpen} align={narrowWorkspace ? "bottom" : "bottom-end"} autoAlign onRequestClose={() => setProjectMenuOpen(false)}>
+            <IconButton id="project-toggle" size="sm" kind="ghost" label="Project" aria-expanded={projectMenuOpen} aria-controls="project-menu" aria-haspopup="dialog" onClick={() => setProjectMenuOpen((open) => !open)}><UiIcon name="project" /></IconButton>
             <PopoverContent>
-              <Layer withBackground className="toolbar-menu-actions">
+              <Layer id="project-menu" withBackground className="toolbar-menu-actions">
                 <Select id="project-template" size="sm" labelText="Template" className="connection-type" defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; setProjectMenuOpen(false); }}>
                     <option value="" disabled>Choose setup</option>
                     {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
@@ -1698,10 +1705,10 @@ export default function Home() {
               </Layer>
             </PopoverContent>
           </Popover>
-          <Popover as="div" className="toolbar-export-mobile" open={exportMenuOpen} align={narrowWorkspace ? "bottom" : "bottom-end"} onRequestClose={() => setExportMenuOpen(false)}>
-            <IconButton size="sm" kind="ghost" label="Export" onClick={() => setExportMenuOpen((open) => !open)}><UiIcon name="export" /></IconButton>
+          <Popover as="div" className="toolbar-export-mobile" open={exportMenuOpen} align={narrowWorkspace ? "bottom" : "bottom-end"} autoAlign onRequestClose={() => setExportMenuOpen(false)}>
+            <IconButton id="export-toggle" size="sm" kind="ghost" label="Export" aria-expanded={exportMenuOpen} aria-controls="export-menu" aria-haspopup="dialog" onClick={() => setExportMenuOpen((open) => !open)}><UiIcon name="export" /></IconButton>
             <PopoverContent aria-label="Export actions">
-              <Layer withBackground className="toolbar-export-actions">{renderExportActions(() => setExportMenuOpen(false))}</Layer>
+              <Layer id="export-menu" withBackground className="toolbar-export-actions">{renderExportActions(() => setExportMenuOpen(false))}</Layer>
             </PopoverContent>
           </Popover>
           <input ref={bomRef} hidden aria-label="Import bill of materials" type="file" accept="text/csv,.csv" onChange={loadBom} />
@@ -1764,15 +1771,15 @@ export default function Home() {
                 gridVisible={layers.grid}
               >
                 {selectedIds.length > 0 && <NodeToolbar nodeId={selectedIds} isVisible={inspectorMode !== "selection" && !narrowWorkspace} className="context-toolbar" position={Position.Top}>
-                  <Button size="sm" kind="ghost" renderIcon={SettingsAdjust} aria-label="Properties" onClick={openSelectionInspector}><span>Properties</span></Button>
-                  <Button size="sm" kind="ghost" renderIcon={Copy} aria-label="Duplicate" onClick={duplicateSelected}><span>Duplicate</span></Button>
-                  <Button size="sm" kind="ghost" renderIcon={allSelectedLocked ? Unlocked : Locked} aria-label={allSelectedLocked ? "Unlock" : "Lock"} onClick={() => changeSelected({ locked: !allSelectedLocked })}><span>{allSelectedLocked ? "Unlock" : "Lock"}</span></Button>
-                  <Button size="sm" kind="danger--ghost" renderIcon={TrashCan} aria-label="Delete" onClick={removeSelected}><span>Delete</span></Button>
+                  <IconButton size="sm" kind="ghost" label="Properties" onClick={openSelectionInspector}><SettingsAdjust size={16} aria-hidden={true} /></IconButton>
+                  <IconButton size="sm" kind="ghost" label="Duplicate" onClick={duplicateSelected}><Copy size={16} aria-hidden={true} /></IconButton>
+                  <IconButton size="sm" kind="ghost" label={allSelectedLocked ? "Unlock" : "Lock"} onClick={() => changeSelected({ locked: !allSelectedLocked })}>{allSelectedLocked ? <Unlocked size={16} aria-hidden={true} /> : <Locked size={16} aria-hidden={true} />}</IconButton>
+                  <IconButton size="sm" kind="ghost" className="context-danger" label="Delete" onClick={removeSelected}><TrashCan size={16} aria-hidden={true} /></IconButton>
                 </NodeToolbar>}
                 {selectedConnection && selectedConnectionToolbarPosition && <EdgeToolbar edgeId={selectedConnection.id} x={selectedConnectionToolbarPosition.x} y={selectedConnectionToolbarPosition.y} isVisible={inspectorMode !== "selection" && !narrowWorkspace} className="context-toolbar">
-                  <Button size="sm" kind="ghost" renderIcon={SettingsAdjust} aria-label="Properties" onClick={openSelectionInspector}><span>Properties</span></Button>
-                  <Button size="sm" kind="ghost" renderIcon={Corner} aria-label="Add bend" onClick={addConnectionBend}><span>Add bend</span></Button>
-                  <Button size="sm" kind="danger--ghost" renderIcon={TrashCan} aria-label="Delete" onClick={removeSelected}><span>Delete</span></Button>
+                  <IconButton size="sm" kind="ghost" label="Properties" onClick={openSelectionInspector}><SettingsAdjust size={16} aria-hidden={true} /></IconButton>
+                  <IconButton size="sm" kind="ghost" label="Add bend" onClick={addConnectionBend}><Corner size={16} aria-hidden={true} /></IconButton>
+                  <IconButton size="sm" kind="ghost" className="context-danger" label="Delete" onClick={removeSelected}><TrashCan size={16} aria-hidden={true} /></IconButton>
                 </EdgeToolbar>}
                 <Controls showFitView={false} showInteractive={false} orientation={narrowWorkspace ? "horizontal" : "vertical"}>
                   <ControlButton onClick={fitCanvas} title={selectedIds.length ? "Fit selection" : "Fit diagram"} aria-label={selectedIds.length ? "Fit selection" : "Fit diagram"}><UiIcon name="fit" /></ControlButton>
@@ -1852,8 +1859,8 @@ export default function Home() {
               ))}
             </svg>
           </div>
-          <div className="stage-meta">
-            <span>{elements.length} components · {connections.length} connections</span>
+          <div className={connectMode ? "stage-meta is-connecting" : "stage-meta"}>
+            {!connectMode && <span>{elements.length} components · {connections.length} connections</span>}
             <span className={connectMode ? "mode-note active" : "mode-note"} aria-live="polite">{connectMode ? (connectFrom ? `Select ${portTypeLabels[connectionDomain]} destination` : `Select ${portTypeLabels[connectionDomain]} source`) : notice}</span>
           </div>
         </Column>

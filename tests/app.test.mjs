@@ -73,9 +73,10 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /from "@carbon\/react\/icons"/);
   assert.match(editorControls, /<Accordion /);
   assert.match(editor, /<PopoverContent/);
-  assert.match(editor, /<PopoverContent>\s*<Layer withBackground className="toolbar-menu-actions">/);
-  assert.match(editor, /<PopoverContent aria-label="Export actions">\s*<Layer withBackground className="toolbar-export-actions">/);
+  assert.match(editor, /<PopoverContent>\s*<Layer id="project-menu" withBackground className="toolbar-menu-actions">/);
+  assert.match(editor, /<PopoverContent aria-label="Export actions">\s*<Layer id="export-menu" withBackground className="toolbar-export-actions">/);
   assert.equal([...editor.matchAll(/align=\{narrowWorkspace \? "bottom" : "bottom-end"\}/g)].length, 2);
+  assert.equal([...editor.matchAll(/aria-expanded=\{(?:project|export)MenuOpen\}/g)].length, 2);
   assert.match(editor, /<IconButton/);
   assert.match(editor, /if \(narrowWorkspace\) openSelectionInspector\(\)/);
   assert.match(editor, /setSelectedIds\(\[id\]\);\s+openSelectionInspector\(\)/);
@@ -96,7 +97,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
     assert.match(editor, new RegExp(`<UiIcon name="${icon}"`));
   }
   for (const icon of ["SettingsAdjust", "Copy", "TrashCan", "Locked", "Unlocked", "Corner"]) {
-    assert.match(editor, new RegExp(`renderIcon=\\{(?:[^}]* )?${icon}`));
+    assert.match(editor, new RegExp(`(?:renderIcon=\\{(?:[^}]* )?${icon}|<${icon} size=\\{16\\})`));
   }
   for (const icon of ["GridIcon", "Layers", "Chemistry", "Inspection"]) assert.match(workspaceNavigation, new RegExp(`<${icon} size=\\{16\\}`));
   for (const component of ["Grid", "Column", "TextInput", "NumberInput", "Select", "Slider", "Checkbox", "TextArea"]) {
@@ -120,7 +121,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /widthRatio >= 0\.95 && widthRatio <= 1\.05/);
   assert.match(editor, /window\.addEventListener\("resize", scheduleWorkspaceFit\)/);
   assert.equal([...editor.matchAll(/\(min-width: 99rem\)/g)].length, 1);
-  assert.match(editor, /aria-label="Properties"/);
+  assert.match(editor, /label="Properties"/);
   assert.match(editorConfig, /textnote: \{ width: 150, height: 70 \}/);
   assert.match(editor, /annotation \? 48 : 128/);
   assert.match(editor, /orientation=\{narrowWorkspace \? "horizontal" : "vertical"\}/);

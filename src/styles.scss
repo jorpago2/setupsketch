@@ -371,8 +371,11 @@ button:not([class*="cds--"]):active,
 }
 
 .flow-paper strong {
+  max-width: 420px;
   font-size: var(--text-xl);
   font-weight: 700;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
 }
 
 .flow-paper span {
@@ -519,8 +522,8 @@ button:not([class*="cds--"]):active,
   font-weight: 600;
 }
 
-.context-toolbar span {
-  display: none;
+.context-toolbar .context-danger {
+  color: var(--color-danger);
 }
 
 .react-flow__minimap {
@@ -891,10 +894,6 @@ button:not([class*="cds--"]).danger {
     display: inline;
   }
 
-  .context-toolbar span {
-    display: inline;
-  }
-
   .react-flow__minimap {
     width: 180px;
     height: 120px;
@@ -1024,6 +1023,7 @@ button:not([class*="cds--"]).danger {
 }
 
 .document-bar {
+  position: relative;
   z-index: var(--z-raised);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -1056,7 +1056,7 @@ button:not([class*="cds--"]).danger {
   min-height: 48px;
   justify-content: flex-start;
   padding-inline: var(--space-sm);
-  overflow-x: auto;
+  overflow: visible;
 }
 
 .toolbar-menu-actions .toolbar-group,
@@ -1095,12 +1095,17 @@ button:not([class*="cds--"]).danger {
   max-width: 60%;
 }
 
+.stage-meta.is-connecting .mode-note {
+  max-width: 100%;
+  margin-inline-start: auto;
+}
+
 .panel-heading {
   position: sticky;
   z-index: var(--z-base);
-  top: calc(-1 * var(--space-md));
+  top: 0;
   min-height: 48px;
-  margin: calc(-1 * var(--space-md)) calc(-1 * var(--space-md)) var(--space-md);
+  margin: 0 0 var(--space-md);
   padding-inline: var(--space-md) var(--space-2xs);
   border-bottom: var(--rule-hair) solid var(--color-rule);
   background: var(--color-surface);
@@ -1161,9 +1166,6 @@ button:not([class*="cds--"]).danger {
     display: inline;
   }
 
-  .context-toolbar span {
-    display: inline;
-  }
 }
 
 @media (min-width: 66rem) {

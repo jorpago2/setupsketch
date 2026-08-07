@@ -24,7 +24,7 @@
 
 .document-bar .toolbar {
   min-width: 0;
-  overflow-x: auto;
+  overflow: visible;
 }
 
 .workspace {
@@ -84,6 +84,9 @@
 }
 
 .workspace-switcher .cds--btn {
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2xs);
   min-width: 0;
   width: auto;
   max-width: none;
@@ -177,9 +180,10 @@
   }
 
   .workspace-switcher .cds--btn {
+    flex-direction: column;
     width: 100%;
     padding-inline: var(--space-xs);
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     min-height: 64px;
     border-bottom: 0;
     border-inline-start: 3px solid transparent;

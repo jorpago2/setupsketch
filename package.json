@@ -11,7 +11,7 @@
     "build": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && vite build",
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
     "test": "pnpm build && node --experimental-strip-types --test tests/app.test.mjs tests/model.test.ts",
-    "lint": "eslint . --ignore-pattern dist",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern storybook-static",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
