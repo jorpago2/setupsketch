@@ -4,6 +4,7 @@ import { Theme } from "@carbon/react";
 import "../tokens.css";
 import "@xyflow/react/dist/style.css";
 import "./styles.scss";
+import "./workspace.css";
 import App from "./Editor";
 
 createRoot(document.getElementById("root")!).render(

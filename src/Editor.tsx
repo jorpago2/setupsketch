@@ -30,14 +30,10 @@ import {
 } from "@carbon/react";
 import {
   Close,
-  Chemistry,
   Copy,
   Corner,
   FitToScreen,
   FolderOpen,
-  Grid as GridIcon,
-  Inspection,
-  Layers,
   Link,
   Locked,
   Map as MapView,
@@ -95,6 +91,7 @@ import {
 import { arrangeOverlaps, calculateBudgets, findOpenPosition, moveElements, parseCsv, routeOrthogonal, validateSetup } from "./editorModel";
 import { DiagramCanvas, WaypointEdgeComponent } from "./DiagramCanvas";
 import { setupTemplates } from "./templates";
+import { WorkspaceNavigation } from "./ui/WorkspaceNavigation";
 
 type LayerVisibility = {
   grid: boolean;
@@ -1975,12 +1972,7 @@ export default function Home() {
       </section>
 
       <Grid as="section" fullWidth condensed className="workspace" id="diagram-workspace" data-library-open={libraryOpen} data-inspector-open={Boolean(inspectorMode)} data-inspector={inspectorMode ?? "none"} tabIndex={-1}>
-        <Column as="nav" sm={4} md={1} lg={1} className="workspace-switcher" aria-label="Workspace panels">
-          <Button size="sm" kind="ghost" id="library-toggle" className={libraryOpen ? "active" : ""} aria-controls="component-library" aria-expanded={libraryOpen} onClick={toggleLibrary}><GridIcon size={16} aria-hidden={true} /><span>Components</span></Button>
-          <Button size="sm" kind="ghost" id="document-toggle" className={inspectorMode === "document" ? "active" : ""} aria-controls="document-inspector" aria-expanded={inspectorMode === "document"} onClick={() => toggleInspector("document")}><Layers size={16} aria-hidden={true} /><span>Canvas</span></Button>
-          <Button size="sm" kind="ghost" id="experiment-toggle" className={inspectorMode === "experiment" ? "active" : ""} aria-controls="document-inspector" aria-expanded={inspectorMode === "experiment"} onClick={() => toggleInspector("experiment")}><Chemistry size={16} aria-hidden={true} /><span>Experiment</span></Button>
-          <Button size="sm" kind="ghost" id="review-toggle" className={inspectorMode === "review" ? "active" : ""} aria-controls="document-inspector" aria-expanded={inspectorMode === "review"} onClick={() => toggleInspector("review")}><Inspection size={16} aria-hidden={true} /><span>Review</span></Button>
-        </Column>
+        <WorkspaceNavigation libraryOpen={libraryOpen} activeInspector={inspectorMode} onToggleLibrary={toggleLibrary} onToggleInspector={toggleInspector} />
         <Column as="aside" sm={4} md={3} lg={3} id="component-library" className="library sidebar" aria-label="Component library" aria-hidden={!libraryOpen}>
           <Layer withBackground className="sidebar-layer">
           <div className="panel-heading">

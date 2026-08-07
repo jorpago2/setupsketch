@@ -6,9 +6,11 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
   const assets = await readdir(new URL("../dist/assets/", import.meta.url));
   const editor = await readFile(new URL("../src/Editor.tsx", import.meta.url), "utf8");
+  const workspaceNavigation = await readFile(new URL("../src/ui/WorkspaceNavigation.tsx", import.meta.url), "utf8");
   const diagramCanvas = await readFile(new URL("../src/DiagramCanvas.tsx", import.meta.url), "utf8");
   const canvasRouting = await readFile(new URL("../src/canvasRouting.ts", import.meta.url), "utf8");
   const styles = await readFile(new URL("../src/styles.scss", import.meta.url), "utf8");
+  const workspaceStyles = await readFile(new URL("../src/workspace.css", import.meta.url), "utf8");
   const main = await readFile(new URL("../src/main.tsx", import.meta.url), "utf8");
   const viteConfig = await readFile(new URL("../vite.config.ts", import.meta.url), "utf8");
   const catalog = await readFile(new URL("../src/componentCatalog.ts", import.meta.url), "utf8");
@@ -76,8 +78,8 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /current === mode \? null : mode/);
   assert.match(editor, /data-library-open=\{libraryOpen\}/);
   assert.match(editor, /data-inspector-open=\{Boolean\(inspectorMode\)\}/);
-  assert.match(editor, /aria-controls="component-library" aria-expanded=/);
-  assert.match(editor, /aria-controls="document-inspector" aria-expanded=/);
+  assert.match(workspaceNavigation, /aria-controls="component-library" aria-expanded=/);
+  assert.match(workspaceNavigation, /aria-controls="document-inspector" aria-expanded=/);
   assert.match(editor, /id="selection-inspector"/);
   assert.doesNotMatch(editor, /id="property-inspector"/);
   const selectionInspector = editor.slice(editor.indexOf('id="selection-inspector"'), editor.indexOf('id="document-inspector"'));
@@ -92,7 +94,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   for (const icon of ["SettingsAdjust", "Copy", "TrashCan", "Locked", "Unlocked", "Corner"]) {
     assert.match(editor, new RegExp(`renderIcon=\\{(?:[^}]* )?${icon}`));
   }
-  for (const icon of ["GridIcon", "Layers", "Chemistry", "Inspection"]) assert.match(editor, new RegExp(`<${icon} size=\\{16\\}`));
+  for (const icon of ["GridIcon", "Layers", "Chemistry", "Inspection"]) assert.match(workspaceNavigation, new RegExp(`<${icon} size=\\{16\\}`));
   for (const component of ["Grid", "Column", "Search", "TextInput", "NumberInput", "Select", "Slider", "Checkbox", "TextArea"]) {
     assert.match(editor, new RegExp(`<${component}`));
   }
@@ -129,8 +131,8 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(styles, /\.context-toolbar\s*\{/);
   assert.match(editor, /<Accordion align="end" isFlush/);
   assert.doesNotMatch(styles, /\.cds--accordion__|\.cds--popover-content/);
-  assert.match(styles, /workspace\[data-library-open="true"\]/);
-  assert.match(styles, /workspace\[data-inspector-open="true"\]/);
+  assert.match(workspaceStyles, /workspace\[data-library-open="true"\]/);
+  assert.match(workspaceStyles, /workspace\[data-inspector-open="true"\]/);
   assert.match(styles, /@media \(min-width: 42rem\)/);
   assert.match(styles, /@media \(min-width: 66rem\)/);
   assert.match(editor, /href="https:\/\/jorpago2\.github\.io\/"/);

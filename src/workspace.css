@@ -1,0 +1,172 @@
+/* Canonical workspace layout. Domain styling stays in styles.scss. */
+
+.app-shell {
+  grid-template-rows: 48px 48px minmax(0, 1fr);
+}
+
+.document-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.document-bar .project-title {
+  min-width: 0;
+}
+
+.document-bar .toolbar {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.workspace {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) 64px;
+  grid-template-areas: "stage" "switch";
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workspace > .workspace-switcher,
+.workspace > .library,
+.workspace > .inspector,
+.workspace > .stage-wrap {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+}
+
+.workspace > .workspace-switcher {
+  grid-area: switch;
+  width: auto;
+  padding: 0 max(var(--space-xs), env(safe-area-inset-right)) max(0px, env(safe-area-inset-bottom)) max(var(--space-xs), env(safe-area-inset-left));
+}
+
+.workspace > .stage-wrap {
+  grid-area: stage;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 32px;
+  width: auto;
+  padding: var(--space-xs) var(--space-xs) 0;
+}
+
+.workspace > .library,
+.workspace > .inspector {
+  grid-area: stage;
+  width: auto;
+  max-width: none;
+  padding: 0;
+  z-index: var(--z-dropdown);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.sidebar[aria-hidden="true"] {
+  display: none;
+}
+
+.sidebar[aria-hidden="false"] {
+  display: block;
+}
+
+.workspace-switcher .cds--btn {
+  min-width: 0;
+  width: 100%;
+}
+
+.sidebar-layer {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: var(--color-surface);
+}
+
+.component-grid,
+.property-form,
+.compact-actions,
+.property-actions {
+  min-width: 0;
+}
+
+@media (min-width: 66rem) {
+  .workspace {
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: 80px minmax(0, 1fr);
+    grid-template-areas: "switch stage";
+  }
+
+  .document-bar {
+    grid-template-columns: minmax(16rem, 1fr) auto;
+  }
+
+  .document-bar .project-title {
+    border-bottom: 0;
+  }
+
+  .document-bar .toolbar {
+    justify-content: flex-end;
+    overflow: visible;
+  }
+
+  .workspace[data-library-open="true"] {
+    grid-template-columns: 80px minmax(16rem, 18rem) minmax(0, 1fr);
+    grid-template-areas: "switch library stage";
+  }
+
+  .workspace[data-inspector-open="true"] {
+    grid-template-columns: 80px minmax(0, 1fr) minmax(18rem, 20rem);
+    grid-template-areas: "switch stage inspector";
+  }
+
+  .workspace[data-library-open="true"][data-inspector-open="true"] {
+    grid-template-columns: 80px minmax(16rem, 18rem) minmax(0, 1fr) minmax(18rem, 20rem);
+    grid-template-areas: "switch library stage inspector";
+  }
+
+  .workspace > .workspace-switcher {
+    padding: 0;
+    border-top: 0;
+    border-inline-end: var(--rule-hair) solid var(--color-rule);
+  }
+
+  .workspace > .library,
+  .workspace > .inspector,
+  .workspace > .stage-wrap {
+    grid-row: auto;
+    grid-column: auto;
+  }
+
+  .workspace > .library {
+    grid-area: library;
+    box-shadow: none;
+    border-inline-end: var(--rule-hair) solid var(--color-rule);
+  }
+
+  .workspace > .inspector {
+    grid-area: inspector;
+    box-shadow: none;
+    border-inline-start: var(--rule-hair) solid var(--color-rule);
+  }
+
+  .workspace > .stage-wrap {
+    grid-area: stage;
+    padding: var(--space-md) var(--space-md) 0;
+  }
+
+  .workspace-switcher .cds--btn {
+    min-height: 64px;
+    border-bottom: 0;
+    border-inline-start: 3px solid transparent;
+  }
+
+  .workspace-switcher .cds--btn.active {
+    border-bottom-color: transparent;
+    border-inline-start-color: var(--color-accent);
+  }
+}
