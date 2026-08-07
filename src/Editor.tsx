@@ -92,6 +92,8 @@ import { setupTemplates } from "./templates";
 import { ComponentLibrary } from "./ui/ComponentLibrary";
 import { InspectorPanel } from "./ui/InspectorPanel";
 import { WorkspaceNavigation } from "./ui/WorkspaceNavigation";
+import { WorkspaceShell } from "./ui/WorkspaceShell";
+import { useWorkspaceMediaQuery } from "./useWorkspaceMediaQuery";
 
 type LayerVisibility = {
   grid: boolean;
@@ -817,8 +819,8 @@ export default function Home() {
   const [checklistDraft, setChecklistDraft] = useState("");
   const [showMiniMap, setShowMiniMap] = useState(false);
   const [savedViewport, setSavedViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
-  const [narrowWorkspace, setNarrowWorkspace] = useState(() => window.matchMedia("(max-width: 65.999rem)").matches);
-  const [dualPanelWorkspace, setDualPanelWorkspace] = useState(() => window.matchMedia("(min-width: 99rem)").matches);
+  const narrowWorkspace = useWorkspaceMediaQuery("(max-width: 65.999rem)");
+  const dualPanelWorkspace = useWorkspaceMediaQuery("(min-width: 99rem)");
   const svgRef = useRef<SVGSVGElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bomRef = useRef<HTMLInputElement>(null);
@@ -994,21 +996,6 @@ export default function Home() {
   }, [selectedIds]);
 
   useEffect(() => setFlowNodes(modelFlowNodes), [modelFlowNodes, setFlowNodes]);
-
-  useEffect(() => {
-    const narrow = window.matchMedia("(max-width: 65.999rem)");
-    const dual = window.matchMedia("(min-width: 99rem)");
-    const update = () => {
-      setNarrowWorkspace(narrow.matches);
-      setDualPanelWorkspace(dual.matches);
-    };
-    narrow.addEventListener("change", update);
-    dual.addEventListener("change", update);
-    return () => {
-      narrow.removeEventListener("change", update);
-      dual.removeEventListener("change", update);
-    };
-  }, []);
 
   useEffect(() => {
     if (!dualPanelWorkspace && libraryOpen && inspectorMode) setLibraryOpen(false);
@@ -1921,7 +1908,7 @@ export default function Home() {
   };
 
   return (
-    <main className="app-shell" aria-labelledby="app-title">
+    <WorkspaceShell>
       <a className="skip-link" href="#diagram-workspace">Skip to diagram workspace</a>
       <h1 className="sr-only" id="app-title">SetupSketch scientific diagram editor</h1>
       <style>{`@media print { @page { size: ${publication.pagePreset === "a3" ? "A3 landscape" : "A4 landscape"}; margin: 8mm; } }`}</style>
@@ -2309,6 +2296,6 @@ export default function Home() {
           </InspectorDisclosure>}
         </InspectorPanel>
       </Grid>
-    </main>
+    </WorkspaceShell>
   );
 }

@@ -117,7 +117,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /viewportMode === "wide"/);
   assert.match(editor, /widthRatio >= 0\.95 && widthRatio <= 1\.05/);
   assert.match(editor, /window\.addEventListener\("resize", scheduleWorkspaceFit\)/);
-  assert.equal([...editor.matchAll(/\(min-width: 99rem\)/g)].length, 2);
+  assert.equal([...editor.matchAll(/\(min-width: 99rem\)/g)].length, 1);
   assert.match(editor, /aria-label="Properties"/);
   assert.match(editor, /textnote: \{ width: 150, height: 70 \}/);
   assert.match(editor, /annotation \? 48 : 128/);
