@@ -122,7 +122,9 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.doesNotMatch(styles, /100vw|#[0-9a-fA-F]{3,8}|font-family:\s*Arial/);
   assert.doesNotMatch(styles, /@media\s*\(max-width/);
   assert.match(styles, /\.react-flow__controls-button\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;/s);
-  assert.match(styles, /@container sidebar \(min-width: 16rem\)/);
+  assert.match(styles, /\.component-card\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) 44px;[^}]*min-width:\s*0;/s);
+  assert.match(styles, /\.library-icon\s*\{[^}]*width:\s*44px;[^}]*height:\s*36px;/s);
+  assert.match(styles, /\.component-grid \.component-add\s*\{[^}]*width:\s*100%;[^}]*min-width:\s*0;/s);
   assert.match(styles, /\.scientific-handle\.connectingto\.valid/);
   assert.match(styles, /\.context-toolbar\s*\{/);
   assert.match(editor, /<Accordion align="end" isFlush/);
@@ -131,7 +133,6 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(styles, /workspace\[data-inspector-open="true"\]/);
   assert.match(styles, /@media \(min-width: 42rem\)/);
   assert.match(styles, /@media \(min-width: 66rem\)/);
-  assert.match(styles, /@media \(min-width: 82rem\)/);
   assert.match(editor, /href="https:\/\/jorpago2\.github\.io\/"/);
   assert.match(styles, /@use "@carbon\/react"/);
   assert.doesNotMatch(styles, /tailwindcss|@theme inline/);

@@ -697,17 +697,43 @@ button:not([class*="cds--"]):active,
   gap: var(--space-xs);
 }
 
+.component-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  min-width: 0;
+}
+
 .component-grid .component-add {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+  min-width: 0;
   min-height: 78px;
   padding: var(--space-xs);
   color: var(--color-neutral);
   font-size: var(--text-xs);
+  line-height: 1.25;
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.library-icon {
+  width: 44px;
+  height: 36px;
+  max-width: 100%;
+  overflow: visible;
+  pointer-events: none;
 }
 
 .component-grid .favorite {
+  align-self: stretch;
   width: 44px;
-  height: 44px;
+  height: auto;
   min-height: 44px;
+  padding: 0;
   color: var(--color-rule-2);
 }
 
@@ -902,12 +928,6 @@ button:not([class*="cds--"]).danger {
   height: 8px;
   flex: 0 0 auto;
   border-radius: 50%;
-}
-
-@container sidebar (min-width: 16rem) {
-  .component-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @container sidebar (min-width: 18rem) {
@@ -1312,19 +1332,12 @@ button:not([class*="cds--"]).danger {
 }
 
 .component-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2xs);
 }
 
 .component-grid .component-add {
   min-height: 64px;
   padding: var(--space-2xs);
-}
-
-.component-grid .favorite {
-  width: 32px;
-  height: 32px;
-  min-height: 32px;
 }
 
 .library-group {
@@ -1476,12 +1489,6 @@ button:not([class*="cds--"]).danger {
 
   .document-status {
     display: inline;
-  }
-}
-
-@media (min-width: 82rem) {
-  .component-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
