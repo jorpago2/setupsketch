@@ -88,6 +88,7 @@ import type { Connection, DiagramElement, ExperimentRecord, InspectorMode, Layer
 import { annotationDefaultSizes, defaultCollapsedGroups, defaultExperiment, defaultPublication, DEFAULT_VIEWPORT, DIAGRAM_VERSION, FLOW_SNAP_GRID, FAVORITES_KEY, GRID_STEP, MODULES_KEY, pagePresets, resizableAnnotationKinds, STORAGE_KEY } from "./editorConfig";
 import { cloneSnapshot, download, safeFilename } from "./model/editorPersistence";
 import { closestPortPair, getConnectionDomain, getConnectionType, portsFor } from "./model/connectionGeometry";
+import { csvCell, escapeLatex, formatBandwidth, optionalNumber, svgDataUri } from "./model/exportFormatting";
 
 type DiagramFile = {
   version?: number;
@@ -204,27 +205,6 @@ const connectionPath = (connection: Connection, from: DiagramElement, to: Diagra
     return [source, target];
   }
   return routeOrthogonal(source, target, elements, [from.id, to.id]);
-};
-
-const csvCell = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
-const optionalNumber = (value: string) => {
-  if (value === "") return undefined;
-  const number = Number(value);
-  return Number.isFinite(number) ? number : undefined;
-};
-const escapeLatex = (value: string) => value.replace(/([\\{}%$#&_])/g, "\\$1").replaceAll("~", "\\textasciitilde{}").replaceAll("^", "\\textasciicircum{}");
-const formatBandwidth = (value?: number) => {
-  if (!value) return "—";
-  const units = [[1e9, "GHz"], [1e6, "MHz"], [1e3, "kHz"]] as const;
-  const unit = units.find(([scale]) => value >= scale);
-  return unit ? `${(value / unit[0]).toPrecision(3)} ${unit[1]}` : `${value.toPrecision(3)} Hz`;
-};
-
-const svgDataUri = (source: string) => {
-  const bytes = new TextEncoder().encode(source);
-  let binary = "";
-  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
-  return `data:image/svg+xml;base64,${btoa(binary)}`;
 };
 
 function ComponentPortStubs({ element }: { element: DiagramElement }) {
