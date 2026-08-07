@@ -16,7 +16,9 @@ import {
   Grid,
   Header,
   HeaderGlobalBar,
+  HeaderName,
   IconButton,
+  InlineLoading,
   Layer,
   NumberInput,
   Popover,
@@ -1673,13 +1675,15 @@ export default function Home() {
       <style>{`@media print { @page { size: ${publication.pagePreset === "a3" ? "A3 landscape" : "A4 landscape"}; margin: 8mm; } }`}</style>
       <Theme as={Header} theme="g10" className={`global-header${connectMode ? " is-connecting" : ""}`} aria-label="SetupSketch scientific diagram editor">
         <SkipToContent href="#diagram-workspace">Skip to diagram workspace</SkipToContent>
-        <span className="brand">
-          <span className="brand-mark" aria-hidden="true">S</span>
-          <span className="brand-copy"><strong>SetupSketch</strong><small>Scientific diagram editor</small></span>
-        </span>
+        <HeaderName href="./" prefix="" className="brand">
+          <span className="brand-inner">
+            <span className="brand-mark" aria-hidden="true">S</span>
+            <span className="brand-copy"><strong>SetupSketch</strong><small>Scientific diagram editor</small></span>
+          </span>
+        </HeaderName>
         <div className="project-title">
           <TextInput id="diagram-title" size="sm" hideLabel labelText="Diagram title" value={title} onChange={(event) => setTitle(event.target.value)} />
-          <span className="document-status" aria-live="polite">{notice === "Saved" && <span className="status-check" aria-hidden="true">✓</span>}{notice}</span>
+          <InlineLoading className="document-status" status={notice === "Saved" ? "finished" : "inactive"} description={notice} iconDescription={notice} />
         </div>
         <HeaderGlobalBar className="toolbar" aria-label="Diagram actions">
           <div className="toolbar-group" role="group" aria-label="Edit actions">
@@ -1739,7 +1743,6 @@ export default function Home() {
           onAddElement={addElement}
           onToggleFavorite={toggleFavorite}
           renderPreview={renderLibraryPreview}
-          renderDeleteIcon={() => <UiIcon name="delete" />}
         />
 
         <Column as="section" sm={4} md={8} lg={16} className="stage-wrap" aria-label="Diagram workspace">
@@ -1769,6 +1772,7 @@ export default function Home() {
                 translateExtent={flowTranslateExtent}
                 snapToGrid={snapEnabled}
                 snapGrid={FLOW_SNAP_GRID}
+                multiSelectionKeyCode="Shift"
                 nodesDraggable={!connectMode}
                 onInit={initializeFlow}
                 onMoveEnd={(_, viewport) => rememberFlowViewport(viewport)}
@@ -1891,7 +1895,7 @@ export default function Home() {
                 <NumberInput id="annotation-width" size="sm" label="Width" min={40} max={600} value={selected.width ?? annotationDefaultSizes[selected.kind]?.width ?? 180} onChange={(_, { value }) => updateSelected({ width: Number(value) })} />
                 <NumberInput id="annotation-height" size="sm" label="Height" min={30} max={500} value={selected.height ?? annotationDefaultSizes[selected.kind]?.height ?? 70} onChange={(_, { value }) => updateSelected({ height: Number(value) })} />
               </div>}
-              <label>Color<input className="color-input" type="color" value={selected.color} onChange={(event) => updateSelected({ color: event.target.value })} /></label>
+              <label className="color-control">Color<input className="color-input" aria-label="Component color" type="color" value={selected.color} onChange={(event) => updateSelected({ color: event.target.value })} /></label>
               <InspectorDisclosure className="property-section" label="Engineering parameters" panelClassName="property-section-content">
                   <div className="property-row">
                     <NumberInput id="source-power" size="sm" label="Source power (dBm)" step={0.1} allowEmpty value={selected.powerDbm ?? ""} onChange={(_, { value }) => updateSelected({ powerDbm: optionalNumber(String(value)) })} />
@@ -2021,9 +2025,9 @@ export default function Home() {
           </InspectorDisclosure>}
           {inspectorMode === "review" && <InspectorDisclosure className="layers-panel validation-panel" buttonId="validation-title" label="Setup checks" meta={validationIssues.length} initiallyOpen>
             {validationIssues.length ? validationIssues.slice(0, 8).map((issue, index) => (
-              <button className={`validation-issue ${issue.severity}`} key={`${issue.message}-${index}`} onClick={() => setSelectedIds(issue.elementIds)}>
+              <Button type="button" size="sm" kind="ghost" className={`validation-issue ${issue.severity}`} key={`${issue.message}-${index}`} onClick={() => setSelectedIds(issue.elementIds)}>
                 <span>{issue.severity === "error" ? "Error" : "Check"}</span>{issue.message}
-              </button>
+              </Button>
             )) : <p className="validation-ok">No structural issues found.</p>}
             {validationIssues.length > 8 && <p className="validation-more">+{validationIssues.length - 8} more checks</p>}
           </InspectorDisclosure>}

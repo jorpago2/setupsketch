@@ -96,7 +96,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.doesNotMatch(selectionInspector, /buttonId="layout-title"/);
   assert.match(documentInspector, /buttonId="layout-title"/);
   assert.doesNotMatch(documentInspector, /Engineering parameters/);
-  for (const icon of ["undo", "redo", "link", "project", "export", "delete", "fit", "map"]) {
+  for (const icon of ["undo", "redo", "link", "project", "export", "fit", "map"]) {
     assert.match(editor, new RegExp(`<UiIcon name="${icon}"`));
   }
   for (const icon of ["SettingsAdjust", "Copy", "TrashCan", "Locked", "Unlocked", "Corner", "ReflectHorizontal", "ReflectVertical", "BringToFront", "SendToBack"]) {
@@ -108,6 +108,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
     assert.match(editor, new RegExp(`<${component}`));
   }
   assert.match(componentLibrary, /<Search/);
+  assert.match(componentLibrary, /<TrashCan size=\{16\}/);
   assert.match(componentLibrary, /className="sidebar-content"/);
   assert.match(inspectorPanel, /className="sidebar-content"/);
   assert.doesNotMatch(editor, /↶|↷|toolbar-label-compact/);
@@ -153,8 +154,9 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(styles, /@media \(min-width: 42rem\)/);
   assert.match(styles, /@media \(min-width: 66rem\)/);
   assert.match(editor, /<Theme as=\{Header\} theme="g10" className=/);
+  assert.match(editor, /<HeaderName href="\.\/" prefix="" className="brand">/);
   assert.match(editor, /<HeaderGlobalBar className="toolbar"/);
-  assert.match(editor, /className="status-check" aria-hidden="true">✓<\/span>/);
+  assert.match(editor, /<InlineLoading className="document-status" status=\{notice === "Saved" \? "finished" : "inactive"\}/);
   assert.match(editor, /<Grid as="main"[^>]*aria-labelledby="app-title"/);
   assert.doesNotMatch(editor, /All tools|document-bar|suite-link/);
   assert.match(styles, /@use "@carbon\/react"/);

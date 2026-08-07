@@ -37,10 +37,8 @@ body {
   font-size: var(--text-sm);
 }
 
-button:not([class*="cds--"]),
-input:not([class*="cds--"]),
-select:not([class*="cds--"]),
-textarea:not([class*="cds--"]) {
+.component-add,
+.color-input {
   border-color: var(--color-rule);
   border-width: var(--rule-hair);
   border-radius: var(--radius-input);
@@ -50,31 +48,27 @@ textarea:not([class*="cds--"]) {
   outline-offset: 1px;
 }
 
-button:not([class*="cds--"]) {
+.component-add {
   min-height: 44px;
   white-space: nowrap;
+  cursor: pointer;
 }
 
-button:not([class*="cds--"]):hover {
+.component-add:hover {
   border-color: var(--color-rule);
   background: var(--color-surface-raised);
 }
 
-button:not([class*="cds--"]):focus-visible,
-input:not([class*="cds--"]):focus-visible,
-select:not([class*="cds--"]):focus-visible,
-textarea:not([class*="cds--"]):focus-visible {
+.component-add:focus-visible,
+.color-input:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
-input:not([class*="cds--"]):focus-visible,
-select:not([class*="cds--"]):focus-visible,
-textarea:not([class*="cds--"]):focus-visible {
+.color-input:focus-visible {
   outline-offset: 1px;
 }
 
-button:not([class*="cds--"]).active,
 .workspace-switcher button.active,
 .toolbar-menu-button[data-open] {
   border-color: var(--color-accent);
@@ -82,23 +76,21 @@ button:not([class*="cds--"]).active,
   color: var(--color-accent-strong);
 }
 
-button:not([class*="cds--"]).primary,
-button:not([class*="cds--"]).primary:hover {
-  border-color: var(--color-accent-strong);
-  background: var(--color-accent-strong);
-  color: var(--color-accent-ink);
-}
-
-button:not([class*="cds--"]):active {
+.component-add:active {
   transform: translateY(1px);
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
   color: var(--color-ink);
   text-decoration: none;
+}
+
+.brand-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
 }
 
 .brand-mark {
@@ -570,7 +562,7 @@ button:not([class*="cds--"]):active {
   margin-bottom: var(--space-lg);
 }
 
-.library-group-title,
+.library-section-heading,
 .property-subheading,
 .layers-panel > .disclosure-button {
   color: var(--color-muted);
@@ -580,8 +572,7 @@ button:not([class*="cds--"]):active {
   text-transform: none;
 }
 
-.library-group-title {
-  min-height: 44px;
+.library-section-heading {
   margin-bottom: var(--space-xs);
 }
 
@@ -625,6 +616,8 @@ button:not([class*="cds--"]):active {
 .component-grid .favorite {
   align-self: stretch;
   width: 44px;
+  min-width: 44px;
+  max-width: 44px;
   height: auto;
   min-height: 44px;
   padding: 0;
@@ -657,15 +650,6 @@ button:not([class*="cds--"]):active {
   align-items: center;
   gap: var(--space-xs);
   min-height: 44px;
-}
-
-select:not([class*="cds--"]) {
-  color-scheme: light;
-}
-
-select:not([class*="cds--"]) option {
-  background: var(--color-surface-raised);
-  color: var(--color-ink);
 }
 
 .property-section {
@@ -796,9 +780,33 @@ select:not([class*="cds--"]) option {
   max-width: none;
 }
 
-.validation-issue.error span,
-button:not([class*="cds--"]).danger {
+.validation-issue.error span {
   color: var(--color-danger);
+}
+
+.validation-issue {
+  width: 100%;
+  max-width: none;
+  justify-content: flex-start;
+  gap: var(--space-xs);
+  white-space: normal;
+  text-align: start;
+}
+
+.module-insert {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  justify-content: flex-start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.module-delete {
+  width: 44px;
+  max-width: 44px;
+  color: var(--cds-support-error);
 }
 
 .budget-result {
@@ -852,16 +860,9 @@ button:not([class*="cds--"]).danger {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  button:hover,
-  .toolbar-menu-button:hover {
+  .component-add:hover {
     border-color: var(--color-rule-2);
     background: var(--color-paper-2);
-  }
-
-  button.primary:hover {
-    border-color: var(--color-accent);
-    background: var(--color-accent);
-    color: var(--color-accent-ink);
   }
 }
 
@@ -891,10 +892,6 @@ button:not([class*="cds--"]).danger {
 }
 
 @media (min-width: 60rem) {
-  button:not([class*="cds--"]) {
-    min-height: 44px;
-  }
-
   .toolbar {
     grid-column: auto;
     justify-content: flex-end;
@@ -975,6 +972,8 @@ button:not([class*="cds--"]).danger {
 .global-header .brand {
   flex: 0 0 auto;
   min-width: 0;
+  width: fit-content;
+  justify-self: start;
   padding-inline: var(--space-lg);
   color: inherit;
 }
@@ -1105,13 +1104,8 @@ button:not([class*="cds--"]).danger {
   margin-bottom: var(--space-md);
 }
 
-.library-group-title {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 32px;
-  margin-bottom: var(--space-2xs);
+.library-groups {
+  margin-bottom: var(--space-md);
 }
 
 .library-help {

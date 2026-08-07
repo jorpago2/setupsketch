@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { Button, IconButton, Layer, Search } from "@carbon/react";
-import { Close, TrashCan } from "@carbon/react/icons";
+import { Accordion, AccordionItem, Button, IconButton, Layer, Search } from "@carbon/react";
+import { Close, Favorite, FavoriteFilled, TrashCan } from "@carbon/react/icons";
 import type { ElementKind } from "./componentCatalog";
 
 type LibraryGroup = {
@@ -27,7 +27,6 @@ type ComponentLibraryProps = {
   onAddElement: (kind: ElementKind, label: string) => void;
   onToggleFavorite: (kind: ElementKind) => void;
   renderPreview: (kind: ElementKind) => ReactNode;
-  renderDeleteIcon: () => ReactNode;
 };
 
 export function ComponentLibrary({
@@ -47,7 +46,6 @@ export function ComponentLibrary({
   onAddElement,
   onToggleFavorite,
   renderPreview,
-  renderDeleteIcon,
 }: ComponentLibraryProps) {
   return (
     <aside id="component-library" className="library sidebar" aria-label="Component library" aria-hidden={!open}>
@@ -72,20 +70,18 @@ export function ComponentLibrary({
             onClear={() => onQueryChange("")}
           />
           {savedModules.length ? <section className="library-group saved-modules">
-            <div className="library-group-title"><span>Reusable modules</span></div>
+            <h2 className="library-section-heading">Reusable modules</h2>
             {savedModules.map((module) => <div className="module-row" key={module.id}>
-              <button onClick={() => onInsertModule(module.id)}>{module.name}</button>
-              <button className="danger" aria-label={`Delete ${module.name}`} title={`Delete ${module.name}`} onClick={() => onDeleteModule(module.id)}>{renderDeleteIcon()}</button>
+              <Button className="module-insert" size="sm" kind="ghost" onClick={() => onInsertModule(module.id)}>{module.name}</Button>
+              <IconButton className="module-delete" size="sm" kind="ghost" label={`Delete ${module.name}`} onClick={() => onDeleteModule(module.id)}><TrashCan size={16} aria-hidden={true} /></IconButton>
             </div>)}
           </section> : null}
+          <Accordion className="library-groups" align="end" isFlush size="sm">
           {groups.map((group) => {
             const expanded = searchIsActive || !collapsedGroups.includes(group.title);
             return (
-              <section className="library-group" key={group.title}>
-                <button className="library-group-title" onClick={() => onToggleGroup(group.title)} aria-expanded={expanded}>
-                  {group.title}<span>{expanded ? "−" : "+"}</span>
-                </button>
-                {expanded && <div className="component-grid">
+              <AccordionItem className="library-group" key={`${group.title}:${searchIsActive}`} title={group.title} open={expanded} onHeadingClick={() => onToggleGroup(group.title)}>
+                <div className="component-grid">
                   {group.items.map((item) => {
                     const favorite = favoriteKinds.includes(item.kind);
                     return <div className="component-card" key={`${group.title}-${item.kind}`}>
@@ -93,13 +89,16 @@ export function ComponentLibrary({
                         {renderPreview(item.kind)}
                         {item.label}
                       </button>
-                      <button className={favorite ? "favorite active" : "favorite"} onClick={() => onToggleFavorite(item.kind)} aria-label={`${favorite ? "Remove" : "Add"} ${item.label} ${favorite ? "from" : "to"} favorites`} title="Favorite">★</button>
+                      <IconButton className={favorite ? "favorite active" : "favorite"} size="sm" kind="ghost" label={`${favorite ? "Remove" : "Add"} ${item.label} ${favorite ? "from" : "to"} favorites`} onClick={() => onToggleFavorite(item.kind)}>
+                        {favorite ? <FavoriteFilled size={16} aria-hidden={true} /> : <Favorite size={16} aria-hidden={true} />}
+                      </IconButton>
                     </div>;
                   })}
-                </div>}
-              </section>
+                </div>
+              </AccordionItem>
             );
           })}
+          </Accordion>
           <p className="library-help">Add a component, drag it into place, then use Connect to draw signal paths.</p>
         </div>
       </Layer>

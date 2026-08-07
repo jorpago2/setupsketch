@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { Accordion, AccordionItem } from "@carbon/react";
-import { FitToScreen, FolderOpen, Link, Map as MapView, Redo, TrashCan, Undo, Upload } from "@carbon/react/icons";
+import { FitToScreen, FolderOpen, Link, Map as MapView, Redo, Undo, Upload } from "@carbon/react/icons";
 
-const uiIcons = { undo: Undo, redo: Redo, link: Link, project: FolderOpen, export: Upload, delete: TrashCan, fit: FitToScreen, map: MapView } as const;
+const uiIcons = { undo: Undo, redo: Redo, link: Link, project: FolderOpen, export: Upload, fit: FitToScreen, map: MapView } as const;
 
 export function UiIcon({ name }: { name: keyof typeof uiIcons }) {
   const Icon = uiIcons[name];
