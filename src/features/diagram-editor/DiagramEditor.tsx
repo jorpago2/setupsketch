@@ -226,15 +226,15 @@ function ComponentPortStubs({ element }: { element: DiagramElement }) {
 }
 
 function ComponentShape({ element, monochrome = false }: { element: DiagramElement; monochrome?: boolean }) {
-  const common = { stroke: element.color, strokeWidth: 3.4, fill: "#ffffff", vectorEffect: "non-scaling-stroke" as const };
+  const common = { stroke: element.color, strokeWidth: 3.4, fill: "var(--color-canvas-surface)", vectorEffect: "non-scaling-stroke" as const };
 
   switch (element.kind) {
     case "laser":
       return <><path d="M-58 0H-29" stroke={monochrome ? element.color : portTypeColors.dc} strokeWidth="3.4" /><path d="M18 0H58" stroke={monochrome ? element.color : portTypeColors["optical-free-space"]} strokeWidth="4" /><circle r="10" {...common} /><circle r="4" fill={element.color} /><path d="M0 -30V-18M0 18V30M-21 -21L-13 -13M13 13L21 21M21 -21L13 -13M-13 13L-21 21M-29 0H-18" fill="none" stroke={element.color} strokeWidth="3.2" strokeLinecap="round" /></>;
     case "mirror":
-      return <><path d="M-32 30L32 -30" stroke={element.color} strokeWidth="8" strokeLinecap="round" /><path d="M-25 35L39 -29" stroke="#b8c0cc" strokeWidth="3" /></>;
+      return <><path d="M-32 30L32 -30" stroke={element.color} strokeWidth="8" strokeLinecap="round" /><path d="M-25 35L39 -29" stroke="var(--color-canvas-muted)" strokeWidth="3" /></>;
     case "curvedmirror":
-      return <><path d="M12 -42Q-22 0 12 42" fill="none" stroke={element.color} strokeWidth="8" strokeLinecap="round" /><path d="M20 -39Q-10 0 20 39" fill="none" stroke="#b8c0cc" strokeWidth="3" /></>;
+      return <><path d="M12 -42Q-22 0 12 42" fill="none" stroke={element.color} strokeWidth="8" strokeLinecap="round" /><path d="M20 -39Q-10 0 20 39" fill="none" stroke="var(--color-canvas-muted)" strokeWidth="3" /></>;
     case "beamsplitter":
       return <><rect x="-34" y="-34" width="68" height="68" rx="3" {...common} /><path d="M-34 34L34 -34" stroke={element.color} strokeWidth="4.2" /><path d="M-24 34L34 -24" stroke={element.color} strokeWidth="1.8" opacity="0.35" /><path d="M-34 -34L-25 -43H43V25L34 34M34 -34L43 -43" fill="none" stroke={element.color} strokeWidth="1.7" opacity="0.55" /></>;
     case "lens":
@@ -1808,7 +1808,7 @@ export default function Home() {
                   <path d="M0 0L10 5L0 10Z" fill="context-stroke" />
                 </marker>
               </defs>
-              <rect width={dimensions.width} height={dimensions.height} fill="#ffffff" />
+              <rect width={dimensions.width} height={dimensions.height} fill="var(--color-canvas-surface)" />
               {layers.grid && <rect className="grid-layer" width={dimensions.width} height={dimensions.height} fill="url(#majorGrid)" />}
               {layers.labels && <g className="labels-layer">
                 <text x="42" y="54" fill="#171b22" fontSize={25 * publication.labelScale} fontWeight="700" fontFamily="Arial, sans-serif">{title}</text>

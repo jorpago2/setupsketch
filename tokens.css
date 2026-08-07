@@ -7,6 +7,8 @@
   --color-surface: var(--cds-layer);
   --color-surface-raised: var(--cds-field-01);
   --color-canvas-field: var(--cds-background-hover);
+  --color-canvas-surface: var(--cds-layer-01);
+  --color-canvas-muted: var(--cds-border-subtle);
   --color-ink: var(--cds-text-primary);
   --color-ink-2: var(--cds-text-secondary);
   --color-muted: var(--cds-text-secondary);

@@ -534,7 +534,7 @@ button:not([class*="cds--"]):active,
 }
 
 .stage-empty {
-  z-index: 2;
+  z-index: var(--z-raised);
   grid-area: 1 / 1;
   max-width: 32ch;
   padding: var(--space-lg);
