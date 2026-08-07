@@ -108,12 +108,19 @@
     grid-template-areas: "switch library stage";
   }
 
-  .workspace[data-inspector-open="true"] {
+  .workspace[data-inspector-open="true"][data-inspector="selection"] {
     grid-template-columns: 80px minmax(0, 1fr) minmax(18rem, 20rem);
     grid-template-areas: "switch stage inspector";
   }
 
-  .workspace[data-library-open="true"][data-inspector-open="true"] {
+  .workspace[data-inspector="document"],
+  .workspace[data-inspector="experiment"],
+  .workspace[data-inspector="review"] {
+    grid-template-columns: 80px minmax(18rem, 20rem) minmax(0, 1fr);
+    grid-template-areas: "switch inspector stage";
+  }
+
+  .workspace[data-library-open="true"][data-inspector="selection"] {
     grid-template-columns: 80px minmax(16rem, 18rem) minmax(0, 1fr) minmax(18rem, 20rem);
     grid-template-areas: "switch library stage inspector";
   }
@@ -140,10 +147,16 @@
     border-inline-end: var(--rule-hair) solid var(--color-rule);
   }
 
-  .workspace > .inspector {
+  .workspace > #selection-inspector {
     grid-area: inspector;
     box-shadow: none;
     border-inline-start: var(--rule-hair) solid var(--color-rule);
+  }
+
+  .workspace > #document-inspector {
+    grid-area: inspector;
+    box-shadow: none;
+    border-inline-end: var(--rule-hair) solid var(--color-rule);
   }
 
   .workspace > .stage-wrap {

@@ -139,6 +139,10 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.doesNotMatch(styles, /\.cds--accordion__|\.cds--popover-content/);
   assert.match(workspaceStyles, /workspace\[data-library-open="true"\]/);
   assert.match(workspaceStyles, /workspace\[data-inspector-open="true"\]/);
+  assert.match(workspaceStyles, /workspace\[data-inspector="document"\]/);
+  assert.match(workspaceStyles, /workspace\[data-library-open="true"\]\[data-inspector="selection"\]/);
+  assert.match(editor, /if \(next && \(!dualPanelWorkspace \|\| inspectorMode !== "selection"\)\) setInspectorMode\(null\)/);
+  assert.match(editor, /const toggleInspector = \(mode:[\s\S]*?setLibraryOpen\(false\)/);
   assert.match(styles, /@media \(min-width: 42rem\)/);
   assert.match(styles, /@media \(min-width: 66rem\)/);
   assert.match(editor, /<Theme as=\{Header\} theme="g100" className=/);

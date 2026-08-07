@@ -669,11 +669,11 @@ export default function Home() {
   const viewportMode: ViewportMode = narrowWorkspace ? "narrow" : "wide";
   const toggleLibrary = () => setLibraryOpen((open) => {
     const next = !open;
-    if (next && !dualPanelWorkspace) setInspectorMode(null);
+    if (next && (!dualPanelWorkspace || inspectorMode !== "selection")) setInspectorMode(null);
     return next;
   });
   const toggleInspector = (mode: Exclude<InspectorMode, "selection">) => {
-    if (!dualPanelWorkspace) setLibraryOpen(false);
+    setLibraryOpen(false);
     setInspectorMode((current) => current === mode ? null : mode);
   };
   const openSelectionInspector = useCallback(() => {
