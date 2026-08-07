@@ -5,7 +5,7 @@ import "../tokens.css";
 import "@xyflow/react/dist/style.css";
 import "./styles.scss";
 import "./workspace.css";
-import App from "./features/diagram-editor/DiagramEditor";
+import App from "./app/App";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
