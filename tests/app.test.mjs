@@ -97,7 +97,8 @@ test("builds a static TypeScript, React, and Vite app", async () => {
     assert.match(editor, new RegExp(`<${component}`));
   }
   assert.doesNotMatch(editor, /↶|↷|toolbar-label-compact/);
-  assert.match(editor, /nodes: modelFlowNodes\.filter\(\(node\) => node\.id !== "__paper__"\)/);
+  assert.match(editor, /const contentNodes = nodes\.filter\(\(node\) => node\.id !== "__paper__"\)/);
+  assert.match(editor, /minZoom: compactViewport \? 0\.6 : 0\.25/);
   assert.match(editor, /const \[notice, setNotice\] = useState\("Saved"\)/);
   for (const feature of ['NodeToolbar', 'EdgeToolbar', 'NodeResizer', 'MiniMap', 'ControlButton', 'onConnectStart', 'onMoveEnd', 'diagram-export', 'role="group"', 'className="property-section"', 'BOM CSV', 'Import BOM', 'Arrange overlaps']) assert.match(editor, new RegExp(feature));
   for (const feature of ['ReactFlow', 'ConnectionMode.Loose', 'BaseEdge', 'gridVisible']) assert.match(diagramCanvas, new RegExp(feature));
@@ -110,7 +111,8 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /parsed\.viewportMode === viewportMode/);
   assert.match(editor, /viewportMode === "wide"/);
   assert.match(editor, /widthRatio >= 0\.95 && widthRatio <= 1\.05/);
-  assert.match(editor, /window\.addEventListener\("resize", fitFlowToWorkspace\)/);
+  assert.match(editor, /window\.addEventListener\("resize", scheduleWorkspaceFit\)/);
+  assert.equal([...editor.matchAll(/\(min-width: 99rem\)/g)].length, 2);
   assert.match(editor, /aria-label="Properties"/);
   assert.match(editor, /textnote: \{ width: 150, height: 70 \}/);
   assert.match(editor, /annotation \? 48 : 128/);

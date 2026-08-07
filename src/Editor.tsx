@@ -234,7 +234,6 @@ const FAVORITES_KEY = "setupsketch-favorites-v1";
 const MODULES_KEY = "setupsketch-modules-v1";
 const GRID_STEP = 20;
 const FLOW_SNAP_GRID: [number, number] = [GRID_STEP, GRID_STEP];
-const FLOW_FIT_VIEW_OPTIONS = { padding: 0.08 };
 const DEFAULT_VIEWPORT: Viewport = { x: 0, y: 0, zoom: 1 };
 const resizableAnnotationKinds = new Set<ElementKind>(["textnote", "equation", "region", "legend"]);
 const annotationDefaultSizes: Partial<Record<ElementKind, { width: number; height: number }>> = {
@@ -822,7 +821,7 @@ export default function Home() {
   const [showMiniMap, setShowMiniMap] = useState(false);
   const [savedViewport, setSavedViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
   const [narrowWorkspace, setNarrowWorkspace] = useState(() => window.matchMedia("(max-width: 65.999rem)").matches);
-  const [dualPanelWorkspace, setDualPanelWorkspace] = useState(() => window.matchMedia("(min-width: 82rem)").matches);
+  const [dualPanelWorkspace, setDualPanelWorkspace] = useState(() => window.matchMedia("(min-width: 99rem)").matches);
   const svgRef = useRef<SVGSVGElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bomRef = useRef<HTMLInputElement>(null);
@@ -920,9 +919,6 @@ export default function Home() {
   const flowConnectionLineType = connectionDomain === "optical-free-space"
     ? ConnectionLineType.Straight
     : connectionDomain === "fiber" ? ConnectionLineType.Bezier : ConnectionLineType.SmoothStep;
-  const flowFitViewOptions = narrowWorkspace
-    ? { ...FLOW_FIT_VIEW_OPTIONS, nodes: modelFlowNodes.filter((node) => node.id !== "__paper__"), maxZoom: 1 }
-    : FLOW_FIT_VIEW_OPTIONS;
   const viewportMode: ViewportMode = narrowWorkspace ? "narrow" : "wide";
   const toggleLibrary = () => setLibraryOpen((open) => {
     const next = !open;
@@ -956,6 +952,20 @@ export default function Home() {
     });
   }, []);
 
+  const fitFlowToWorkspace = useCallback((instance: ReactFlowInstance<CanvasFlowNode, ScientificFlowEdge>) => {
+    const nodes = instance.getNodes().filter((node) => !node.hidden);
+    const contentNodes = nodes.filter((node) => node.id !== "__paper__");
+    const paper = nodes.find((node) => node.id === "__paper__");
+    const targets = narrowWorkspace && contentNodes.length ? contentNodes : paper ? [paper] : nodes;
+    const compactViewport = window.matchMedia("(max-width: 41.999rem)").matches;
+    return instance.fitView({
+      nodes: targets,
+      padding: narrowWorkspace ? 0.12 : 0.04,
+      minZoom: compactViewport ? 0.6 : 0.25,
+      maxZoom: 1,
+    });
+  }, [narrowWorkspace]);
+
   const initializeFlow = useCallback((instance: ReactFlowInstance<CanvasFlowNode, ScientificFlowEdge>) => {
     flowInstanceRef.current = instance;
     const viewport = pendingViewportRef.current;
@@ -966,11 +976,10 @@ export default function Home() {
         return;
       }
       requestAnimationFrame(() => {
-        const paper = instance.getNodes().find((node) => node.id === "__paper__");
-        if (paper) void instance.fitView({ nodes: [paper], padding: 0.04, maxZoom: 1 });
+        void fitFlowToWorkspace(instance);
       });
     });
-  }, []);
+  }, [fitFlowToWorkspace]);
 
   const rememberFlowViewport = useCallback((viewport: Viewport) => {
     if (autoFittingViewportRef.current) return;
@@ -991,7 +1000,7 @@ export default function Home() {
 
   useEffect(() => {
     const narrow = window.matchMedia("(max-width: 65.999rem)");
-    const dual = window.matchMedia("(min-width: 82rem)");
+    const dual = window.matchMedia("(min-width: 99rem)");
     const update = () => {
       setNarrowWorkspace(narrow.matches);
       setDualPanelWorkspace(dual.matches);
@@ -1010,25 +1019,25 @@ export default function Home() {
 
   useEffect(() => {
     let frame = 0;
-    const fitFlowToWorkspace = () => {
+    const scheduleWorkspaceFit = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        const instance = flowInstanceRef.current;
-        if (!instance) return;
-        const nodes = instance.getNodes().filter((node) => !node.hidden);
-        const paper = nodes.find((node) => node.id === "__paper__");
-        autoFittingViewportRef.current = true;
-        void instance.fitView({ nodes: paper ? [paper] : nodes, padding: 0.04, maxZoom: 1 })
-          .finally(() => { autoFittingViewportRef.current = false; });
+        frame = requestAnimationFrame(() => {
+          const instance = flowInstanceRef.current;
+          if (!instance) return;
+          autoFittingViewportRef.current = true;
+          void fitFlowToWorkspace(instance)
+            .finally(() => { autoFittingViewportRef.current = false; });
+        });
       });
     };
-    window.addEventListener("resize", fitFlowToWorkspace);
-    fitFlowToWorkspace();
+    window.addEventListener("resize", scheduleWorkspaceFit);
+    scheduleWorkspaceFit();
     return () => {
-      window.removeEventListener("resize", fitFlowToWorkspace);
+      window.removeEventListener("resize", scheduleWorkspaceFit);
       cancelAnimationFrame(frame);
     };
-  }, [inspectorMode, libraryOpen, narrowWorkspace]);
+  }, [fitFlowToWorkspace, inspectorMode, libraryOpen, narrowWorkspace]);
 
   useEffect(() => {
     const dismissWithEscape = (event: KeyboardEvent) => {
@@ -2059,8 +2068,6 @@ export default function Home() {
                 snapToGrid={snapEnabled}
                 snapGrid={FLOW_SNAP_GRID}
                 nodesDraggable={!connectMode}
-                fitView
-                fitViewOptions={flowFitViewOptions}
                 onInit={initializeFlow}
                 onMoveEnd={(_, viewport) => rememberFlowViewport(viewport)}
                 attributionPosition="bottom-left"

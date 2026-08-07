@@ -1169,6 +1169,7 @@ button:not([class*="cds--"]).danger {
 
 .document-bar .toolbar {
   min-height: 48px;
+  justify-content: flex-start;
   padding-inline: var(--space-sm);
   overflow-x: auto;
 }
@@ -1212,6 +1213,8 @@ button:not([class*="cds--"]).danger {
 }
 
 .workspace-switcher .cds--btn {
+  width: 100%;
+  max-width: none;
   min-width: 0;
   min-height: 64px;
   display: flex;
@@ -1219,11 +1222,17 @@ button:not([class*="cds--"]).danger {
   align-items: center;
   justify-content: center;
   gap: var(--space-2xs);
-  padding: var(--space-xs) var(--space-2xs);
+  padding: var(--space-xs) 0;
   border-bottom: 3px solid transparent;
   color: var(--color-ink-2);
   font-size: var(--text-xs);
   line-height: 1;
+}
+
+@media (min-width: 23rem) {
+  .workspace-switcher .cds--btn {
+    padding-inline: var(--space-2xs);
+  }
 }
 
 .workspace-switcher .cds--btn.active {
