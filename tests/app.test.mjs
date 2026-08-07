@@ -17,6 +17,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   const catalog = await readFile(new URL("../src/features/diagram-editor/library/componentCatalog.ts", import.meta.url), "utf8");
   const templates = await readFile(new URL("../src/features/diagram-editor/model/templates.ts", import.meta.url), "utf8");
   const model = await readFile(new URL("../src/features/diagram-editor/model/editorModel.ts", import.meta.url), "utf8");
+  const editorConfig = await readFile(new URL("../src/features/diagram-editor/editorConfig.ts", import.meta.url), "utf8");
   const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   assert.match(html, /SetupSketch/);
   for (const metadata of ["theme-color", "canonical", "og:site_name", "og:url", "og:image:alt", "twitter:title", "twitter:description", "twitter:image:alt"]) {
@@ -61,7 +62,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(componentLibrary, /labelText="Search components"/);
   assert.doesNotMatch(editor, /ref=\{(?:fileRef|bomRef)\} className="sr-only"/);
   assert.match(editor, /useState<DiagramElement\[]>\(\[\]\)/);
-  assert.match(editor, /componentGroups\.map\(\(group\) => group\.title\)/);
+  assert.match(editorConfig, /componentGroups\.map\(\(group\) => group\.title\)/);
   assert.match(editor, /Start with a component/);
   assert.match(editor, /buttonId="publication-title" label="Publication"/);
   assert.doesNotMatch(editor, /toolbar-export-desktop/);
@@ -119,7 +120,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /window\.addEventListener\("resize", scheduleWorkspaceFit\)/);
   assert.equal([...editor.matchAll(/\(min-width: 99rem\)/g)].length, 1);
   assert.match(editor, /aria-label="Properties"/);
-  assert.match(editor, /textnote: \{ width: 150, height: 70 \}/);
+  assert.match(editorConfig, /textnote: \{ width: 150, height: 70 \}/);
   assert.match(editor, /annotation \? 48 : 128/);
   assert.match(editor, /orientation=\{narrowWorkspace \? "horizontal" : "vertical"\}/);
   assert.doesNotMatch(editor, /@container\/sidebar|bg-ui-/);

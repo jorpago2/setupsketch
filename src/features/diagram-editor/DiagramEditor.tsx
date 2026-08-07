@@ -94,7 +94,8 @@ import { InspectorPanel } from "./inspector/InspectorPanel";
 import { WorkspaceNavigation } from "../../components/ui/WorkspaceNavigation";
 import { WorkspaceShell } from "../../components/ui/WorkspaceShell";
 import { useWorkspaceMediaQuery } from "../../hooks/useWorkspaceMediaQuery";
-import type { ChecklistItem, Connection, DiagramElement, ExperimentRecord, InspectorMode, LayerVisibility, PagePreset, Point, PublicationSettings, Routing, SavedModule, Snapshot, ViewportMode } from "./editorTypes";
+import type { Connection, DiagramElement, ExperimentRecord, InspectorMode, LayerVisibility, PagePreset, Point, PublicationSettings, Routing, SavedModule, Snapshot, ViewportMode } from "./editorTypes";
+import { annotationDefaultSizes, defaultCollapsedGroups, defaultExperiment, defaultPublication, DEFAULT_VIEWPORT, DIAGRAM_VERSION, FLOW_SNAP_GRID, FAVORITES_KEY, GRID_STEP, MODULES_KEY, pagePresets, resizableAnnotationKinds, STORAGE_KEY } from "./editorConfig";
 
 const uiIcons = {
   undo: Undo,
@@ -138,42 +139,6 @@ function InspectorDisclosure({
   );
 }
 
-const WIDTH = 1200;
-const HEIGHT = 700;
-const DIAGRAM_VERSION = 12;
-const STORAGE_KEY = "setupsketch-diagram-v1";
-const FAVORITES_KEY = "setupsketch-favorites-v1";
-const MODULES_KEY = "setupsketch-modules-v1";
-const GRID_STEP = 20;
-const FLOW_SNAP_GRID: [number, number] = [GRID_STEP, GRID_STEP];
-const DEFAULT_VIEWPORT: Viewport = { x: 0, y: 0, zoom: 1 };
-const resizableAnnotationKinds = new Set<ElementKind>(["textnote", "equation", "region", "legend"]);
-const annotationDefaultSizes: Partial<Record<ElementKind, { width: number; height: number }>> = {
-  textnote: { width: 150, height: 70 },
-  equation: { width: 180, height: 60 },
-  region: { width: 220, height: 150 },
-  dimension: { width: 180, height: 60 },
-  brace: { width: 180, height: 60 },
-  legend: { width: 180, height: 100 },
-};
-
-const pagePresets: Record<PagePreset, { label: string; width: number; height: number }> = {
-  canvas: { label: "Canvas 12:7", width: WIDTH, height: HEIGHT },
-  a4: { label: "A4 landscape", width: 1120, height: 792 },
-  a3: { label: "A3 landscape", width: 1400, height: 990 },
-  single: { label: "Single column", width: 850, height: 700 },
-  double: { label: "Double column", width: 1200, height: 700 },
-};
-
-const defaultPublication: PublicationSettings = {
-  pagePreset: "canvas",
-  monochrome: false,
-  showCredit: true,
-  labelScale: 1,
-  cropToContent: false,
-};
-
-const defaultExperiment: ExperimentRecord = { procedure: "", checklist: [] };
 const rotatePoint = (point: Point, angle: number): Point => {
   const radians = angle * Math.PI / 180;
   return {
@@ -727,7 +692,7 @@ export default function Home() {
   const [libraryQuery, setLibraryQuery] = useState("");
   const [favoriteKinds, setFavoriteKinds] = useState<ElementKind[]>([]);
   const [recentKinds, setRecentKinds] = useState<ElementKind[]>([]);
-  const [collapsedGroups, setCollapsedGroups] = useState<string[]>(() => componentGroups.map((group) => group.title));
+  const [collapsedGroups, setCollapsedGroups] = useState<string[]>(defaultCollapsedGroups);
   const [savedModules, setSavedModules] = useState<SavedModule[]>([]);
   const [checklistDraft, setChecklistDraft] = useState("");
   const [showMiniMap, setShowMiniMap] = useState(false);
