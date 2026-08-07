@@ -143,6 +143,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(styles, /@media \(min-width: 66rem\)/);
   assert.match(editor, /<Theme as=\{Header\} theme="g100" className=/);
   assert.match(editor, /<HeaderGlobalBar className="toolbar"/);
+  assert.match(editor, /className="status-check" aria-hidden="true">✓<\/span>/);
   assert.match(editor, /<Grid as="main"[^>]*aria-labelledby="app-title"/);
   assert.doesNotMatch(editor, /All tools|document-bar|suite-link/);
   assert.match(styles, /@use "@carbon\/react"/);

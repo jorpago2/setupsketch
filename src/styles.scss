@@ -874,14 +874,6 @@ button:not([class*="cds--"]).danger {
     min-height: 44px;
   }
 
-  .project-title {
-    justify-content: center;
-  }
-
-  .project-title > * {
-    max-width: 460px;
-  }
-
   .compact-actions,
   .property-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -992,6 +984,8 @@ button:not([class*="cds--"]).danger {
 
 .document-status {
   display: none;
+  align-items: center;
+  gap: var(--space-2xs);
   max-width: 28ch;
   overflow: hidden;
   color: var(--color-muted);
@@ -1112,6 +1106,12 @@ button:not([class*="cds--"]).danger {
 }
 
 @media (min-width: 42rem) {
+  .global-header {
+    display: grid;
+    grid-template-columns: minmax(max-content, 1fr) minmax(0, 36rem) minmax(max-content, 1fr);
+    align-items: center;
+  }
+
   .global-header .brand-copy {
     display: block;
   }
@@ -1121,25 +1121,25 @@ button:not([class*="cds--"]).danger {
   }
 
   .document-status {
-    display: inline;
+    display: inline-flex;
   }
 
   .global-header .project-title {
+    grid-column: 2;
     grid-template-columns: minmax(8rem, 1fr) auto;
-    gap: var(--space-sm);
+    gap: var(--space-xs);
+    width: 100%;
+    max-width: 36rem;
+  }
+
+  .global-header .toolbar {
+    grid-column: 3;
+    justify-self: end;
   }
 
 }
 
 @media (min-width: 66rem) {
-  .global-header .project-title {
-    max-width: 36rem;
-  }
-
-  .document-status {
-    display: inline;
-  }
-
   .global-header.is-connecting .brand {
     display: flex;
   }

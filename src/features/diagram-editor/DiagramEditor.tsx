@@ -1675,7 +1675,7 @@ export default function Home() {
         </span>
         <div className="project-title">
           <TextInput id="diagram-title" size="sm" hideLabel labelText="Diagram title" value={title} onChange={(event) => setTitle(event.target.value)} />
-          <span className="document-status" aria-live="polite">{notice}</span>
+          <span className="document-status" aria-live="polite">{notice === "Saved" && <span className="status-check" aria-hidden="true">✓</span>}{notice}</span>
         </div>
         <HeaderGlobalBar className="toolbar" aria-label="Diagram actions">
           <div className="toolbar-group" role="group" aria-label="Edit actions">
