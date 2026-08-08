@@ -1801,11 +1801,11 @@ export default function Home() {
                   ariaLabel="Diagram overview"
                   pannable
                   zoomable
-                  nodeColor={(node) => node.type === "scientific" ? node.data.element.color : "var(--color-paper-3)"}
+                  nodeColor={(node) => node.type === "scientific" ? node.data.element.color : "var(--cds-layer-02)"}
                   nodeStrokeColor="var(--color-surface-raised)"
                   nodeStrokeWidth={3}
                   bgColor="var(--color-surface)"
-                  maskColor="var(--color-shadow)"
+                  maskColor="var(--cds-overlay)"
                   maskStrokeColor="var(--color-accent)"
                 />}
               </DiagramCanvas>

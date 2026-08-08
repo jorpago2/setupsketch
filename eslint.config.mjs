@@ -1,6 +1,3 @@
-// For more info, see https://github.com/storybookjs/eslint-plugin-storybook#configuration-flat-config-format
-import storybook from "eslint-plugin-storybook";
-
 import js from "@eslint/js";
 import { defineConfig } from "eslint/config";
 import reactHooks from "eslint-plugin-react-hooks";
@@ -14,4 +11,4 @@ export default defineConfig([{ ignores: [".next", "dist", "node_modules", "*.d.t
     ecmaVersion: 2022,
     globals: { window: "readonly", document: "readonly", navigator: "readonly", localStorage: "readonly", URL: "readonly", Blob: "readonly", Image: "readonly", XMLSerializer: "readonly", HTMLInputElement: "readonly", HTMLTextAreaElement: "readonly", KeyboardEvent: "readonly" },
   },
-}, ...storybook.configs["flat/recommended"]]);
+}]);
