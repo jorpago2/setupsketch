@@ -21,7 +21,7 @@
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) var(--scientific-ui-mobile-nav-block-size);
+  grid-template-rows: minmax(0, 1fr) var(--scientific-ui-mobile-nav-total-block-size);
   grid-template-areas: "stage" "switch";
   min-width: 0;
   min-height: 0;
@@ -43,7 +43,7 @@
 .workspace > .workspace-switcher {
   grid-area: switch;
   inline-size: 100%;
-  block-size: var(--scientific-ui-mobile-nav-block-size);
+  block-size: var(--scientific-ui-mobile-nav-total-block-size);
   padding: 0 0 max(0px, env(safe-area-inset-bottom));
 }
 
