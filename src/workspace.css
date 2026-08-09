@@ -4,7 +4,7 @@
   position: fixed;
   inset: 0;
   display: grid;
-  grid-template-rows: 64px minmax(0, 1fr);
+  grid-template-rows: var(--scientific-ui-header-block-size) minmax(0, 1fr);
   min-width: 0;
   height: 100dvh;
   overflow: hidden;
