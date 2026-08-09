@@ -99,6 +99,7 @@ import { annotationDefaultSizes, defaultCollapsedGroups, defaultExperiment, defa
 import { cloneSnapshot, download, safeFilename } from "./model/editorPersistence";
 import { closestPortPair, getConnectionDomain, getConnectionType, portsFor } from "./model/connectionGeometry";
 import { csvCell, escapeLatex, formatBandwidth, optionalNumber, svgDataUri } from "./model/exportFormatting";
+import { ExportReceipt } from "@jorpago2/scientific-ui";
 
 type DiagramFile = {
   version?: number;
@@ -562,6 +563,7 @@ export default function Home() {
   const [inspectorMode, setInspectorMode] = useState<InspectorMode | null>(null);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [exportReceipt, setExportReceipt] = useState<{ fileName: string; format: string } | null>(null);
   const [publication, setPublication] = useState(defaultPublication);
   const [experiment, setExperiment] = useState(defaultExperiment);
   const [snapEnabled, setSnapEnabled] = useState(true);
@@ -1657,14 +1659,15 @@ export default function Home() {
     return points[Math.floor(points.length / 2)];
   })();
 
+  const recordExport = (fileName: string, format: string) => setExportReceipt({ fileName, format });
   const renderExportActions = (close: () => void) => <>
-    <Button size="sm" kind="ghost" onClick={() => { exportSvg(); close(); }}>SVG</Button>
-    <Button size="sm" kind="ghost" onClick={() => { exportPng(); close(); }}>PNG</Button>
-    <Button size="sm" kind="ghost" onClick={() => { exportTikz(); close(); }}>TeX</Button>
-    <Button size="sm" kind="ghost" onClick={() => { exportPowerPoint(); close(); }}>PPTX</Button>
-    <Button size="sm" kind="ghost" onClick={() => { exportNetlist(); close(); }}>Netlist</Button>
-    <Button size="sm" kind="ghost" onClick={() => { exportBom(); close(); }}>BOM CSV</Button>
-    <Button size="sm" kind="primary" onClick={() => { exportPdf(); close(); }}>PDF</Button>
+    <Button size="sm" kind="ghost" onClick={() => { exportSvg(); recordExport(`${safeFilename(title)}.svg`, "SVG"); close(); }}>SVG</Button>
+    <Button size="sm" kind="ghost" onClick={() => { void exportPng().then(() => recordExport(`${safeFilename(title)}.png`, "PNG")); close(); }}>PNG</Button>
+    <Button size="sm" kind="ghost" onClick={() => { exportTikz(); recordExport(`${safeFilename(title)}.tex`, "TeX"); close(); }}>TeX</Button>
+    <Button size="sm" kind="ghost" onClick={() => { void exportPowerPoint().then(() => recordExport(`${safeFilename(title)}.pptx`, "PowerPoint")); close(); }}>PPTX</Button>
+    <Button size="sm" kind="ghost" onClick={() => { exportNetlist(); recordExport(`${safeFilename(title)}.net`, "Netlist"); close(); }}>Netlist</Button>
+    <Button size="sm" kind="ghost" onClick={() => { exportBom(); recordExport(`${safeFilename(title)}-bom.csv`, "BOM CSV"); close(); }}>BOM CSV</Button>
+    <Button size="sm" kind="primary" onClick={() => { exportPdf(); recordExport(`${safeFilename(title)}.pdf`, "PDF"); close(); }}>PDF</Button>
   </>;
 
   const renderLibraryPreview = (kind: ElementKind) => {
@@ -1712,6 +1715,7 @@ export default function Home() {
                   <Button size="sm" kind="ghost" onClick={() => { fileRef.current?.click(); setProjectMenuOpen(false); }}>Open JSON</Button>
                   <Button size="sm" kind="ghost" onClick={() => { bomRef.current?.click(); setProjectMenuOpen(false); }}>Import BOM</Button>
                   <Button size="sm" kind="ghost" onClick={() => { arrangeDiagram(); setProjectMenuOpen(false); }}>Arrange overlaps</Button>
+                  <Button size="sm" kind="danger--ghost" onClick={() => { clearDiagram(); setProjectMenuOpen(false); }}>Reset diagram</Button>
                   <input ref={fileRef} hidden aria-label="Open diagram JSON" type="file" accept="application/json,.json" onChange={loadJson} />
                 </div>
               </Layer>
@@ -1727,6 +1731,8 @@ export default function Home() {
         </HeaderGlobalBar>
       </Theme>
 
+      {exportReceipt && <ExportReceipt className="setup-export-receipt" fileName={exportReceipt.fileName} format={exportReceipt.format} destination="Browser downloads" onDismiss={() => setExportReceipt(null)} />}
+
       <Grid as="main" fullWidth condensed className="workspace" id="diagram-workspace" aria-labelledby="app-title" data-library-open={libraryOpen} data-inspector-open={Boolean(inspectorMode)} data-inspector={inspectorMode ?? "none"} tabIndex={-1}>
         <WorkspaceNavigation libraryOpen={libraryOpen} activeInspector={inspectorMode} onToggleLibrary={toggleLibrary} onToggleInspector={toggleInspector} />
         <ComponentLibrary
@@ -1738,7 +1744,6 @@ export default function Home() {
           collapsedGroups={collapsedGroups}
           favoriteKinds={favoriteKinds}
           onClose={closeLibrary}
-          onClear={clearDiagram}
           onQueryChange={setLibraryQuery}
           onInsertModule={insertModule}
           onDeleteModule={(id) => setSavedModules((items) => items.filter((item) => item.id !== id))}

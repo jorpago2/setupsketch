@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@carbon/react": "1.113.0",
+    "@jorpago2/scientific-ui": "file:vendor/jorpago2-scientific-ui-0.1.0.tgz",
     "@ibm/plex": "6.4.1",
     "@xyflow/react": "12.11.2",
     "pptxgenjs": "^4.0.1",

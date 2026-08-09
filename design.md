@@ -1,5 +1,9 @@
 # SetupSketch visual contract
 
+## Shared contract (normative)
+
+This application consumes `@jorpago2/scientific-ui` and follows the [shared interface contract](https://github.com/jorpago2/jorpago2.github.io/blob/main/docs/interface-contract.md). React Flow nodes, ports, routing and diagram export are local scientific-editor exceptions.
+
 SetupSketch uses Carbon Design System as its visual source of truth. This contract replaces the previous custom interface contract; compatibility with the old look is not a requirement.
 
 ## System

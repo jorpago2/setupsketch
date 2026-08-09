@@ -19,7 +19,6 @@ type ComponentLibraryProps = {
   collapsedGroups: string[];
   favoriteKinds: ElementKind[];
   onClose: () => void;
-  onClear: () => void;
   onQueryChange: (value: string) => void;
   onInsertModule: (id: string) => void;
   onDeleteModule: (id: string) => void;
@@ -38,7 +37,6 @@ export function ComponentLibrary({
   collapsedGroups,
   favoriteKinds,
   onClose,
-  onClear,
   onQueryChange,
   onInsertModule,
   onDeleteModule,
@@ -53,7 +51,6 @@ export function ComponentLibrary({
         <div className="panel-heading">
           <span>Library</span>
           <span className="panel-heading-actions">
-            <Button size="sm" kind="danger--ghost" renderIcon={TrashCan} onClick={onClear}>Clear</Button>
             <IconButton size="sm" kind="ghost" align="bottom-end" label="Close component library" onClick={onClose}><Close size={16} aria-hidden={true} /></IconButton>
           </span>
         </div>
