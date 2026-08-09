@@ -21,7 +21,7 @@
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) 64px;
+  grid-template-rows: minmax(0, 1fr) var(--scientific-ui-mobile-nav-block-size);
   grid-template-areas: "stage" "switch";
   min-width: 0;
   min-height: 0;
@@ -43,8 +43,8 @@
 .workspace > .workspace-switcher {
   grid-area: switch;
   inline-size: 100%;
-  block-size: 64px;
-  padding: 0 max(var(--space-xs), env(safe-area-inset-right)) max(0px, env(safe-area-inset-bottom)) max(var(--space-xs), env(safe-area-inset-left));
+  block-size: var(--scientific-ui-mobile-nav-block-size);
+  padding: 0 0 max(0px, env(safe-area-inset-bottom));
 }
 
 .workspace > .workspace-switcher ul {
@@ -56,13 +56,6 @@
 .workspace > .workspace-switcher .scientific-tool-rail__item {
   block-size: 100%;
   flex-direction: column;
-  border-inline-start: 0;
-  border-block-start: var(--scientific-ui-active-indicator-size) solid transparent;
-}
-
-.workspace > .workspace-switcher .scientific-tool-rail__item.is-active,
-.workspace > .workspace-switcher .scientific-tool-rail__item[aria-expanded="true"] {
-  border-block-start-color: var(--scientific-ui-link);
 }
 
 .workspace > .workspace-switcher .scientific-tool-rail__label {
@@ -160,9 +153,7 @@
   }
 
   .workspace > .workspace-switcher ul { display: flex; flex-direction: column; }
-  .workspace > .workspace-switcher .scientific-tool-rail__item { block-size: var(--scientific-ui-tool-rail-item-block-size); flex-direction: row; justify-content: flex-start; border-block-start: 0; border-inline-start: var(--scientific-ui-active-indicator-size) solid transparent; }
-  .workspace > .workspace-switcher .scientific-tool-rail__item.is-active,
-  .workspace > .workspace-switcher .scientific-tool-rail__item[aria-expanded="true"] { border-inline-start-color: var(--scientific-ui-link); }
+  .workspace > .workspace-switcher .scientific-tool-rail__item { block-size: var(--scientific-ui-tool-rail-item-block-size); flex-direction: row; justify-content: center; }
 
   .workspace > .library,
   .workspace > .inspector,
