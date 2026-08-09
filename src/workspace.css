@@ -117,7 +117,7 @@
   min-width: 0;
 }
 
-@media (min-width: 72rem) {
+@media (min-width: 66rem) {
   .workspace {
     grid-template-rows: minmax(0, 1fr);
     grid-template-columns: var(--scientific-ui-rail-inline-size) minmax(0, 1fr);
