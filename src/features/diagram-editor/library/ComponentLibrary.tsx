@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { Accordion, AccordionItem, Button, IconButton, Layer, Search } from "@carbon/react";
-import { Close, Favorite, FavoriteFilled, TrashCan } from "@carbon/react/icons";
+import { Accordion, AccordionItem, Button, IconButton, Search } from "@carbon/react";
+import { Favorite, FavoriteFilled, TrashCan } from "@carbon/react/icons";
+import { ScientificTaskPanel } from "@jorpago2/scientific-ui";
 import type { ElementKind } from "./componentCatalog";
 
 type LibraryGroup = {
@@ -46,15 +47,19 @@ export function ComponentLibrary({
   renderPreview,
 }: ComponentLibraryProps) {
   return (
-    <aside id="component-library" className="library sidebar" aria-label="Component library" aria-hidden={!open}>
-      <Layer withBackground className="sidebar-layer">
-        <div className="panel-heading">
-          <span>Library</span>
-          <span className="panel-heading-actions">
-            <IconButton size="sm" kind="ghost" align="bottom-end" label="Close component library" onClick={onClose}><Close size={16} aria-hidden={true} /></IconButton>
-          </span>
-        </div>
-        <div className="sidebar-content">
+    <ScientificTaskPanel
+      id="component-library"
+      className="library sidebar"
+      title="Library"
+      titleId="component-library-title"
+      eyebrow="Components"
+      onClose={onClose}
+      closeLabel="Close"
+      bodyClassName="sidebar-content"
+      aria-label="Component library"
+      aria-hidden={!open}
+      hidden={!open}
+    >
           <Search
             className="library-search"
             id="component-search"
@@ -97,8 +102,6 @@ export function ComponentLibrary({
           })}
           </Accordion>
           <p className="library-help">Add a component, drag it into place, then use Connect to draw signal paths.</p>
-        </div>
-      </Layer>
-    </aside>
+    </ScientificTaskPanel>
   );
 }

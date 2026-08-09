@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
-import { IconButton, Layer } from "@carbon/react";
-import { Close } from "@carbon/react/icons";
+import { ScientificTaskPanel } from "@jorpago2/scientific-ui";
 
 type InspectorPanelProps = {
   id: string;
@@ -14,14 +13,20 @@ type InspectorPanelProps = {
 
 export function InspectorPanel({ id, label, ariaLabel, hidden, closeLabel, onClose, children }: InspectorPanelProps) {
   return (
-    <aside id={id} className="inspector sidebar" aria-label={ariaLabel} aria-hidden={hidden}>
-      <Layer withBackground className="sidebar-layer">
-        <div className="panel-heading">
-          <span>{label}</span>
-          <IconButton size="sm" kind="ghost" align="bottom-end" label={closeLabel} onClick={onClose}><Close size={16} aria-hidden={true} /></IconButton>
-        </div>
-        <div className="sidebar-content">{children}</div>
-      </Layer>
-    </aside>
+    <ScientificTaskPanel
+      id={id}
+      className="inspector sidebar"
+      title={label}
+      titleId={`${id}-title`}
+      eyebrow="Inspector"
+      onClose={onClose}
+      closeLabel={closeLabel}
+      bodyClassName="sidebar-content"
+      aria-label={ariaLabel}
+      aria-hidden={hidden}
+      hidden={hidden}
+    >
+      {children}
+    </ScientificTaskPanel>
   );
 }

@@ -14,9 +14,6 @@ import {
   Checkbox,
   Column,
   Grid,
-  Header,
-  HeaderGlobalBar,
-  HeaderName,
   IconButton,
   InlineLoading,
   Layer,
@@ -28,7 +25,6 @@ import {
   SkipToContent,
   TextArea,
   TextInput,
-  Theme,
 } from "@carbon/react";
 import {
   BringToFront,
@@ -99,7 +95,7 @@ import { annotationDefaultSizes, defaultCollapsedGroups, defaultExperiment, defa
 import { cloneSnapshot, download, safeFilename } from "./model/editorPersistence";
 import { closestPortPair, getConnectionDomain, getConnectionType, portsFor } from "./model/connectionGeometry";
 import { csvCell, escapeLatex, formatBandwidth, optionalNumber, svgDataUri } from "./model/exportFormatting";
-import { ExportReceipt } from "@jorpago2/scientific-ui";
+import { ExportReceipt, ScientificHeader } from "@jorpago2/scientific-ui";
 
 type DiagramFile = {
   version?: number;
@@ -1679,20 +1675,18 @@ export default function Home() {
     <WorkspaceShell>
       <h1 className="sr-only" id="app-title">SetupSketch scientific diagram editor</h1>
       <style>{`@media print { @page { size: ${publication.pagePreset === "a3" ? "A3 landscape" : "A4 landscape"}; margin: 8mm; } }`}</style>
-      <Theme as={Header} theme="g10" className="scientific-header scientific-app-header" aria-label="SetupSketch scientific diagram editor">
-        <SkipToContent href="#diagram-workspace">Skip to diagram workspace</SkipToContent>
-        <HeaderName href="./" prefix="" className="scientific-header__brand scientific-app-header__brand">
-          <span>
-            <span className="scientific-app-header__brand-mark" aria-hidden="true">S</span>
-            <span className="scientific-header__brand-copy"><strong>SetupSketch</strong><small>Scientific diagram editor</small></span>
-          </span>
-        </HeaderName>
-        <div className="scientific-header__context scientific-app-header__context">
+      <ScientificHeader
+        aria-label="SetupSketch scientific diagram editor"
+        product="SetupSketch"
+        productMark="S"
+        descriptor="Scientific diagram editor"
+        href="./"
+        skipLink={<SkipToContent href="#diagram-workspace">Skip to diagram workspace</SkipToContent>}
+        context={<>
           <TextInput className="scientific-header__context-value" id="diagram-title" size="sm" hideLabel labelText="Diagram title" value={title} onChange={(event) => setTitle(event.target.value)} />
           <InlineLoading className="document-status scientific-header__context-detail" status={notice === "Saved" ? "finished" : "inactive"} description={notice} iconDescription={notice} />
-        </div>
-        <HeaderGlobalBar className="scientific-header__actions scientific-app-header__actions" aria-label="Diagram actions">
-          <div className="scientific-header__secondary-actions">
+        </>}
+        secondaryActions={<>
           <div className="toolbar-group" role="group" aria-label="Edit actions">
             <IconButton size="sm" kind="ghost" align="bottom-end" label="Undo" onClick={undo} disabled={!past.length}><UiIcon name="undo" /></IconButton>
             <IconButton size="sm" kind="ghost" align="bottom-end" label="Redo" onClick={redo} disabled={!future.length}><UiIcon name="redo" /></IconButton>
@@ -1722,18 +1716,17 @@ export default function Home() {
               </Layer>
             </PopoverContent>
           </Popover>
-          </div>
-          <div className="scientific-header__primary-action">
+          <input ref={bomRef} hidden aria-label="Import bill of materials" type="file" accept="text/csv,.csv" onChange={loadBom} />
+        </>}
+        primaryAction={
           <Popover as="div" className="toolbar-export-mobile" open={exportMenuOpen} align="bottom-end" onRequestClose={() => setExportMenuOpen(false)}>
             <IconButton id="export-toggle" size="sm" kind="ghost" align="bottom-end" label="Export" aria-expanded={exportMenuOpen} aria-controls="export-menu" aria-haspopup="dialog" onClick={() => setExportMenuOpen((open) => !open)}><UiIcon name="export" /></IconButton>
             <PopoverContent aria-label="Export actions">
               <Layer id="export-menu" withBackground className="toolbar-export-actions">{renderExportActions(() => setExportMenuOpen(false))}</Layer>
             </PopoverContent>
           </Popover>
-          </div>
-          <input ref={bomRef} hidden aria-label="Import bill of materials" type="file" accept="text/csv,.csv" onChange={loadBom} />
-        </HeaderGlobalBar>
-      </Theme>
+        }
+      />
 
       {exportReceipt && <ExportReceipt className="setup-export-receipt" fileName={exportReceipt.fileName} format={exportReceipt.format} destination="Browser downloads" onDismiss={() => setExportReceipt(null)} />}
 
@@ -1757,8 +1750,8 @@ export default function Home() {
           renderPreview={renderLibraryPreview}
         />
 
-        <Column as="section" sm={4} md={8} lg={16} className="stage-wrap" aria-label="Diagram workspace">
-          <div className="stage">
+        <Column as="section" sm={4} md={8} lg={16} className="stage-wrap scientific-stage" aria-label="Diagram workspace">
+          <div className="stage scientific-stage">
             {elements.length === 0 && <div className="stage-empty"><strong>Start with a component</strong><p>Add one from the library or load a template from the toolbar.</p></div>}
             <div className="diagram-flow" role="group" aria-label={`${title}, editable scientific setup diagram`}>
               <DiagramCanvas<CanvasFlowNode, ScientificFlowEdge>
