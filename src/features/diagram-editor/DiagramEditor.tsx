@@ -1679,19 +1679,20 @@ export default function Home() {
     <WorkspaceShell>
       <h1 className="sr-only" id="app-title">SetupSketch scientific diagram editor</h1>
       <style>{`@media print { @page { size: ${publication.pagePreset === "a3" ? "A3 landscape" : "A4 landscape"}; margin: 8mm; } }`}</style>
-      <Theme as={Header} theme="g10" className={`global-header scientific-app-header${connectMode ? " is-connecting" : ""}`} aria-label="SetupSketch scientific diagram editor">
+      <Theme as={Header} theme="g10" className="scientific-header scientific-app-header" aria-label="SetupSketch scientific diagram editor">
         <SkipToContent href="#diagram-workspace">Skip to diagram workspace</SkipToContent>
-        <HeaderName href="./" prefix="" className="brand">
-          <span className="brand-inner">
-            <span className="brand-mark scientific-app-header__brand-mark" aria-hidden="true">S</span>
-            <span className="brand-copy"><strong>SetupSketch</strong><small>Scientific diagram editor</small></span>
+        <HeaderName href="./" prefix="" className="scientific-header__brand scientific-app-header__brand">
+          <span>
+            <span className="scientific-app-header__brand-mark" aria-hidden="true">S</span>
+            <span className="scientific-header__brand-copy"><strong>SetupSketch</strong><small>Scientific diagram editor</small></span>
           </span>
         </HeaderName>
-        <div className="project-title">
-          <TextInput id="diagram-title" size="sm" hideLabel labelText="Diagram title" value={title} onChange={(event) => setTitle(event.target.value)} />
-          <InlineLoading className="document-status" status={notice === "Saved" ? "finished" : "inactive"} description={notice} iconDescription={notice} />
+        <div className="scientific-header__context scientific-app-header__context">
+          <TextInput className="scientific-header__context-value" id="diagram-title" size="sm" hideLabel labelText="Diagram title" value={title} onChange={(event) => setTitle(event.target.value)} />
+          <InlineLoading className="document-status scientific-header__context-detail" status={notice === "Saved" ? "finished" : "inactive"} description={notice} iconDescription={notice} />
         </div>
-        <HeaderGlobalBar className="toolbar" aria-label="Diagram actions">
+        <HeaderGlobalBar className="scientific-header__actions scientific-app-header__actions" aria-label="Diagram actions">
+          <div className="scientific-header__secondary-actions">
           <div className="toolbar-group" role="group" aria-label="Edit actions">
             <IconButton size="sm" kind="ghost" align="bottom-end" label="Undo" onClick={undo} disabled={!past.length}><UiIcon name="undo" /></IconButton>
             <IconButton size="sm" kind="ghost" align="bottom-end" label="Redo" onClick={redo} disabled={!future.length}><UiIcon name="redo" /></IconButton>
@@ -1721,12 +1722,15 @@ export default function Home() {
               </Layer>
             </PopoverContent>
           </Popover>
+          </div>
+          <div className="scientific-header__primary-action">
           <Popover as="div" className="toolbar-export-mobile" open={exportMenuOpen} align="bottom-end" onRequestClose={() => setExportMenuOpen(false)}>
             <IconButton id="export-toggle" size="sm" kind="ghost" align="bottom-end" label="Export" aria-expanded={exportMenuOpen} aria-controls="export-menu" aria-haspopup="dialog" onClick={() => setExportMenuOpen((open) => !open)}><UiIcon name="export" /></IconButton>
             <PopoverContent aria-label="Export actions">
               <Layer id="export-menu" withBackground className="toolbar-export-actions">{renderExportActions(() => setExportMenuOpen(false))}</Layer>
             </PopoverContent>
           </Popover>
+          </div>
           <input ref={bomRef} hidden aria-label="Import bill of materials" type="file" accept="text/csv,.csv" onChange={loadBom} />
         </HeaderGlobalBar>
       </Theme>
