@@ -112,8 +112,10 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   }
   assert.match(componentLibrary, /<Search/);
   assert.match(componentLibrary, /<TrashCan size=\{16\}/);
-  assert.match(componentLibrary, /className="sidebar-content"/);
-  assert.match(inspectorPanel, /className="sidebar-content"/);
+  assert.match(componentLibrary, /<ScientificTaskPanel/);
+  assert.match(componentLibrary, /bodyClassName="sidebar-content"/);
+  assert.match(inspectorPanel, /<ScientificTaskPanel/);
+  assert.match(inspectorPanel, /bodyClassName="sidebar-content"/);
   assert.doesNotMatch(editor, /↶|↷|toolbar-label-compact/);
   assert.match(editor, /const contentNodes = nodes\.filter\(\(node\) => node\.id !== "__paper__"\)/);
   assert.match(editor, /minZoom: 0\.25/);
@@ -154,12 +156,11 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(workspaceStyles, /workspace\[data-library-open="true"\]\[data-inspector="selection"\]/);
   assert.match(editor, /if \(next && \(!dualPanelWorkspace \|\| inspectorMode !== "selection"\)\) setInspectorMode\(null\)/);
   assert.match(editor, /const toggleInspector = \(mode:[\s\S]*?setLibraryOpen\(false\)/);
-  assert.match(styles, /@media \(min-width: 42rem\)/);
-  assert.match(styles, /@media \(min-width: 66rem\)/);
-  assert.match(editor, /<Theme as=\{Header\} theme="g10" className=/);
-  assert.match(editor, /<HeaderName href="\.\/" prefix="" className="brand">/);
-  assert.match(editor, /<HeaderGlobalBar className="toolbar"/);
-  assert.match(editor, /<InlineLoading className="document-status" status=\{notice === "Saved" \? "finished" : "inactive"\}/);
+  assert.match(packageJson.dependencies["@jorpago2/scientific-ui"], /scientific-ui-0\.5\.0\.tgz$/);
+  assert.match(editor, /<ScientificHeader\b/);
+  assert.match(editor, /product="SetupSketch"/);
+  assert.match(editor, /productMark="S"/);
+  assert.match(editor, /<InlineLoading className="document-status scientific-header__context-detail" status=\{notice === "Saved" \? "finished" : "inactive"\}/);
   assert.match(editor, /<Grid as="main"[^>]*aria-labelledby="app-title"/);
   assert.doesNotMatch(editor, /All tools|document-bar|suite-link/);
   assert.match(styles, /@use "@carbon\/react"/);
