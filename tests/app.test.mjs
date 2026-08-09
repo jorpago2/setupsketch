@@ -87,8 +87,9 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /data-library-open=\{libraryOpen\}/);
   assert.match(editor, /data-inspector-open=\{Boolean\(inspectorMode\)\}/);
   assert.match(workspaceNavigation, /controls: "component-library"/);
-  assert.match(workspaceNavigation, /aria-controls=\{option\.controls\}/);
-  assert.match(workspaceNavigation, /aria-expanded=\{option\.active\}/);
+  assert.match(workspaceNavigation, /<ScientificToolRail/);
+  assert.match(workspaceNavigation, /activeId=\{activeId\}/);
+  assert.match(workspaceNavigation, /controlsId: controls/);
   assert.match(editor, /id="selection-inspector"/);
   assert.doesNotMatch(editor, /id="property-inspector"/);
   const selectionInspector = editor.slice(editor.indexOf('id="selection-inspector"'), editor.indexOf('id="document-inspector"'));
@@ -104,7 +105,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
     assert.match(editor, new RegExp(`(?:renderIcon=\\{(?:[^}]* )?${icon}|<${icon} size=\\{16\\})`));
   }
   for (const icon of ["GridIcon", "Layers", "Chemistry", "Inspection"]) assert.match(workspaceNavigation, new RegExp(`icon: ${icon}`));
-  assert.match(workspaceNavigation, /<option\.icon size=\{16\}/);
+  assert.match(workspaceNavigation, /icon: <Icon size=\{20\}/);
   for (const component of ["Grid", "Column", "TextInput", "NumberInput", "Select", "Slider", "Checkbox", "TextArea"]) {
     assert.match(editor, new RegExp(`<${component}`));
   }

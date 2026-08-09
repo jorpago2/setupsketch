@@ -1,5 +1,5 @@
-import { Button } from "@carbon/react";
 import { Chemistry, Grid as GridIcon, Inspection, Layers } from "@carbon/react/icons";
+import { ScientificToolRail } from "@jorpago2/scientific-ui";
 
 type WorkspaceNavigationProps = {
   libraryOpen: boolean;
@@ -15,30 +15,39 @@ export function WorkspaceNavigation({
   onToggleInspector,
 }: WorkspaceNavigationProps) {
   const navOptions = [
-    { id: "library", active: libraryOpen, controls: "component-library", onClick: onToggleLibrary, label: "Components", icon: GridIcon },
-    { id: "document", active: activeInspector === "document", controls: "document-inspector", onClick: () => onToggleInspector("document"), label: "Canvas", icon: Layers },
-    { id: "experiment", active: activeInspector === "experiment", controls: "document-inspector", onClick: () => onToggleInspector("experiment"), label: "Experiment", icon: Chemistry },
-    { id: "review", active: activeInspector === "review", controls: "document-inspector", onClick: () => onToggleInspector("review"), label: "Review", icon: Inspection },
+    { id: "library", controls: "component-library", label: "Components", icon: GridIcon },
+    { id: "document", controls: "document-inspector", label: "Canvas", icon: Layers },
+    { id: "experiment", controls: "document-inspector", label: "Experiment", icon: Chemistry },
+    { id: "review", controls: "document-inspector", label: "Review", icon: Inspection },
   ];
+  const activeId = activeInspector && activeInspector !== "selection" ? activeInspector : libraryOpen ? "library" : null;
 
   return (
-    <nav className="workspace-switcher" aria-label="Workspace panels">
-      {navOptions.map((option) => (
-        <Button
-          key={option.id}
-          size="sm"
-          kind="ghost"
-          id={`${option.id}-toggle`}
-          aria-controls={option.controls}
-          aria-expanded={option.active}
-          aria-current={option.active ? "page" : undefined}
-          className={option.active ? "active" : ""}
-          onClick={option.onClick}
-        >
-          <option.icon size={16} aria-hidden={true} />
-          <span>{option.label}</span>
-        </Button>
-      ))}
-    </nav>
+    <ScientificToolRail
+      className="workspace-switcher"
+      label="Workspace panels"
+      activeId={activeId}
+      onChange={(id) => {
+        if (id === null) {
+          if (activeId === "library") onToggleLibrary();
+          else if (activeId) onToggleInspector(activeId as "document" | "experiment" | "review");
+          return;
+        }
+        if (id === "library") {
+          if (activeInspector && activeInspector !== "selection") onToggleInspector(activeInspector as "document" | "experiment" | "review");
+          if (!libraryOpen) onToggleLibrary();
+          return;
+        }
+        if (libraryOpen) onToggleLibrary();
+        onToggleInspector(id as "document" | "experiment" | "review");
+      }}
+      items={navOptions.map(({ id, controls, label, icon: Icon }) => ({
+        id,
+        triggerId: `${id}-toggle`,
+        controlsId: controls,
+        label,
+        icon: <Icon size={20} />,
+      }))}
+    />
   );
 }
