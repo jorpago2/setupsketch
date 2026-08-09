@@ -807,6 +807,11 @@ body {
   white-space: nowrap;
 }
 
+.setup-header-title {
+  inline-size: min(18rem, 100%);
+  min-inline-size: 0;
+}
+
 .diagram-export {
   position: absolute;
   width: 1px;

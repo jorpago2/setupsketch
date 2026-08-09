@@ -156,11 +156,11 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(workspaceStyles, /workspace\[data-library-open="true"\]\[data-inspector="selection"\]/);
   assert.match(editor, /if \(next && \(!dualPanelWorkspace \|\| inspectorMode !== "selection"\)\) setInspectorMode\(null\)/);
   assert.match(editor, /const toggleInspector = \(mode:[\s\S]*?setLibraryOpen\(false\)/);
-  assert.match(packageJson.dependencies["@jorpago2/scientific-ui"], /scientific-ui-0\.5\.0\.tgz$/);
+  assert.match(packageJson.dependencies["@jorpago2/scientific-ui"], /scientific-ui-0\.5\.1\.tgz$/);
   assert.match(editor, /<ScientificHeader\b/);
   assert.match(editor, /product="SetupSketch"/);
   assert.match(editor, /productMark="S"/);
-  assert.match(editor, /<InlineLoading className="document-status scientific-header__context-detail" status=\{notice === "Saved" \? "finished" : "inactive"\}/);
+  assert.match(editor, /contextDetail=\{<InlineLoading className="document-status" status=\{notice === "Saved" \? "finished" : "inactive"\}/);
   assert.match(editor, /<Grid as="main"[^>]*aria-labelledby="app-title"/);
   assert.doesNotMatch(editor, /All tools|document-bar|suite-link/);
   assert.match(styles, /@use "@carbon\/react"/);

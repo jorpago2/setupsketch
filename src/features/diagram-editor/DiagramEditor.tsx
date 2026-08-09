@@ -1682,10 +1682,8 @@ export default function Home() {
         descriptor="Scientific diagram editor"
         href="./"
         skipLink={<SkipToContent href="#diagram-workspace">Skip to diagram workspace</SkipToContent>}
-        context={<>
-          <TextInput className="scientific-header__context-value" id="diagram-title" size="sm" hideLabel labelText="Diagram title" value={title} onChange={(event) => setTitle(event.target.value)} />
-          <InlineLoading className="document-status scientific-header__context-detail" status={notice === "Saved" ? "finished" : "inactive"} description={notice} iconDescription={notice} />
-        </>}
+        context={<TextInput className="setup-header-title" id="diagram-title" size="sm" hideLabel labelText="Diagram title" value={title} onChange={(event) => setTitle(event.target.value)} />}
+        contextDetail={<InlineLoading className="document-status" status={notice === "Saved" ? "finished" : "inactive"} description={notice} iconDescription={notice} />}
         secondaryActions={<>
           <div className="toolbar-group" role="group" aria-label="Edit actions">
             <IconButton size="sm" kind="ghost" align="bottom-end" label="Undo" onClick={undo} disabled={!past.length}><UiIcon name="undo" /></IconButton>
