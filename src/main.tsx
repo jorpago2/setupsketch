@@ -4,8 +4,8 @@ import { Theme } from "@carbon/react";
 import "../tokens.css";
 import "@xyflow/react/dist/style.css";
 import "./styles.scss";
-import "@jorpago2/scientific-ui/styles.css";
 import "./workspace.css";
+import "@jorpago2/scientific-ui/styles.css";
 import App from "./app/App";
 
 createRoot(document.getElementById("root")!).render(

@@ -1679,11 +1679,11 @@ export default function Home() {
     <WorkspaceShell>
       <h1 className="sr-only" id="app-title">SetupSketch scientific diagram editor</h1>
       <style>{`@media print { @page { size: ${publication.pagePreset === "a3" ? "A3 landscape" : "A4 landscape"}; margin: 8mm; } }`}</style>
-      <Theme as={Header} theme="g10" className={`global-header${connectMode ? " is-connecting" : ""}`} aria-label="SetupSketch scientific diagram editor">
+      <Theme as={Header} theme="g10" className={`global-header scientific-app-header${connectMode ? " is-connecting" : ""}`} aria-label="SetupSketch scientific diagram editor">
         <SkipToContent href="#diagram-workspace">Skip to diagram workspace</SkipToContent>
         <HeaderName href="./" prefix="" className="brand">
           <span className="brand-inner">
-            <span className="brand-mark" aria-hidden="true">S</span>
+            <span className="brand-mark scientific-app-header__brand-mark" aria-hidden="true">S</span>
             <span className="brand-copy"><strong>SetupSketch</strong><small>Scientific diagram editor</small></span>
           </span>
         </HeaderName>

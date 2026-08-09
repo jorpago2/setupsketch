@@ -88,7 +88,8 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /data-inspector-open=\{Boolean\(inspectorMode\)\}/);
   assert.match(workspaceNavigation, /controls: "component-library"/);
   assert.match(workspaceNavigation, /<ScientificToolRail/);
-  assert.match(workspaceNavigation, /activeId=\{activeId\}/);
+  assert.match(workspaceNavigation, /activeId=\{activeId \?\? "library"\}/);
+  assert.match(workspaceNavigation, /expandedId=\{activeId\}/);
   assert.match(workspaceNavigation, /controlsId: controls/);
   assert.match(editor, /id="selection-inspector"/);
   assert.doesNotMatch(editor, /id="property-inspector"/);

@@ -47,25 +47,6 @@
   padding: 0 0 max(0px, env(safe-area-inset-bottom));
 }
 
-.workspace > .workspace-switcher ul {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
-}
-
-.workspace > .workspace-switcher .scientific-tool-rail__item {
-  block-size: 100%;
-  flex-direction: column;
-}
-
-.workspace > .workspace-switcher .scientific-tool-rail__label {
-  position: static;
-  inline-size: auto;
-  block-size: auto;
-  clip: auto;
-  clip-path: none;
-}
-
 .workspace > .stage-wrap {
   grid-area: stage;
   display: grid;
@@ -151,9 +132,6 @@
     block-size: 100%;
     padding: 0;
   }
-
-  .workspace > .workspace-switcher ul { display: flex; flex-direction: column; }
-  .workspace > .workspace-switcher .scientific-tool-rail__item { block-size: var(--scientific-ui-tool-rail-item-block-size); flex-direction: row; justify-content: center; }
 
   .workspace > .library,
   .workspace > .inspector,

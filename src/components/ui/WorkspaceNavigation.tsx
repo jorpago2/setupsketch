@@ -26,7 +26,8 @@ export function WorkspaceNavigation({
     <ScientificToolRail
       className="workspace-switcher"
       label="Workspace panels"
-      activeId={activeId}
+      activeId={activeId ?? "library"}
+      expandedId={activeId}
       onChange={(id) => {
         if (id === null) {
           if (activeId === "library") onToggleLibrary();
