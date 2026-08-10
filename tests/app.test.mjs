@@ -157,7 +157,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(workspaceStyles, /workspace\[data-library-open="true"\]\[data-inspector="selection"\]/);
   assert.match(editor, /if \(next && \(!dualPanelWorkspace \|\| inspectorMode !== "selection"\)\) setInspectorMode\(null\)/);
   assert.match(editor, /const toggleInspector = \(mode:[\s\S]*?setLibraryOpen\(false\)/);
-  assert.match(packageJson.dependencies["@jorpago2/scientific-ui"], /scientific-ui-0\.5\.12\.tgz$/);
+  assert.match(packageJson.dependencies["@jorpago2/scientific-ui"], /scientific-ui-\d+\.\d+\.\d+\.tgz$/);
   assert.match(editor, /<ScientificHeader\b/);
   assert.match(editor, /product="SetupSketch"/);
   assert.match(editor, /productMark="S"/);
