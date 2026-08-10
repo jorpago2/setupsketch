@@ -42,9 +42,6 @@
 
 .workspace > .workspace-switcher {
   grid-area: switch;
-  inline-size: 100%;
-  block-size: var(--scientific-ui-mobile-nav-total-block-size);
-  padding: 0 0 max(0px, env(safe-area-inset-bottom));
 }
 
 .workspace > .stage-wrap {
@@ -60,18 +57,7 @@
   grid-area: stage;
   width: auto;
   max-width: none;
-  padding: 0;
   z-index: var(--z-dropdown);
-  background: var(--color-surface);
-  overflow: hidden;
-}
-
-.sidebar[aria-hidden="true"] {
-  display: none;
-}
-
-.sidebar[aria-hidden="false"] {
-  display: block;
 }
 
 .sidebar-content {
@@ -115,12 +101,6 @@
     grid-template-areas: "switch library stage inspector";
   }
 
-  .workspace > .workspace-switcher {
-    inline-size: var(--scientific-ui-rail-inline-size);
-    block-size: 100%;
-    padding: 0;
-  }
-
   .workspace > .library,
   .workspace > .inspector,
   .workspace > .stage-wrap {
@@ -130,20 +110,16 @@
 
   .workspace > .library {
     grid-area: library;
-    box-shadow: none;
-    border-inline-end: var(--rule-hair) solid var(--color-rule);
   }
 
   .workspace > #selection-inspector {
     grid-area: inspector;
-    box-shadow: none;
-    border-inline-start: var(--rule-hair) solid var(--color-rule);
+    border-inline-start: 1px solid var(--scientific-ui-border);
+    border-inline-end: 0;
   }
 
   .workspace > #document-inspector {
     grid-area: inspector;
-    box-shadow: none;
-    border-inline-end: var(--rule-hair) solid var(--color-rule);
   }
 
   .workspace > .stage-wrap {
