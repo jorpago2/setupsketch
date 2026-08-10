@@ -420,19 +420,6 @@ body {
   color: var(--color-danger);
 }
 
-.react-flow__minimap {
-  width: 132px;
-  height: 90px;
-  overflow: clip;
-  border: var(--rule-hair) solid var(--color-rule);
-  border-radius: var(--radius-input);
-  background: var(--color-surface);
-}
-
-.react-flow__minimap.bottom {
-  bottom: calc(44px + var(--space-xs));
-}
-
 .react-flow__attribution {
   color: var(--color-muted);
   font-size: var(--text-xs);
@@ -703,20 +690,9 @@ body {
   }
 }
 
-@media (min-width: 23rem) {
-  .react-flow__minimap.bottom {
-    bottom: 0;
-  }
-}
-
 @media (min-width: 40rem) {
   .brand small {
     display: block;
-  }
-
-  .react-flow__minimap {
-    width: 180px;
-    height: 120px;
   }
 
   /* Carbon reserves 25% of accordion content at this viewport breakpoint. */
@@ -752,7 +728,7 @@ body {
   .inspector,
   .stage-meta,
   .stage-empty {
-    display: none !important;
+    display: none;
   }
 
   .app-shell,
@@ -782,10 +758,10 @@ body {
   *,
   *::before,
   *::after {
-    scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
+    scroll-behavior: auto;
+    transition-duration: 0s;
+    animation-duration: 0s;
+    animation-iteration-count: 1;
   }
 }
 

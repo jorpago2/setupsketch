@@ -99,9 +99,10 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.doesNotMatch(selectionInspector, /buttonId="layout-title"/);
   assert.match(documentInspector, /buttonId="layout-title"/);
   assert.doesNotMatch(documentInspector, /Engineering parameters/);
-  for (const icon of ["undo", "redo", "link", "project", "export", "fit", "map"]) {
+  for (const icon of ["undo", "redo", "link", "project", "export", "fit"]) {
     assert.match(editor, new RegExp(`<UiIcon name="${icon}"`));
   }
+  assert.doesNotMatch(editor, /<UiIcon name="map"|<MiniMap/);
   for (const icon of ["SettingsAdjust", "Copy", "TrashCan", "Locked", "Unlocked", "Corner", "ReflectHorizontal", "ReflectVertical", "BringToFront", "SendToBack"]) {
     assert.match(editor, new RegExp(`(?:renderIcon=\\{(?:[^}]* )?${icon}|<${icon} size=\\{16\\})`));
   }
@@ -120,7 +121,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /const contentNodes = nodes\.filter\(\(node\) => node\.id !== "__paper__"\)/);
   assert.match(editor, /minZoom: 0\.25/);
   assert.match(editor, /const \[notice, setNotice\] = useState\("Saved"\)/);
-  for (const feature of ['NodeToolbar', 'EdgeToolbar', 'NodeResizer', 'MiniMap', 'ControlButton', 'onConnectStart', 'onMoveEnd', 'diagram-export', 'role="group"', 'className="property-section"', 'BOM CSV', 'Import BOM', 'Arrange overlaps']) assert.match(editor, new RegExp(feature));
+  for (const feature of ['NodeToolbar', 'EdgeToolbar', 'NodeResizer', 'ControlButton', 'onConnectStart', 'onMoveEnd', 'diagram-export', 'role="group"', 'className="property-section"', 'BOM CSV', 'Import BOM', 'Arrange overlaps']) assert.match(editor, new RegExp(feature));
   for (const feature of ['ReactFlow', 'ConnectionMode.Loose', 'BaseEdge', 'gridVisible']) assert.match(diagramCanvas, new RegExp(feature));
   assert.match(editor, /<DiagramCanvas<CanvasFlowNode, ScientificFlowEdge>/);
   assert.match(editor, /connectionLineType=\{flowConnectionLineType\}/);
@@ -156,7 +157,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(workspaceStyles, /workspace\[data-library-open="true"\]\[data-inspector="selection"\]/);
   assert.match(editor, /if \(next && \(!dualPanelWorkspace \|\| inspectorMode !== "selection"\)\) setInspectorMode\(null\)/);
   assert.match(editor, /const toggleInspector = \(mode:[\s\S]*?setLibraryOpen\(false\)/);
-  assert.match(packageJson.dependencies["@jorpago2/scientific-ui"], /scientific-ui-0\.5\.11\.tgz$/);
+  assert.match(packageJson.dependencies["@jorpago2/scientific-ui"], /scientific-ui-0\.5\.12\.tgz$/);
   assert.match(editor, /<ScientificHeader\b/);
   assert.match(editor, /product="SetupSketch"/);
   assert.match(editor, /productMark="S"/);

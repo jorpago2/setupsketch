@@ -44,7 +44,6 @@ import {
   EdgeToolbar,
   Handle,
   MarkerType,
-  MiniMap,
   NodeResizer,
   NodeToolbar,
   Position,
@@ -569,7 +568,6 @@ export default function Home() {
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>(defaultCollapsedGroups);
   const [savedModules, setSavedModules] = useState<SavedModule[]>([]);
   const [checklistDraft, setChecklistDraft] = useState("");
-  const [showMiniMap, setShowMiniMap] = useState(false);
   const [savedViewport, setSavedViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
   const narrowWorkspace = useWorkspaceMediaQuery("(max-width: 63.999rem)");
   const dualPanelWorkspace = useWorkspaceMediaQuery("(min-width: 99rem)");
@@ -1682,7 +1680,7 @@ export default function Home() {
         descriptor="Scientific diagram editor"
         href="./"
         skipLink={<SkipToContent href="#diagram-workspace">Skip to diagram workspace</SkipToContent>}
-        context={<TextInput className="setup-header-title" id="diagram-title" size="sm" hideLabel labelText="Diagram title" value={title} onChange={(event) => setTitle(event.target.value)} />}
+        context={<TextInput className="setup-header-title scientific-header__field" id="diagram-title" size="sm" hideLabel labelText="Diagram title" value={title} onChange={(event) => setTitle(event.target.value)} />}
         contextDetail={<InlineLoading className="document-status" status={notice === "Saved" ? "finished" : "inactive"} description={notice} iconDescription={notice} />}
         secondaryActions={<>
           <div className="toolbar-group" role="group" aria-label="Edit actions">
@@ -1795,19 +1793,7 @@ export default function Home() {
                 </EdgeToolbar>}
                 <Controls showFitView={false} showInteractive={false} orientation={narrowWorkspace ? "horizontal" : "vertical"}>
                   <ControlButton onClick={fitCanvas} title={selectedIds.length ? "Fit selection" : "Fit diagram"} aria-label={selectedIds.length ? "Fit selection" : "Fit diagram"}><UiIcon name="fit" /></ControlButton>
-                  <ControlButton onClick={() => setShowMiniMap((visible) => !visible)} title={showMiniMap ? "Hide overview" : "Show overview"} aria-label={showMiniMap ? "Hide overview" : "Show overview"} aria-pressed={showMiniMap}><UiIcon name="map" /></ControlButton>
                 </Controls>
-                {showMiniMap && <MiniMap<CanvasFlowNode>
-                  ariaLabel="Diagram overview"
-                  pannable
-                  zoomable
-                  nodeColor={(node) => node.type === "scientific" ? node.data.element.color : "var(--cds-layer-02)"}
-                  nodeStrokeColor="var(--color-surface-raised)"
-                  nodeStrokeWidth={3}
-                  bgColor="var(--color-surface)"
-                  maskColor="var(--cds-overlay)"
-                  maskStrokeColor="var(--color-accent)"
-                />}
               </DiagramCanvas>
             </div>
             <svg

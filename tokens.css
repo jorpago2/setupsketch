@@ -1,6 +1,5 @@
 /* Stable aliases used by the scientific canvas and workspace layout. */
-:root,
-.cds--g10 {
+:root {
   --color-paper: var(--cds-background);
   --color-paper-2: var(--cds-layer-01);
   --color-surface: var(--cds-layer);
