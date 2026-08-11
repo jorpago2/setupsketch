@@ -166,7 +166,8 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.doesNotMatch(editor, /All tools|document-bar|suite-link/);
   assert.match(styles, /@use "@carbon\/react"/);
   assert.doesNotMatch(styles, /tailwindcss|@theme inline/);
-  assert.match(main, /<Theme theme="g10">/);
+  assert.match(main, /<ScientificUiProvider>/);
+  assert.doesNotMatch(main, /<Theme theme="g10">/);
   assert.doesNotMatch(viteConfig, /tailwind/);
   assert.match(model, /calculateBudgets/);
   assert.equal(packageJson.dependencies.pptxgenjs, "^4.0.1");
