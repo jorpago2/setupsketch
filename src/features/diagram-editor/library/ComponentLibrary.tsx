@@ -87,10 +87,10 @@ export function ComponentLibrary({
                   {group.items.map((item) => {
                     const favorite = favoriteKinds.includes(item.kind);
                     return <div className="component-card" key={`${group.title}-${item.kind}`}>
-                      <button className="component-add" onClick={() => onAddElement(item.kind, item.label)}>
+                      <Button className="component-add" type="button" kind="tertiary" size="sm" onClick={() => onAddElement(item.kind, item.label)}>
                         {renderPreview(item.kind)}
                         {item.label}
-                      </button>
+                      </Button>
                       <IconButton className={favorite ? "favorite active" : "favorite"} size="sm" kind="ghost" label={`${favorite ? "Remove" : "Add"} ${item.label} ${favorite ? "from" : "to"} favorites`} onClick={() => onToggleFavorite(item.kind)}>
                         {favorite ? <FavoriteFilled size={16} aria-hidden={true} /> : <Favorite size={16} aria-hidden={true} />}
                       </IconButton>

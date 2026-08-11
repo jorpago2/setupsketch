@@ -34,7 +34,6 @@ body {
   font-size: var(--text-sm);
 }
 
-.component-add,
 .color-input {
   border-color: var(--color-rule);
   border-width: var(--rule-hair);
@@ -48,15 +47,8 @@ body {
 .component-add {
   min-height: 44px;
   white-space: nowrap;
-  cursor: pointer;
 }
 
-.component-add:hover {
-  border-color: var(--color-rule);
-  background: var(--color-surface-raised);
-}
-
-.component-add:focus-visible,
 .color-input:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
@@ -64,10 +56,6 @@ body {
 
 .color-input:focus-visible {
   outline-offset: 1px;
-}
-
-.component-add:active {
-  transform: translateY(1px);
 }
 
 .toolbar {
@@ -150,44 +138,12 @@ body {
   grid-column: 1 / -1;
 }
 
-.stage-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-xs);
-  color: var(--color-muted);
-  font-family: var(--font-outlier);
-  font-size: var(--text-xs);
-  font-variant-numeric: tabular-nums;
-  min-height: 32px;
-  padding-inline: var(--space-xs);
-  border-top: var(--rule-hair) solid var(--color-rule);
-}
-
-.stage-meta span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.stage-meta span:last-child {
-  max-width: 60%;
-}
-
-.stage-meta.is-connecting .mode-note {
-  max-width: 100%;
-  margin-inline-start: auto;
-}
-
 .module-row,
 .checklist-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 44px;
 }
 
-.mode-note.active {
-  color: var(--color-accent-strong);
-}
 
 .stage {
   display: grid;
@@ -683,13 +639,6 @@ body {
   }
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .component-add:hover {
-    border-color: var(--color-rule-2);
-    background: var(--color-paper-2);
-  }
-}
-
 @media (min-width: 40rem) {
   .brand small {
     display: block;
@@ -726,12 +675,11 @@ body {
   .workspace-switcher,
   .library,
   .inspector,
-  .stage-meta,
   .stage-empty {
     display: none;
   }
 
-  .app-shell,
+  .scientific-app-shell,
   .workspace,
   .stage-wrap,
   .stage {
@@ -763,18 +711,6 @@ body {
     animation-duration: 0s;
     animation-iteration-count: 1;
   }
-}
-
-.document-status {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2xs);
-  max-width: 28ch;
-  overflow: hidden;
-  color: var(--color-muted);
-  font-size: var(--text-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .setup-header-title {

@@ -15,7 +15,6 @@ import {
   Column,
   Grid,
   IconButton,
-  InlineLoading,
   Layer,
   NumberInput,
   Popover,
@@ -86,7 +85,6 @@ import { setupTemplates } from "./model/templates";
 import { ComponentLibrary } from "./library/ComponentLibrary";
 import { InspectorPanel } from "./inspector/InspectorPanel";
 import { WorkspaceNavigation } from "../../components/ui/WorkspaceNavigation";
-import { WorkspaceShell } from "../../components/ui/WorkspaceShell";
 import { useWorkspaceMediaQuery } from "../../hooks/useWorkspaceMediaQuery";
 import { InspectorDisclosure, UiIcon } from "../../components/ui/EditorControls";
 import type { Connection, DiagramElement, ExperimentRecord, InspectorMode, LayerVisibility, PagePreset, Point, PublicationSettings, Routing, SavedModule, Snapshot, ViewportMode } from "./editorTypes";
@@ -94,7 +92,7 @@ import { annotationDefaultSizes, defaultCollapsedGroups, defaultExperiment, defa
 import { cloneSnapshot, download, safeFilename } from "./model/editorPersistence";
 import { closestPortPair, getConnectionDomain, getConnectionType, portsFor } from "./model/connectionGeometry";
 import { csvCell, escapeLatex, formatBandwidth, optionalNumber, svgDataUri } from "./model/exportFormatting";
-import { ExportReceipt, ScientificHeader } from "@jorpago2/scientific-ui";
+import { ExportReceipt, ScientificAppShell, ScientificHeader, ScientificStatusBar } from "@jorpago2/scientific-ui";
 
 type DiagramFile = {
   version?: number;
@@ -1669,11 +1667,14 @@ export default function Home() {
     return <svg className="library-icon" viewBox="-60 -55 120 110" aria-hidden="true"><ComponentPortStubs element={element} /><ComponentShape element={element} /></svg>;
   };
 
+  const shellStatus = connectMode
+    ? { state: "ready" as const, label: connectFrom ? `Select ${portTypeLabels[connectionDomain]} destination` : `Select ${portTypeLabels[connectionDomain]} source` }
+    : { state: notice === "Saved" ? "up-to-date" as const : "modified" as const, label: notice };
+
   return (
-    <WorkspaceShell>
-      <h1 className="sr-only" id="app-title">SetupSketch scientific diagram editor</h1>
-      <style>{`@media print { @page { size: ${publication.pagePreset === "a3" ? "A3 landscape" : "A4 landscape"}; margin: 8mm; } }`}</style>
-      <ScientificHeader
+    <ScientificAppShell
+      className="setupsketch-app"
+      header={<ScientificHeader
         aria-label="SetupSketch scientific diagram editor"
         product="SetupSketch"
         productMark="S"
@@ -1681,7 +1682,7 @@ export default function Home() {
         href="./"
         skipLink={<SkipToContent href="#diagram-workspace">Skip to diagram workspace</SkipToContent>}
         context={<TextInput className="setup-header-title scientific-header__field" id="diagram-title" size="sm" hideLabel labelText="Diagram title" value={title} onChange={(event) => setTitle(event.target.value)} />}
-        contextDetail={<InlineLoading className="document-status" status={notice === "Saved" ? "finished" : "inactive"} description={notice} iconDescription={notice} />}
+        status={shellStatus}
         help={{
           summary: "Add scientific components, connect compatible ports, document the experiment, validate the setup and export the finished diagram.",
           shortcuts: [
@@ -1729,12 +1730,19 @@ export default function Home() {
             </PopoverContent>
           </Popover>
         }
-      />
+      />}
+      navigation={<WorkspaceNavigation libraryOpen={libraryOpen} activeInspector={inspectorMode} onToggleLibrary={toggleLibrary} onToggleInspector={toggleInspector} />}
+      statusBar={<ScientificStatusBar aria-label="Diagram status" status={shellStatus} metadata={<>
+        <span>{elements.length} components</span>
+        <span>{connections.length} connections</span>
+      </>} />}
+    >
+      <h1 className="sr-only" id="app-title">SetupSketch scientific diagram editor</h1>
+      <style>{`@media print { @page { size: ${publication.pagePreset === "a3" ? "A3 landscape" : "A4 landscape"}; margin: 8mm; } }`}</style>
 
       {exportReceipt && <ExportReceipt className="setup-export-receipt" fileName={exportReceipt.fileName} format={exportReceipt.format} destination="Browser downloads" onDismiss={() => setExportReceipt(null)} />}
 
       <Grid as="main" fullWidth condensed className="workspace" id="diagram-workspace" aria-labelledby="app-title" data-library-open={libraryOpen} data-inspector-open={Boolean(inspectorMode)} data-inspector={inspectorMode ?? "none"} tabIndex={-1}>
-        <WorkspaceNavigation libraryOpen={libraryOpen} activeInspector={inspectorMode} onToggleLibrary={toggleLibrary} onToggleInspector={toggleInspector} />
         <ComponentLibrary
           open={libraryOpen}
           groups={visibleGroups}
@@ -1863,10 +1871,6 @@ export default function Home() {
                 </g>
               ))}
             </svg>
-          </div>
-          <div className={connectMode ? "stage-meta is-connecting" : "stage-meta"}>
-            {!connectMode && <span>{elements.length} components · {connections.length} connections</span>}
-            <span className={connectMode ? "mode-note active" : "mode-note"} aria-live="polite">{connectMode ? (connectFrom ? `Select ${portTypeLabels[connectionDomain]} destination` : `Select ${portTypeLabels[connectionDomain]} source`) : notice}</span>
           </div>
         </Column>
 
@@ -2055,6 +2059,6 @@ export default function Home() {
           </InspectorDisclosure>}
         </InspectorPanel>
       </Grid>
-    </WorkspaceShell>
+    </ScientificAppShell>
   );
 }

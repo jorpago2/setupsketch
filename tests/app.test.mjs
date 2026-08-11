@@ -161,7 +161,9 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /<ScientificHeader\b/);
   assert.match(editor, /product="SetupSketch"/);
   assert.match(editor, /productMark="S"/);
-  assert.match(editor, /contextDetail=\{<InlineLoading className="document-status" status=\{notice === "Saved" \? "finished" : "inactive"\}/);
+  assert.match(editor, /<ScientificAppShell\b/);
+  assert.match(editor, /status=\{shellStatus\}/);
+  assert.match(editor, /<ScientificStatusBar\b[^>]*status=\{shellStatus\}/);
   assert.match(editor, /<Grid as="main"[^>]*aria-labelledby="app-title"/);
   assert.doesNotMatch(editor, /All tools|document-bar|suite-link/);
   assert.match(styles, /@use "@carbon\/react"/);

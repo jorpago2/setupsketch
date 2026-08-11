@@ -1,33 +1,19 @@
 /* Canonical workspace layout. Domain styling stays in styles.scss. */
 
-.app-shell {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  grid-template-rows: var(--scientific-ui-header-block-size) minmax(0, 1fr);
-  min-width: 0;
-  height: 100dvh;
-  overflow: hidden;
-  background: var(--color-paper);
-  color: var(--color-ink);
-}
-
 .workspace {
+  width: 100%;
+  height: 100%;
   max-width: none;
   padding-inline: 0;
-}
-
-.workspace {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) var(--scientific-ui-mobile-nav-total-block-size);
-  grid-template-areas: "stage" "switch";
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "stage";
   min-width: 0;
   min-height: 0;
 }
 
-.workspace > .workspace-switcher,
 .workspace > .library,
 .workspace > .inspector,
 .workspace > .stage-wrap {
@@ -40,14 +26,10 @@
   container: sidebar / inline-size;
 }
 
-.workspace > .workspace-switcher {
-  grid-area: switch;
-}
-
 .workspace > .stage-wrap {
   grid-area: stage;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) 32px;
+  grid-template-rows: minmax(0, 1fr);
   width: auto;
   padding: var(--space-md) var(--space-md) 0;
 }
@@ -58,6 +40,18 @@
   width: auto;
   max-width: none;
   z-index: var(--z-dropdown);
+}
+
+@media (max-width: 65.99rem) {
+  .setupsketch-app .workspace > .library,
+  .setupsketch-app .workspace > .inspector {
+    position: fixed;
+    inset: var(--scientific-ui-header-block-size) 0 var(--scientific-ui-mobile-nav-total-block-size);
+    width: 100%;
+    block-size: calc(100dvh - var(--scientific-ui-header-block-size) - var(--scientific-ui-mobile-nav-total-block-size));
+    height: calc(100dvh - var(--scientific-ui-header-block-size) - var(--scientific-ui-mobile-nav-total-block-size));
+    max-height: none;
+  }
 }
 
 .sidebar-content {
@@ -75,30 +69,30 @@
 @media (min-width: 66rem) {
   .workspace {
     grid-template-rows: minmax(0, 1fr);
-    grid-template-columns: var(--scientific-ui-rail-inline-size) minmax(0, 1fr);
-    grid-template-areas: "switch stage";
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "stage";
   }
 
   .workspace[data-library-open="true"] {
-    grid-template-columns: var(--scientific-ui-rail-inline-size) var(--scientific-ui-panel-inline-size) minmax(0, 1fr);
-    grid-template-areas: "switch library stage";
+    grid-template-columns: var(--scientific-ui-panel-inline-size) minmax(0, 1fr);
+    grid-template-areas: "library stage";
   }
 
   .workspace[data-inspector-open="true"][data-inspector="selection"] {
-    grid-template-columns: var(--scientific-ui-rail-inline-size) minmax(0, 1fr) var(--scientific-ui-panel-inline-size);
-    grid-template-areas: "switch stage inspector";
+    grid-template-columns: minmax(0, 1fr) var(--scientific-ui-panel-inline-size);
+    grid-template-areas: "stage inspector";
   }
 
   .workspace[data-inspector="document"],
   .workspace[data-inspector="experiment"],
   .workspace[data-inspector="review"] {
-    grid-template-columns: var(--scientific-ui-rail-inline-size) var(--scientific-ui-panel-inline-size) minmax(0, 1fr);
-    grid-template-areas: "switch inspector stage";
+    grid-template-columns: var(--scientific-ui-panel-inline-size) minmax(0, 1fr);
+    grid-template-areas: "inspector stage";
   }
 
   .workspace[data-library-open="true"][data-inspector="selection"] {
-    grid-template-columns: var(--scientific-ui-rail-inline-size) var(--scientific-ui-panel-inline-size) minmax(0, 1fr) var(--scientific-ui-panel-inline-size);
-    grid-template-areas: "switch library stage inspector";
+    grid-template-columns: var(--scientific-ui-panel-inline-size) minmax(0, 1fr) var(--scientific-ui-panel-inline-size);
+    grid-template-areas: "library stage inspector";
   }
 
   .workspace > .library,
