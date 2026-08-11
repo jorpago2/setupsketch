@@ -21,7 +21,7 @@
   --color-warning: var(--cds-support-warning);
   --color-success: var(--cds-support-success);
 
-  --font-outlier: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  --font-outlier: var(--scientific-ui-font-sans, "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif);
 
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;

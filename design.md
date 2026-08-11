@@ -9,7 +9,7 @@ SetupSketch uses Carbon Design System as its visual source of truth. This contra
 ## System
 
 - Theme: Carbon `g10`.
-- Typography: IBM Plex Sans; IBM Plex Mono only for coordinates, identifiers and numerical readouts.
+- Typography: IBM Plex Sans throughout, including coordinates, identifiers and numerical readouts.
 - Color, spacing, focus, motion and component states come from Carbon tokens.
 - Controls and panels are square. Do not restore decorative radii, pills, gradients or ornamental shadows.
 - Blue identifies actions and selection. Red is reserved for destructive or error states.

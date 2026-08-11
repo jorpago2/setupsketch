@@ -292,7 +292,7 @@ Avoid arbitrary colors, decorative shadows, gradients, excessive rounding, or on
 ### Typography
 
 - Use IBM Plex Sans for interface text.
-- Use IBM Plex Mono selectively for coordinates, identifiers, numerical readouts, and logs.
+- Use IBM Plex Sans for coordinates, identifiers, numerical readouts, and logs.
 - Keep scientific symbols and Greek characters in a font with complete glyph coverage.
 - Maintain a clear distinction between tool identity, section headings, field labels, scientific annotations, and status text.
 
@@ -414,4 +414,3 @@ The visual architecture is correctly implemented when:
 8. Responsive behavior preserves the same information hierarchy across supported viewports.
 9. Carbon components, tokens, typography, and interaction states are used appropriately.
 10. Browser verification confirms the intended layout and interactions at the defined viewport matrix.
-
