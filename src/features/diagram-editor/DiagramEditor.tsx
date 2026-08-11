@@ -1682,6 +1682,13 @@ export default function Home() {
         skipLink={<SkipToContent href="#diagram-workspace">Skip to diagram workspace</SkipToContent>}
         context={<TextInput className="setup-header-title scientific-header__field" id="diagram-title" size="sm" hideLabel labelText="Diagram title" value={title} onChange={(event) => setTitle(event.target.value)} />}
         contextDetail={<InlineLoading className="document-status" status={notice === "Saved" ? "finished" : "inactive"} description={notice} iconDescription={notice} />}
+        help={{
+          summary: "Add scientific components, connect compatible ports, document the experiment, validate the setup and export the finished diagram.",
+          shortcuts: [
+            { keys: ["Ctrl/⌘", "Z"], description: "Undo the last edit" },
+            { keys: ["Delete"], description: "Remove the current selection" },
+          ],
+        }}
         secondaryActions={<>
           <div className="toolbar-group" role="group" aria-label="Edit actions">
             <IconButton size="sm" kind="ghost" align="bottom-end" label="Undo" onClick={undo} disabled={!past.length}><UiIcon name="undo" /></IconButton>
