@@ -92,7 +92,7 @@ import { annotationDefaultSizes, defaultCollapsedGroups, defaultExperiment, defa
 import { cloneSnapshot, download, safeFilename } from "./model/editorPersistence";
 import { closestPortPair, getConnectionDomain, getConnectionType, portsFor } from "./model/connectionGeometry";
 import { csvCell, escapeLatex, formatBandwidth, optionalNumber, svgDataUri } from "./model/exportFormatting";
-import { ExportReceipt, ScientificAppShell, ScientificHeader, ScientificStatusBar } from "@jorpago2/scientific-ui";
+import { ExportReceipt, ScientificAppShell, ScientificHeader, ScientificStatusBar, ScientificValidationSummary } from "@jorpago2/scientific-ui";
 
 type DiagramFile = {
   version?: number;
@@ -1675,6 +1675,7 @@ export default function Home() {
     <ScientificAppShell
       className="setupsketch-app"
       header={<ScientificHeader
+        className="setupsketch-header"
         aria-label="SetupSketch scientific diagram editor"
         product="SetupSketch"
         productMark="S"
@@ -1986,12 +1987,26 @@ export default function Home() {
 
         <InspectorPanel
           id="document-inspector"
-          label={inspectorMode === "experiment" ? "Experiment" : inspectorMode === "review" ? "Review" : "Canvas"}
+          label={inspectorMode === "experiment" ? "Procedure" : inspectorMode === "review" ? "Review" : "Layout"}
           ariaLabel={`${inspectorMode ?? "Workspace"} settings`}
           hidden={!inspectorMode || inspectorMode === "selection"}
           closeLabel={`Close ${inspectorMode ?? "workspace"} settings`}
           onClose={closeInspector}
         >
+          {inspectorMode === "review" && <ScientificValidationSummary
+            title="Experiment readiness"
+            description="Diagram structure, measurement paths and procedure completeness are evaluated independently from save state."
+            status={{
+              state: validationIssues.some((issue) => issue.severity === "error") ? "failed" : validationIssues.length || !experiment.procedure.trim() || experiment.checklist.some((item) => !item.done) ? "warning" : "validated",
+              label: validationIssues.some((issue) => issue.severity === "error") ? "Structural errors" : validationIssues.length || !experiment.procedure.trim() || experiment.checklist.some((item) => !item.done) ? "Review before use" : "Experiment ready",
+            }}
+            checks={[
+              { id: "structure", label: "Diagram structure", state: validationIssues.some((issue) => issue.severity === "error") ? "failed" : validationIssues.length ? "warning" : "passed", value: validationIssues.length ? `${validationIssues.length} issue(s)` : "Complete" },
+              { id: "paths", label: "Directed path budgets", state: budgets.length ? "passed" : "warning", value: budgets.length ? `${budgets.length} path(s)` : "No calculated paths" },
+              { id: "procedure", label: "Procedure", state: experiment.procedure.trim() ? "passed" : "warning", detail: experiment.procedure.trim() ? "Documented" : "Add alignment, acquisition and shutdown steps." },
+              { id: "checklist", label: "Checklist", state: experiment.checklist.length === 0 ? "warning" : experiment.checklist.every((item) => item.done) ? "passed" : "warning", value: experiment.checklist.length ? `${experiment.checklist.filter((item) => item.done).length}/${experiment.checklist.length} complete` : "Not defined" },
+            ]}
+          />}
           {inspectorMode === "document" && <InspectorDisclosure className="layers-panel" buttonId="layout-title" label="Layout" initiallyOpen>
             <Checkbox id="snap-to-grid" labelText="Snap to grid" checked={snapEnabled} onChange={(_, { checked }) => setSnapEnabled(checked)} />
             <div className="port-legend">{(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <span key={type}><i style={{ background: portTypeColors[type] }} />{label}</span>)}</div>

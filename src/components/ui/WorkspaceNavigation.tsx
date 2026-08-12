@@ -16,8 +16,8 @@ export function WorkspaceNavigation({
 }: WorkspaceNavigationProps) {
   const navOptions = [
     { id: "library", controls: "component-library", label: "Components", icon: GridIcon },
-    { id: "document", controls: "document-inspector", label: "Canvas", icon: Layers },
-    { id: "experiment", controls: "document-inspector", label: "Experiment", icon: Chemistry },
+    { id: "document", controls: "document-inspector", label: "Layout", icon: Layers },
+    { id: "experiment", controls: "document-inspector", label: "Procedure", icon: Chemistry },
     { id: "review", controls: "document-inspector", label: "Review", icon: Inspection },
   ];
   const activeId = activeInspector && activeInspector !== "selection" ? activeInspector : libraryOpen ? "library" : null;
