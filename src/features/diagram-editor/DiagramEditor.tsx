@@ -1742,7 +1742,7 @@ export default function Home() {
 
       {exportReceipt && <ExportReceipt className="setup-export-receipt" fileName={exportReceipt.fileName} format={exportReceipt.format} destination="Browser downloads" onDismiss={() => setExportReceipt(null)} />}
 
-      <Grid as="main" fullWidth condensed className="workspace" id="diagram-workspace" aria-labelledby="app-title" data-library-open={libraryOpen} data-inspector-open={Boolean(inspectorMode)} data-inspector={inspectorMode ?? "none"} tabIndex={-1}>
+      <Grid as="section" fullWidth condensed className="workspace" id="diagram-workspace" aria-labelledby="app-title" data-library-open={libraryOpen} data-inspector-open={Boolean(inspectorMode)} data-inspector={inspectorMode ?? "none"} tabIndex={-1}>
         <ComponentLibrary
           open={libraryOpen}
           groups={visibleGroups}

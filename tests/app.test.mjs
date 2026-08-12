@@ -164,7 +164,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /<ScientificAppShell\b/);
   assert.match(editor, /status=\{shellStatus\}/);
   assert.match(editor, /<ScientificStatusBar\b[^>]*status=\{shellStatus\}/);
-  assert.match(editor, /<Grid as="main"[^>]*aria-labelledby="app-title"/);
+  assert.match(editor, /<Grid as="section"[^>]*aria-labelledby="app-title"/);
   assert.doesNotMatch(editor, /All tools|document-bar|suite-link/);
   assert.match(styles, /@use "@carbon\/react"/);
   assert.doesNotMatch(styles, /tailwindcss|@theme inline/);
