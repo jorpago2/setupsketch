@@ -160,7 +160,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(packageJson.dependencies["@jorpago2/scientific-ui"], /scientific-ui-\d+\.\d+\.\d+\.tgz$/);
   assert.match(editor, /<ScientificHeader\b/);
   assert.match(editor, /product="SetupSketch"/);
-  assert.match(editor, /productMark="S"/);
+  assert.match(editor, /productIcon="setup-sketch"/);
   assert.match(editor, /<ScientificAppShell\b/);
   assert.match(editor, /status=\{shellStatus\}/);
   assert.match(editor, /<ScientificStatusBar\b[^>]*status=\{shellStatus\}/);
