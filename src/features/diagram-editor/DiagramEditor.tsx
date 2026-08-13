@@ -92,7 +92,7 @@ import { annotationDefaultSizes, defaultCollapsedGroups, defaultExperiment, defa
 import { cloneSnapshot, download, safeFilename } from "./model/editorPersistence";
 import { closestPortPair, getConnectionDomain, getConnectionType, portsFor } from "./model/connectionGeometry";
 import { csvCell, escapeLatex, formatBandwidth, optionalNumber, svgDataUri } from "./model/exportFormatting";
-import { ExportReceipt, ScientificAppShell, ScientificHeader, ScientificStatusBar, ScientificValidationSummary } from "@jorpago2/scientific-ui";
+import { ExportReceipt, ScientificAppShell, ScientificHeader, ScientificOutcomeSummary, ScientificStatusBar, ScientificValidationSummary } from "@jorpago2/scientific-ui";
 
 type DiagramFile = {
   version?: number;
@@ -1993,8 +1993,32 @@ export default function Home() {
           closeLabel={`Close ${inspectorMode ?? "workspace"} settings`}
           onClose={closeInspector}
         >
-          {inspectorMode === "review" && <ScientificValidationSummary
-            title="Experiment readiness"
+          {inspectorMode === "review" && <>
+            <ScientificOutcomeSummary
+              title="Experiment review outcome"
+              status={{
+                state: validationIssues.some((issue) => issue.severity === "error") ? "failed" : validationIssues.length || !experiment.procedure.trim() || experiment.checklist.some((item) => !item.done) ? "warning" : "validated",
+                label: validationIssues.some((issue) => issue.severity === "error") ? "Structural errors" : validationIssues.length || !experiment.procedure.trim() || experiment.checklist.some((item) => !item.done) ? "Review before use" : "Experiment ready",
+              }}
+              summary={validationIssues.some((issue) => issue.severity === "error")
+                ? "Resolve structural errors before using or sharing this experimental setup."
+                : validationIssues.length || !experiment.procedure.trim() || experiment.checklist.some((item) => !item.done)
+                  ? "The diagram can be saved, but its scientific handoff is incomplete. Review the evidence below before export."
+                  : "The diagram, directed paths and operating procedure are ready for a reproducible experimental handoff."}
+              metrics={[
+                { id: "components", label: "Components", value: elements.length },
+                { id: "connections", label: "Connections", value: connections.length },
+                { id: "path-budgets", label: "Directed path budgets", value: budgets.length },
+                { id: "checklist", label: "Checklist complete", value: experiment.checklist.length ? `${experiment.checklist.filter((item) => item.done).length}/${experiment.checklist.length}` : "Not defined" },
+              ]}
+              actions={[
+                { id: "export-pdf", label: "Export review PDF", emphasis: "primary", disabled: validationIssues.some((issue) => issue.severity === "error"), onClick: () => { exportPdf(); recordExport(`${safeFilename(title)}.pdf`, "PDF"); } },
+                { id: "edit-procedure", label: "Edit procedure", emphasis: "secondary", collapseAt: "sm", onClick: () => setInspectorMode("experiment") },
+                { id: "save-project", label: "Save project JSON", emphasis: "tertiary", overflowOnly: true, onClick: () => { saveJson(); recordExport(`${safeFilename(title)}.json`, "JSON"); } },
+              ]}
+            />
+            <ScientificValidationSummary
+            title="Readiness evidence"
             description="Diagram structure, measurement paths and procedure completeness are evaluated independently from save state."
             status={{
               state: validationIssues.some((issue) => issue.severity === "error") ? "failed" : validationIssues.length || !experiment.procedure.trim() || experiment.checklist.some((item) => !item.done) ? "warning" : "validated",
@@ -2006,7 +2030,8 @@ export default function Home() {
               { id: "procedure", label: "Procedure", state: experiment.procedure.trim() ? "passed" : "warning", detail: experiment.procedure.trim() ? "Documented" : "Add alignment, acquisition and shutdown steps." },
               { id: "checklist", label: "Checklist", state: experiment.checklist.length === 0 ? "warning" : experiment.checklist.every((item) => item.done) ? "passed" : "warning", value: experiment.checklist.length ? `${experiment.checklist.filter((item) => item.done).length}/${experiment.checklist.length} complete` : "Not defined" },
             ]}
-          />}
+            />
+          </>}
           {inspectorMode === "document" && <InspectorDisclosure className="layers-panel" buttonId="layout-title" label="Layout" initiallyOpen>
             <Checkbox id="snap-to-grid" labelText="Snap to grid" checked={snapEnabled} onChange={(_, { checked }) => setSnapEnabled(checked)} />
             <div className="port-legend">{(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <span key={type}><i style={{ background: portTypeColors[type] }} />{label}</span>)}</div>
