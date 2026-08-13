@@ -1678,7 +1678,7 @@ export default function Home() {
         className="setupsketch-header"
         aria-label="SetupSketch scientific diagram editor"
         product="SetupSketch"
-        productMark="S"
+        productIcon="setup-sketch"
         descriptor="Scientific diagram editor"
         href="./"
         skipLink={<SkipToContent href="#diagram-workspace">Skip to diagram workspace</SkipToContent>}
