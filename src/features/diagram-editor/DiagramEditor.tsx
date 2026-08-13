@@ -92,7 +92,7 @@ import { annotationDefaultSizes, defaultCollapsedGroups, defaultExperiment, defa
 import { cloneSnapshot, download, safeFilename } from "./model/editorPersistence";
 import { closestPortPair, getConnectionDomain, getConnectionType, portsFor } from "./model/connectionGeometry";
 import { csvCell, escapeLatex, formatBandwidth, optionalNumber, svgDataUri } from "./model/exportFormatting";
-import { ExportReceipt, ScientificAppShell, ScientificHeader, ScientificOutcomeSummary, ScientificStatusBar, ScientificValidationSummary } from "@jorpago2/scientific-ui";
+import { ExportReceipt, SCIENTIFIC_AUTOSAVE_FORMAT, ScientificAppShell, ScientificAutosaveStatus, ScientificHeader, ScientificOutcomeSummary, ScientificRecoveryNotice, ScientificStatusBar, ScientificValidationSummary, useScientificAutosave } from "@jorpago2/scientific-ui";
 
 type DiagramFile = {
   version?: number;
@@ -572,8 +572,6 @@ export default function Home() {
   const svgRef = useRef<SVGSVGElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bomRef = useRef<HTMLInputElement>(null);
-  const hydrated = useRef(false);
-  const skipInitialSave = useRef(true);
   const editBefore = useRef<Snapshot | null>(null);
   const flowDragBefore = useRef<Snapshot | null>(null);
   const flowInstanceRef = useRef<ReactFlowInstance<CanvasFlowNode, ScientificFlowEdge> | null>(null);
@@ -699,6 +697,61 @@ export default function Home() {
     });
   }, []);
 
+  const restoreLocalDiagram = useCallback((parsed: DiagramFile) => {
+    setTitle((current) => parsed.title || current);
+    const storedPage = parsed.publication?.pagePreset ?? defaultPublication.pagePreset;
+    let storedElements = (parsed.version ?? 0) < 5 ? arrangeOverlaps(parsed.elements, pagePresets[storedPage]) : parsed.elements;
+    if ((parsed.version ?? 0) < DIAGRAM_VERSION && parsed.title === "Ring cavity") {
+      storedElements = storedElements.map((element) => element.id === "sample" && element.rotation === -43
+        ? { ...element, rotation: 47 }
+        : element.id === "detector" && element.rotation === 0 ? { ...element, rotation: 90 } : element);
+    }
+    setElements(storedElements);
+    setConnections(migrateCanvasRouting(parsed.connections, parsed.version ?? 0));
+    if (parsed.publication) setPublication({ ...defaultPublication, ...parsed.publication });
+    if (parsed.experiment) setExperiment(parsed.experiment);
+    const widthRatio = parsed.viewportWidth ? window.innerWidth / parsed.viewportWidth : 0;
+    if ((parsed.version ?? 0) >= 12 && parsed.viewport && viewportMode === "wide" && parsed.viewportMode === viewportMode && widthRatio >= 0.95 && widthRatio <= 1.05) restoreFlowViewport(parsed.viewport);
+    setPast([]);
+    setFuture([]);
+    setNotice("Previous session restored");
+  }, [restoreFlowViewport, viewportMode]);
+
+  const diagramSession = useMemo<DiagramFile>(() => ({
+    version: DIAGRAM_VERSION,
+    title,
+    elements,
+    connections,
+    publication,
+    experiment,
+    viewport: savedViewport,
+    viewportMode,
+    viewportWidth: window.innerWidth,
+  }), [connections, elements, experiment, publication, savedViewport, title, viewportMode]);
+  const legacyRecovery = useMemo(() => {
+    try {
+      const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
+      if (!isDiagramFile(parsed)) return null;
+      return {
+        format: SCIENTIFIC_AUTOSAVE_FORMAT,
+        schemaVersion: DIAGRAM_VERSION,
+        savedAt: new Date().toISOString(),
+        data: parsed,
+      } as const;
+    } catch {
+      return null;
+    }
+  }, []);
+  const autosave = useScientificAutosave({
+    storageKey: STORAGE_KEY,
+    value: diagramSession,
+    onRestore: restoreLocalDiagram,
+    validate: isDiagramFile,
+    schemaVersion: DIAGRAM_VERSION,
+    maxBytes: 3_000_000,
+    initialRecovery: legacyRecovery,
+  });
+
   const fitFlowToWorkspace = useCallback((instance: ReactFlowInstance<CanvasFlowNode, ScientificFlowEdge>) => {
     const nodes = instance.getNodes().filter((node) => !node.hidden);
     const contentNodes = nodes.filter((node) => node.id !== "__paper__");
@@ -796,30 +849,6 @@ export default function Home() {
   }, [hasSelection, inspectorMode]);
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed: unknown = JSON.parse(stored);
-        if (isDiagramFile(parsed)) {
-          setTitle(parsed.title || title);
-          const storedPage = parsed.publication?.pagePreset ?? defaultPublication.pagePreset;
-          let storedElements = (parsed.version ?? 0) < 5 ? arrangeOverlaps(parsed.elements, pagePresets[storedPage]) : parsed.elements;
-          if ((parsed.version ?? 0) < DIAGRAM_VERSION && parsed.title === "Ring cavity") {
-            storedElements = storedElements.map((element) => element.id === "sample" && element.rotation === -43
-              ? { ...element, rotation: 47 }
-              : element.id === "detector" && element.rotation === 0 ? { ...element, rotation: 90 } : element);
-          }
-          setElements(storedElements);
-          setConnections(migrateCanvasRouting(parsed.connections, parsed.version ?? 0));
-          if (parsed.publication) setPublication({ ...defaultPublication, ...parsed.publication });
-          if (parsed.experiment) setExperiment(parsed.experiment);
-          const widthRatio = parsed.viewportWidth ? window.innerWidth / parsed.viewportWidth : 0;
-          if ((parsed.version ?? 0) >= 12 && parsed.viewport && viewportMode === "wide" && parsed.viewportMode === viewportMode && widthRatio >= 0.95 && widthRatio <= 1.05) restoreFlowViewport(parsed.viewport);
-        }
-      } catch {
-        setNotice("Local draft could not be read");
-      }
-    }
     try {
       const storedFavorites: unknown = JSON.parse(localStorage.getItem(FAVORITES_KEY) ?? "[]");
       if (Array.isArray(storedFavorites)) {
@@ -830,19 +859,7 @@ export default function Home() {
       const storedModules: unknown = JSON.parse(localStorage.getItem(MODULES_KEY) ?? "[]");
       if (Array.isArray(storedModules)) setSavedModules(storedModules.filter(isSavedModule));
     } catch { /* Ignore damaged reusable modules. */ }
-    hydrated.current = true;
-  // The starter title is intentionally read only once.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (skipInitialSave.current) {
-      skipInitialSave.current = false;
-      return;
-    }
-    if (!hydrated.current) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: DIAGRAM_VERSION, title, elements, connections, publication, experiment, viewport: savedViewport, viewportMode, viewportWidth: window.innerWidth }));
-  }, [title, elements, connections, publication, experiment, savedViewport, viewportMode]);
 
   useEffect(() => {
     localStorage.setItem(FAVORITES_KEY, JSON.stringify(favoriteKinds));
@@ -1674,6 +1691,7 @@ export default function Home() {
   return (
     <ScientificAppShell
       className="setupsketch-app"
+      recovery={autosave.recovery && <ScientificRecoveryNotice savedAt={autosave.recovery.savedAt} onRestore={autosave.restore} onDiscard={autosave.discard} />}
       header={<ScientificHeader
         className="setupsketch-header"
         aria-label="SetupSketch scientific diagram editor"
@@ -1734,6 +1752,7 @@ export default function Home() {
       />}
       navigation={<WorkspaceNavigation libraryOpen={libraryOpen} activeInspector={inspectorMode} onToggleLibrary={toggleLibrary} onToggleInspector={toggleInspector} />}
       statusBar={<ScientificStatusBar aria-label="Diagram status" status={shellStatus} metadata={<>
+        <ScientificAutosaveStatus status={autosave.status} savedAt={autosave.lastSavedAt} />
         <span>{elements.length} components</span>
         <span>{connections.length} connections</span>
       </>} />}
