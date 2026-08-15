@@ -42,6 +42,26 @@ export type BudgetResult = {
   outputNoiseDbm?: number;
   snrDb?: number;
   bandwidthHz?: number;
+  noiseTemperatureK?: number;
+  noiseDensityDbmHz?: number;
+};
+
+export type BudgetSummary = {
+  items: BudgetResult[];
+  included: number;
+  total: number;
+  truncated: boolean;
+  totalIsExact: boolean;
+};
+
+export const DEFAULT_NOISE_TEMPERATURE_K = 290;
+const BOLTZMANN_CONSTANT_J_PER_K = 1.380649e-23;
+const MAX_INCLUDED_BUDGETS = 40;
+const MAX_COUNTED_BUDGETS = 10_000;
+
+export const thermalNoiseDensityDbmHz = (temperatureK: number) => {
+  if (!Number.isFinite(temperatureK) || temperatureK <= 0) throw new RangeError("Noise temperature must be a positive finite value.");
+  return 10 * Math.log10(BOLTZMANN_CONSTANT_J_PER_K * temperatureK / 1e-3);
 };
 
 export type ValidationIssue = {
@@ -96,14 +116,20 @@ export const arrangeOverlaps = <T extends ModelElement>(
 export const calculateBudgets = (
   elements: ModelElement[],
   connections: ModelConnection[],
-): BudgetResult[] => {
+  noiseTemperatureK = DEFAULT_NOISE_TEMPERATURE_K,
+): BudgetSummary => {
+  if (!Number.isFinite(noiseTemperatureK) || noiseTemperatureK <= 0) throw new RangeError("Noise temperature must be a positive finite value.");
   const byId = new Map(elements.map((element) => [element.id, element]));
   const outgoing = new Map<string, ModelConnection[]>();
   for (const connection of connections) outgoing.set(connection.from, [...(outgoing.get(connection.from) ?? []), connection]);
   const results: BudgetResult[] = [];
+  let total = 0;
+  let totalIsExact = true;
   const summarize = (path: ModelElement[], links: ModelConnection[], domain: BudgetResult["domain"]) => {
     const sourcePower = path[0].powerDbm;
     if (sourcePower === undefined || path.length < 2) return;
+    total += 1;
+    if (results.length >= MAX_INCLUDED_BUDGETS) return;
     const totalGainDb = path.reduce((sum, element) => sum + (element.gainDb ?? 0), 0);
     const totalLossDb = path.reduce((sum, element) => sum + (element.lossDb ?? 0), 0) + links.reduce((sum, link) => sum + (link.lossDb ?? 0), 0);
     const bandwidths = [...path.map((element) => element.bandwidthHz), ...links.map((link) => link.bandwidthHz)]
@@ -125,8 +151,9 @@ export const calculateBudgets = (
     const noiseFigureDb = domain === "rf" ? 10 * Math.log10(Math.max(totalNoiseFactor, 1)) : undefined;
     const bandwidthHz = bandwidths.length ? Math.min(...bandwidths) : undefined;
     const outputPowerDbm = sourcePower + totalGainDb - totalLossDb;
+    const noiseDensityDbmHz = domain === "rf" ? thermalNoiseDensityDbmHz(noiseTemperatureK) : undefined;
     const outputNoiseDbm = domain === "rf" && bandwidthHz && noiseFigureDb !== undefined
-      ? -174 + 10 * Math.log10(bandwidthHz) + noiseFigureDb + totalGainDb - totalLossDb
+      ? noiseDensityDbmHz! + 10 * Math.log10(bandwidthHz) + noiseFigureDb + totalGainDb - totalLossDb
       : undefined;
     results.push({
       id: links.map((link) => link.id).join("-"),
@@ -140,10 +167,15 @@ export const calculateBudgets = (
       outputNoiseDbm,
       snrDb: outputNoiseDbm !== undefined ? outputPowerDbm - outputNoiseDbm : undefined,
       bandwidthHz,
+      noiseTemperatureK: domain === "rf" ? noiseTemperatureK : undefined,
+      noiseDensityDbmHz,
     });
   };
   const walk = (path: ModelElement[], links: ModelConnection[], domain?: BudgetResult["domain"]) => {
-    if (results.length >= 40) return;
+    if (total >= MAX_COUNTED_BUDGETS) {
+      totalIsExact = false;
+      return;
+    }
     const last = path.at(-1)!;
     const nextLinks = (outgoing.get(last.id) ?? []).filter((link) => !domain || (link.portType ?? "rf") === domain);
     if (!nextLinks.length) {
@@ -160,7 +192,13 @@ export const calculateBudgets = (
     }
   };
   elements.filter((element) => element.powerDbm !== undefined).forEach((source) => walk([source], []));
-  return results;
+  return {
+    items: results,
+    included: results.length,
+    total,
+    truncated: !totalIsExact || total > results.length,
+    totalIsExact,
+  };
 };
 
 const compactPoints = (points: ModelPoint[]) => points.filter((point, index) => {

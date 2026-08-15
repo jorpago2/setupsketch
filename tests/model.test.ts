@@ -164,7 +164,7 @@ test("every template connects existing, compatible and unoccupied ports", () => 
 });
 
 test("path budgets combine dB values, bottleneck bandwidth and Friis noise", () => {
-  const [budget] = calculateBudgets(
+  const { items: [budget] } = calculateBudgets(
     [
       { id: "source", kind: "source", label: "Source", x: 0, y: 0, powerDbm: 0, gainDb: 10, noiseFigureDb: 3, bandwidthHz: 2e9 },
       { id: "amp", kind: "amplifier", label: "Amp", x: 100, y: 0, gainDb: 20, lossDb: 1, noiseFigureDb: 6, bandwidthHz: 1e9 },
@@ -177,4 +177,21 @@ test("path budgets combine dB values, bottleneck bandwidth and Friis noise", () 
   assert.ok(budget.noiseFigureDb! > 3.9 && budget.noiseFigureDb! < 4.2);
   assert.ok(budget.outputNoiseDbm! > -54 && budget.outputNoiseDbm! < -52);
   assert.ok(budget.snrDb! > 79 && budget.snrDb! < 81);
+  assert.equal(budget.noiseTemperatureK, 290);
+  assert.ok(budget.noiseDensityDbmHz! > -174 && budget.noiseDensityDbmHz! < -173.9);
+});
+
+test("path budget noise follows kT and reports truncation explicitly", () => {
+  const source = { id: "source", kind: "source", label: "Source", x: 0, y: 0, powerDbm: 0, bandwidthHz: 1e6 };
+  const sinks = Array.from({ length: 41 }, (_, index) => ({ id: `sink-${index}`, kind: "sink", label: `Sink ${index}`, x: index, y: 1 }));
+  const connections = sinks.map((sink, index) => ({ id: `path-${index}`, from: source.id, to: sink.id, portType: "rf" as const }));
+  const nominal = calculateBudgets([source, ...sinks], connections, 290);
+  const hot = calculateBudgets([source, ...sinks], connections, 580);
+  assert.deepEqual({ included: nominal.included, total: nominal.total, truncated: nominal.truncated, totalIsExact: nominal.totalIsExact }, {
+    included: 40,
+    total: 41,
+    truncated: true,
+    totalIsExact: true,
+  });
+  assert.ok(Math.abs(hot.items[0].noiseDensityDbmHz! - nominal.items[0].noiseDensityDbmHz! - 10 * Math.log10(2)) < 1e-12);
 });

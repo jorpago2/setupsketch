@@ -16,6 +16,7 @@ import {
   Grid,
   IconButton,
   Layer,
+  Modal,
   NumberInput,
   Popover,
   PopoverContent,
@@ -79,7 +80,7 @@ import {
   type ElementKind,
   type PortType,
 } from "./library/componentCatalog";
-import { arrangeOverlaps, calculateBudgets, findOpenPosition, moveElements, parseCsv, routeOrthogonal, validateSetup } from "./model/editorModel";
+import { arrangeOverlaps, calculateBudgets, DEFAULT_NOISE_TEMPERATURE_K, findOpenPosition, moveElements, parseCsv, routeOrthogonal, thermalNoiseDensityDbmHz, validateSetup } from "./model/editorModel";
 import { DiagramCanvas, WaypointEdgeComponent } from "./canvas/DiagramCanvas";
 import { setupTemplates } from "./model/templates";
 import { ComponentLibrary } from "./library/ComponentLibrary";
@@ -104,7 +105,12 @@ type DiagramFile = {
   viewport?: Viewport;
   viewportMode?: ViewportMode;
   viewportWidth?: number;
+  noiseTemperatureK?: number;
 };
+
+type PendingDestructiveAction =
+  | { kind: "clear" }
+  | { kind: "template"; templateId: string };
 
 const isViewport = (value: unknown): value is Viewport => {
   if (!value || typeof value !== "object") return false;
@@ -151,6 +157,7 @@ const isDiagramFile = (value: unknown): value is DiagramFile => {
   if (diagram.viewport !== undefined && !isViewport(diagram.viewport)) return false;
   if (diagram.viewportMode !== undefined && diagram.viewportMode !== "narrow" && diagram.viewportMode !== "wide") return false;
   if (diagram.viewportWidth !== undefined && (typeof diagram.viewportWidth !== "number" || !Number.isFinite(diagram.viewportWidth) || diagram.viewportWidth <= 0)) return false;
+  if (diagram.noiseTemperatureK !== undefined && (typeof diagram.noiseTemperatureK !== "number" || !Number.isFinite(diagram.noiseTemperatureK) || diagram.noiseTemperatureK < 1 || diagram.noiseTemperatureK > 5000)) return false;
   if (!Array.isArray(diagram.elements) || diagram.elements.length > MAX_ELEMENTS ||
       !Array.isArray(diagram.connections) || diagram.connections.length > MAX_CONNECTIONS) return false;
   const ids = new Set<string>();
@@ -569,6 +576,8 @@ export default function Home() {
   const [exportReceipt, setExportReceipt] = useState<{ fileName: string; format: string; destination: string } | null>(null);
   const [publication, setPublication] = useState(defaultPublication);
   const [experiment, setExperiment] = useState(defaultExperiment);
+  const [noiseTemperatureK, setNoiseTemperatureK] = useState(DEFAULT_NOISE_TEMPERATURE_K);
+  const [pendingDestructiveAction, setPendingDestructiveAction] = useState<PendingDestructiveAction | null>(null);
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [libraryQuery, setLibraryQuery] = useState("");
   const [favoriteKinds, setFavoriteKinds] = useState<ElementKind[]>([]);
@@ -602,7 +611,10 @@ export default function Home() {
     mechanicalKinds,
     (kind, portId) => elementKinds.has(kind as ElementKind) ? portTypeFor(kind as ElementKind, portId) : undefined,
   );
-  const budgets = calculateBudgets(elements, connections);
+  const budgetSummary = calculateBudgets(elements, connections, noiseTemperatureK);
+  const budgets = budgetSummary.items;
+  const budgetCountLabel = `${budgetSummary.included} of ${budgetSummary.totalIsExact ? budgetSummary.total : `at least ${budgetSummary.total}`}`;
+  const noiseDensityDbmHz = thermalNoiseDensityDbmHz(noiseTemperatureK);
   const modelFlowNodes = useMemo<CanvasFlowNode[]>(() => [
     {
       id: "__paper__",
@@ -720,6 +732,7 @@ export default function Home() {
     setConnections(migrateCanvasRouting(parsed.connections, parsed.version ?? 0));
     if (parsed.publication) setPublication({ ...defaultPublication, ...parsed.publication });
     if (parsed.experiment) setExperiment(parsed.experiment);
+    setNoiseTemperatureK(parsed.noiseTemperatureK ?? DEFAULT_NOISE_TEMPERATURE_K);
     const widthRatio = parsed.viewportWidth ? window.innerWidth / parsed.viewportWidth : 0;
     if ((parsed.version ?? 0) >= 12 && parsed.viewport && viewportMode === "wide" && parsed.viewportMode === viewportMode && widthRatio >= 0.95 && widthRatio <= 1.05) restoreFlowViewport(parsed.viewport);
     setPast([]);
@@ -734,10 +747,11 @@ export default function Home() {
     connections,
     publication,
     experiment,
+    noiseTemperatureK,
     viewport: savedViewport,
     viewportMode,
     viewportWidth: window.innerWidth,
-  }), [connections, elements, experiment, publication, savedViewport, title, viewportMode]);
+  }), [connections, elements, experiment, noiseTemperatureK, publication, savedViewport, title, viewportMode]);
   const legacyRecovery = useMemo(() => {
     try {
       const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
@@ -1346,6 +1360,8 @@ export default function Home() {
     const lines = [
       "* SetupSketch research netlist v1",
       `TITLE ${quote(title)}`,
+      `NOISE_TEMPERATURE_K ${noiseTemperatureK}`,
+      `PATH_BUDGETS INCLUDED=${budgetSummary.included} TOTAL=${budgetSummary.total} TRUNCATED=${budgetSummary.truncated ? "YES" : "NO"} TOTAL_EXACT=${budgetSummary.totalIsExact ? "YES" : "NO"}`,
       experiment.procedure ? `PROCEDURE ${quote(experiment.procedure)}` : "",
       ...experiment.checklist.map((item) => `CHECK ${item.id} ${item.done ? "DONE" : "OPEN"} ${quote(item.text)}`),
       ...elements.filter((element) => !annotationKinds.has(element.kind)).map((element) => [
@@ -1397,6 +1413,7 @@ export default function Home() {
       const summary = presentation.addSlide();
       summary.background = { color: "FFFFFF" };
       summary.addText("Calculated path budgets", { x: 0.55, y: 0.25, w: 12.2, h: 0.5, fontFace: "Arial", fontSize: 35, bold: true, color: "171B22", margin: 0, fit: "shrink" });
+      summary.addText(`Showing ${Math.min(8, budgetSummary.included)} of ${budgetSummary.totalIsExact ? budgetSummary.total : `at least ${budgetSummary.total}`} paths · noise reference ${noiseTemperatureK.toFixed(1)} K`, { x: 0.55, y: 0.72, w: 12.2, h: 0.25, fontSize: 12, color: "68717D", margin: 0 });
       summary.addText("Path", { x: 0.55, y: 1.05, w: 5.6, h: 0.35, fontSize: 18, bold: true, color: "68717D", margin: 0 });
       summary.addText("Input", { x: 6.45, y: 1.05, w: 1.25, h: 0.35, fontSize: 18, bold: true, color: "68717D", margin: 0 });
       summary.addText("Output", { x: 7.8, y: 1.05, w: 1.25, h: 0.35, fontSize: 18, bold: true, color: "68717D", margin: 0 });
@@ -1430,7 +1447,26 @@ export default function Home() {
   };
 
   const saveJson = () => download(
-    new Blob([JSON.stringify({ version: DIAGRAM_VERSION, title, elements, connections, publication, experiment, viewport: savedViewport, viewportMode, viewportWidth: window.innerWidth }, null, 2)], { type: "application/json" }),
+    new Blob([JSON.stringify({
+      version: DIAGRAM_VERSION,
+      title,
+      elements,
+      connections,
+      publication,
+      experiment,
+      noiseTemperatureK,
+      budgetAnalysis: {
+        noiseTemperatureK,
+        included: budgetSummary.included,
+        total: budgetSummary.total,
+        truncated: budgetSummary.truncated,
+        totalIsExact: budgetSummary.totalIsExact,
+        items: budgets,
+      },
+      viewport: savedViewport,
+      viewportMode,
+      viewportWidth: window.innerWidth,
+    }, null, 2)], { type: "application/json" }),
     `${safeFilename(title)}.json`,
   );
 
@@ -1524,6 +1560,7 @@ export default function Home() {
       setConnections(migrateCanvasRouting(parsed.connections, parsed.version ?? 0));
       setPublication(parsed.publication ? { ...defaultPublication, ...parsed.publication } : defaultPublication);
       setExperiment(parsed.experiment ?? defaultExperiment);
+      setNoiseTemperatureK(parsed.noiseTemperatureK ?? DEFAULT_NOISE_TEMPERATURE_K);
       restoreFlowViewport(parsed.viewport ?? DEFAULT_VIEWPORT);
       setFuture([]);
       setSelectedIds([]);
@@ -1535,17 +1572,22 @@ export default function Home() {
     }
   };
 
-  const clearDiagram = () => {
-    if ((elements.length || connections.length) && !window.confirm("Clear the current diagram? You can still undo this action.")) return;
+  const executeClearDiagram = () => {
     commit([], []);
     setExperiment(defaultExperiment);
     setSelectedIds([]);
     setSelectedConnectionId(null);
+    setNotice("Diagram cleared · Undo is available");
   };
 
-  const applyTemplate = (templateId: string) => {
+  const clearDiagram = () => {
+    if (elements.length || connections.length) setPendingDestructiveAction({ kind: "clear" });
+    else executeClearDiagram();
+  };
+
+  const executeTemplate = (templateId: string) => {
     const template = setupTemplates.find((candidate) => candidate.id === templateId);
-    if (!template || (elements.length && !window.confirm("Replace the current diagram with this template?"))) return;
+    if (!template) return;
     const prefix = `template-${Date.now()}-`;
     const nextElements: DiagramElement[] = template.elements.map((element) => ({
       ...element,
@@ -1577,6 +1619,25 @@ export default function Home() {
     setSelectedIds([]);
     setSelectedConnectionId(null);
     setNotice("Template loaded");
+  };
+
+  const applyTemplate = (templateId: string) => {
+    if (elements.length || connections.length) setPendingDestructiveAction({ kind: "template", templateId });
+    else executeTemplate(templateId);
+  };
+
+  const confirmPendingDestructiveAction = () => {
+    const action = pendingDestructiveAction;
+    setPendingDestructiveAction(null);
+    if (!action) return;
+    if (action.kind === "clear") executeClearDiagram();
+    else executeTemplate(action.templateId);
+    requestAnimationFrame(() => document.getElementById("project-toggle")?.focus());
+  };
+
+  const cancelPendingDestructiveAction = () => {
+    setPendingDestructiveAction(null);
+    requestAnimationFrame(() => document.getElementById("project-toggle")?.focus());
   };
 
   const saveSelectionAsModule = () => {
@@ -1694,6 +1755,26 @@ export default function Home() {
     <Button size="sm" kind="primary" onClick={() => { if (exportPdf()) recordExport(`${safeFilename(title)}.pdf`, "PDF", "Print dialog opened"); close(); }}>PDF</Button>
   </>;
 
+  const projectActions = <Popover as="div" className="toolbar-menu toolbar-project" open={projectMenuOpen} align="bottom-end" onRequestClose={() => setProjectMenuOpen(false)}>
+    <IconButton id="project-toggle" size="sm" kind="ghost" align="bottom-end" label="Project" aria-expanded={projectMenuOpen} aria-controls="project-menu" aria-haspopup="dialog" onClick={() => setProjectMenuOpen((open) => !open)}><UiIcon name="project" /></IconButton>
+    <PopoverContent>
+      <Layer id="project-menu" withBackground className="toolbar-menu-actions">
+        <Select id="project-template" size="sm" labelText="Template" className="connection-type" defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; setProjectMenuOpen(false); }}>
+          <option value="" disabled>Choose setup</option>
+          {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
+        </Select>
+        <div className="toolbar-group" role="group" aria-label="File actions">
+          <Button size="sm" kind="ghost" onClick={() => { saveJson(); setProjectMenuOpen(false); }}>Save JSON</Button>
+          <Button size="sm" kind="ghost" onClick={() => { fileRef.current?.click(); setProjectMenuOpen(false); }}>Open JSON</Button>
+          <Button size="sm" kind="ghost" onClick={() => { bomRef.current?.click(); setProjectMenuOpen(false); }}>Import BOM</Button>
+          <Button size="sm" kind="ghost" onClick={() => { arrangeDiagram(); setProjectMenuOpen(false); }}>Arrange overlaps</Button>
+          <Button size="sm" kind="danger--ghost" onClick={() => { clearDiagram(); setProjectMenuOpen(false); }}>Reset diagram</Button>
+          <input ref={fileRef} hidden aria-label="Open diagram JSON" type="file" accept="application/json,.json" onChange={loadJson} />
+        </div>
+      </Layer>
+    </PopoverContent>
+  </Popover>;
+
   const renderLibraryPreview = (kind: ElementKind) => {
     const element = { id: "preview", kind, label: "", x: 0, y: 0, rotation: 0, color: defaultColor(kind) } as DiagramElement;
     return <svg className="library-icon" viewBox="-60 -55 120 110" aria-hidden="true"><ComponentPortStubs element={element} /><ComponentShape element={element} /></svg>;
@@ -1735,35 +1816,18 @@ export default function Home() {
                 {(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <option value={type} key={type}>{label}</option>)}
             </Select>
           </div>}
-          <Popover as="div" className="toolbar-menu toolbar-project" open={projectMenuOpen} align="bottom-end" onRequestClose={() => setProjectMenuOpen(false)}>
-            <IconButton id="project-toggle" size="sm" kind="ghost" align="bottom-end" label="Project" aria-expanded={projectMenuOpen} aria-controls="project-menu" aria-haspopup="dialog" onClick={() => setProjectMenuOpen((open) => !open)}><UiIcon name="project" /></IconButton>
-            <PopoverContent>
-              <Layer id="project-menu" withBackground className="toolbar-menu-actions">
-                <Select id="project-template" size="sm" labelText="Template" className="connection-type" defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; setProjectMenuOpen(false); }}>
-                    <option value="" disabled>Choose setup</option>
-                    {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
-                </Select>
-                <div className="toolbar-group" role="group" aria-label="File actions">
-                  <Button size="sm" kind="ghost" onClick={() => { saveJson(); setProjectMenuOpen(false); }}>Save JSON</Button>
-                  <Button size="sm" kind="ghost" onClick={() => { fileRef.current?.click(); setProjectMenuOpen(false); }}>Open JSON</Button>
-                  <Button size="sm" kind="ghost" onClick={() => { bomRef.current?.click(); setProjectMenuOpen(false); }}>Import BOM</Button>
-                  <Button size="sm" kind="ghost" onClick={() => { arrangeDiagram(); setProjectMenuOpen(false); }}>Arrange overlaps</Button>
-                  <Button size="sm" kind="danger--ghost" onClick={() => { clearDiagram(); setProjectMenuOpen(false); }}>Reset diagram</Button>
-                  <input ref={fileRef} hidden aria-label="Open diagram JSON" type="file" accept="application/json,.json" onChange={loadJson} />
-                </div>
-              </Layer>
-            </PopoverContent>
-          </Popover>
           <input ref={bomRef} hidden aria-label="Import bill of materials" type="file" accept="text/csv,.csv" onChange={loadBom} />
         </>}
-        primaryAction={
+        primaryAction={<>
+          {narrowWorkspace && past.length > 0 && <IconButton size="sm" kind="ghost" align="bottom-end" label="Undo" onClick={undo}><UiIcon name="undo" /></IconButton>}
+          {projectActions}
           <Popover as="div" className="toolbar-export-mobile" open={exportMenuOpen} align="bottom-end" onRequestClose={() => setExportMenuOpen(false)}>
             <IconButton id="export-toggle" size="sm" kind="ghost" align="bottom-end" label="Export" aria-expanded={exportMenuOpen} aria-controls="export-menu" aria-haspopup="dialog" onClick={() => setExportMenuOpen((open) => !open)}><UiIcon name="export" /></IconButton>
-            <PopoverContent aria-label="Export actions">
+            <PopoverContent>
               <Layer id="export-menu" withBackground className="toolbar-export-actions">{renderExportActions(() => setExportMenuOpen(false))}</Layer>
             </PopoverContent>
           </Popover>
-        }
+        </>}
       />}
       navigation={<WorkspaceNavigation libraryOpen={libraryOpen} activeInspector={inspectorMode} onToggleLibrary={toggleLibrary} onToggleInspector={toggleInspector} />}
       statusBar={<ScientificStatusBar aria-label="Diagram status" status={shellStatus} metadata={<>
@@ -1774,6 +1838,22 @@ export default function Home() {
     >
       <h1 className="sr-only" id="app-title">SetupSketch scientific diagram editor</h1>
       <style>{`@media print { @page { size: ${publication.pagePreset === "a3" ? "A3 landscape" : "A4 landscape"}; margin: 8mm; } }`}</style>
+
+      <Modal
+        open={Boolean(pendingDestructiveAction)}
+        danger
+        size="sm"
+        modalLabel="Reversible diagram action"
+        modalHeading={pendingDestructiveAction?.kind === "template" ? "Replace the current diagram?" : "Clear the current diagram?"}
+        primaryButtonText={pendingDestructiveAction?.kind === "template" ? "Replace diagram" : "Clear diagram"}
+        secondaryButtonText="Cancel"
+        onRequestClose={cancelPendingDestructiveAction}
+        onRequestSubmit={confirmPendingDestructiveAction}
+      >
+        <p>{pendingDestructiveAction?.kind === "template"
+          ? "The selected template will replace the current components and connections. You can restore the previous diagram with Undo."
+          : "All components and connections will be removed. You can restore them with Undo."}</p>
+      </Modal>
 
       {exportReceipt && <ExportReceipt className="setup-export-receipt" fileName={exportReceipt.fileName} format={exportReceipt.format} destination={exportReceipt.destination} onDismiss={() => setExportReceipt(null)} />}
 
@@ -2042,7 +2122,7 @@ export default function Home() {
               metrics={[
                 { id: "components", label: "Components", value: elements.length },
                 { id: "connections", label: "Connections", value: connections.length },
-                { id: "path-budgets", label: "Directed path budgets", value: budgets.length },
+                { id: "path-budgets", label: "Directed path budgets", value: budgetSummary.truncated ? budgetCountLabel : budgetSummary.total },
                 { id: "checklist", label: "Checklist complete", value: experiment.checklist.length ? `${experiment.checklist.filter((item) => item.done).length}/${experiment.checklist.length}` : "Not defined" },
               ]}
               actions={[
@@ -2060,7 +2140,7 @@ export default function Home() {
             }}
             checks={[
               { id: "structure", label: "Diagram structure", state: validationIssues.some((issue) => issue.severity === "error") ? "failed" : validationIssues.length ? "warning" : "passed", value: validationIssues.length ? `${validationIssues.length} issue(s)` : "Complete" },
-              { id: "paths", label: "Directed path budgets", state: budgets.length ? "passed" : "warning", value: budgets.length ? `${budgets.length} path(s)` : "No calculated paths" },
+              { id: "paths", label: "Directed path budgets", state: budgets.length ? budgetSummary.truncated ? "warning" : "passed" : "warning", value: budgets.length ? `${budgetCountLabel} path(s) included` : "No calculated paths" },
               { id: "procedure", label: "Procedure", state: experiment.procedure.trim() ? "passed" : "warning", detail: experiment.procedure.trim() ? "Documented" : "Add alignment, acquisition and shutdown steps." },
               { id: "checklist", label: "Checklist", state: experiment.checklist.length === 0 ? "warning" : experiment.checklist.every((item) => item.done) ? "passed" : "warning", value: experiment.checklist.length ? `${experiment.checklist.filter((item) => item.done).length}/${experiment.checklist.length} complete` : "Not defined" },
             ]}
@@ -2070,7 +2150,23 @@ export default function Home() {
             <Checkbox id="snap-to-grid" labelText="Snap to grid" checked={snapEnabled} onChange={(_, { checked }) => setSnapEnabled(checked)} />
             <div className="port-legend">{(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <span key={type}><i style={{ background: portTypeColors[type] }} />{label}</span>)}</div>
           </InspectorDisclosure>}
-          {inspectorMode === "review" && <InspectorDisclosure className="layers-panel budget-panel" buttonId="budget-title" label="Path budgets" meta={budgets.length}>
+          {inspectorMode === "review" && <InspectorDisclosure className="layers-panel budget-panel" buttonId="budget-title" label="Path budgets" meta={budgets.length ? budgetCountLabel : 0}>
+            <div className="property-form">
+              <NumberInput
+                id="noise-temperature"
+                size="sm"
+                label="RF noise temperature (K)"
+                min={1}
+                max={5000}
+                step={1}
+                value={noiseTemperatureK}
+                onChange={(_, { value }) => {
+                  const next = Number(value);
+                  if (Number.isFinite(next) && next >= 1 && next <= 5000) setNoiseTemperatureK(next);
+                }}
+              />
+            </div>
+            {budgetSummary.truncated && <p className="validation-more">Showing {budgetCountLabel} calculated paths. Exports declare this truncation.</p>}
             {budgets.length ? budgets.slice(0, 5).map((budget) => <article className="budget-result" key={budget.id}>
               <strong>{budget.labels.join(" → ")}</strong>
               <span>{portTypeLabels[budget.domain]} · {budget.inputPowerDbm.toFixed(2)} → {budget.outputPowerDbm.toFixed(2)} dBm</span>
@@ -2078,7 +2174,7 @@ export default function Home() {
               <span>BW {formatBandwidth(budget.bandwidthHz)}{budget.noiseFigureDb !== undefined ? ` · NF ${budget.noiseFigureDb.toFixed(2)} dB` : ""}</span>
               {budget.outputNoiseDbm !== undefined && <span>Noise {budget.outputNoiseDbm.toFixed(2)} dBm · SNR {budget.snrDb?.toFixed(2)} dB</span>}
             </article>) : <p className="validation-more">Set source power on a component to calculate directed paths.</p>}
-            <p className="model-note">Cascaded dB budget; RF noise uses Friis and −174 dBm/Hz at 290 K. Reflections, mismatch and coherent interference are not included.</p>
+            <p className="model-note">Cascaded dB budget; RF noise uses Friis and kT = {noiseDensityDbmHz.toFixed(2)} dBm/Hz at {noiseTemperatureK.toFixed(1)} K. Reflections, mismatch and coherent interference are not included.</p>
           </InspectorDisclosure>}
           {inspectorMode === "experiment" && <InspectorDisclosure className="layers-panel experiment-panel" buttonId="experiment-title" label="Procedure and checklist" initiallyOpen>
             <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>

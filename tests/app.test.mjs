@@ -75,9 +75,9 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editorControls, /<Accordion /);
   assert.match(editor, /<PopoverContent/);
   assert.match(editor, /<PopoverContent>\s*<Layer id="project-menu" withBackground className="toolbar-menu-actions">/);
-  assert.match(editor, /<PopoverContent aria-label="Export actions">\s*<Layer id="export-menu" withBackground className="toolbar-export-actions">/);
+  assert.match(editor, /<PopoverContent>\s*<Layer id="export-menu" withBackground className="toolbar-export-actions">/);
   assert.equal([...editor.matchAll(/<Popover[^>]*align="bottom-end"/g)].length, 2);
-  assert.equal([...editor.matchAll(/<IconButton[^>]*align="bottom-end"/g)].length, 5);
+  assert.equal([...editor.matchAll(/<IconButton[^>]*align="bottom-end"/g)].length, 6);
   assert.equal([...editor.matchAll(/aria-expanded=\{(?:project|export)MenuOpen\}/g)].length, 2);
   assert.match(editor, /<IconButton/);
   assert.match(editor, /if \(narrowWorkspace\) openSelectionInspector\(\)/);
@@ -136,6 +136,11 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /Overview fitted · zoom in to edit labels and ports/);
   assert.match(editor, /image\.onerror/);
   assert.match(editor, /if \(exportPdf\(\)\) recordExport/);
+  assert.doesNotMatch(editor, /window\.confirm/);
+  assert.match(editor, /modalHeading=\{pendingDestructiveAction/);
+  assert.match(editor, /noiseTemperatureK/);
+  assert.match(editor, /budgetAnalysis/);
+  assert.match(editor, /Showing \{budgetCountLabel\} calculated paths/);
   assert.equal([...editor.matchAll(/\(min-width: 99rem\)/g)].length, 1);
   assert.match(editor, /label="Properties"/);
   assert.match(editorConfig, /textnote: \{ width: 150, height: 70 \}/);
@@ -181,6 +186,8 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.equal(packageJson.dependencies["@ibm/plex"], "6.4.1");
   assert.equal(packageJson.dependencies["react-is"], "19.2.8");
   assert.equal(packageJson.devDependencies.sass, "1.102.0");
+  assert.equal(packageJson.scripts["test:ui"], "playwright test");
+  assert.equal(packageJson.devDependencies["@axe-core/playwright"], "4.10.2");
   for (const removed of ["@headlessui/react", "@heroicons/react", "@tailwindcss/vite", "tailwindcss"]) {
     assert.equal(packageJson.dependencies[removed] ?? packageJson.devDependencies[removed], undefined);
   }
