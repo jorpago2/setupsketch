@@ -556,7 +556,7 @@ export default function Home() {
   const [inspectorMode, setInspectorMode] = useState<InspectorMode | null>(null);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
-  const [exportReceipt, setExportReceipt] = useState<{ fileName: string; format: string } | null>(null);
+  const [exportReceipt, setExportReceipt] = useState<{ fileName: string; format: string; destination: string } | null>(null);
   const [publication, setPublication] = useState(defaultPublication);
   const [experiment, setExperiment] = useState(defaultExperiment);
   const [snapEnabled, setSnapEnabled] = useState(true);
@@ -791,8 +791,8 @@ export default function Home() {
     const visibleNodes = instance.getNodes().filter((node) => !node.hidden && node.id !== "__paper__");
     const selectedNodes = selectedIds.length ? visibleNodes.filter((node) => selectedIds.includes(node.id)) : [];
     const nodes = selectedNodes.length ? selectedNodes : visibleNodes.length ? visibleNodes : instance.getNodes().filter((node) => node.id === "__paper__");
-    void instance.fitView({ nodes, padding: selectedNodes.length ? 0.2 : 0.08, maxZoom: selectedNodes.length ? 1.5 : 1 });
-    setNotice(selectedNodes.length ? "Selection fitted" : "Diagram fitted");
+    void instance.fitView({ nodes, padding: selectedNodes.length ? 0.2 : 0.08, minZoom: selectedNodes.length ? 0.7 : 0.25, maxZoom: selectedNodes.length ? 1.5 : 1 });
+    setNotice(selectedNodes.length ? "Selection fitted for editing" : "Overview fitted · zoom in to edit labels and ports");
   }, [selectedIds]);
 
   useEffect(() => setFlowNodes(modelFlowNodes), [modelFlowNodes, setFlowNodes]);
@@ -800,28 +800,6 @@ export default function Home() {
   useEffect(() => {
     if (!dualPanelWorkspace && libraryOpen && inspectorMode) setLibraryOpen(false);
   }, [dualPanelWorkspace, inspectorMode, libraryOpen]);
-
-  useEffect(() => {
-    let frame = 0;
-    const scheduleWorkspaceFit = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        frame = requestAnimationFrame(() => {
-          const instance = flowInstanceRef.current;
-          if (!instance) return;
-          autoFittingViewportRef.current = true;
-          void fitFlowToWorkspace(instance)
-            .finally(() => { autoFittingViewportRef.current = false; });
-        });
-      });
-    };
-    window.addEventListener("resize", scheduleWorkspaceFit);
-    scheduleWorkspaceFit();
-    return () => {
-      window.removeEventListener("resize", scheduleWorkspaceFit);
-      cancelAnimationFrame(frame);
-    };
-  }, [fitFlowToWorkspace, inspectorMode, libraryOpen, narrowWorkspace]);
 
   useEffect(() => {
     const dismissWithEscape = (event: KeyboardEvent) => {
@@ -1283,30 +1261,46 @@ export default function Home() {
 
   const exportSvg = () => download(new Blob([svgSource()], { type: "image/svg+xml" }), `${safeFilename(title)}.svg`);
 
-  const exportPng = async () => {
+  const exportPng = () => new Promise<void>((resolve, reject) => {
     const image = new Image();
     const url = URL.createObjectURL(new Blob([svgSource()], { type: "image/svg+xml" }));
+    const cleanup = () => URL.revokeObjectURL(url);
     image.onload = () => {
       const frame = exportFrame();
       const canvas = document.createElement("canvas");
       canvas.width = frame.width * 2;
       canvas.height = frame.height * 2;
       const context = canvas.getContext("2d");
-      if (!context) return;
+      if (!context) {
+        cleanup();
+        reject(new Error("The browser could not create the PNG canvas."));
+        return;
+      }
       context.fillStyle = "white";
       context.fillRect(0, 0, canvas.width, canvas.height);
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => blob && download(blob, `${safeFilename(title)}.png`), "image/png");
-      URL.revokeObjectURL(url);
+      canvas.toBlob((blob) => {
+        cleanup();
+        if (!blob) {
+          reject(new Error("The browser could not encode the PNG."));
+          return;
+        }
+        download(blob, `${safeFilename(title)}.png`);
+        resolve();
+      }, "image/png");
+    };
+    image.onerror = () => {
+      cleanup();
+      reject(new Error("The SVG preview could not be decoded for PNG export."));
     };
     image.src = url;
-  };
+  });
 
   const exportPdf = () => {
     const popup = window.open("", "_blank", "popup");
     if (!popup) {
       setNotice("Allow pop-ups to export the vector PDF");
-      return;
+      return false;
     }
     popup.document.title = title;
     const style = popup.document.createElement("style");
@@ -1316,6 +1310,7 @@ export default function Home() {
     popup.document.body.append(popup.document.importNode(parsed, true));
     popup.focus();
     window.setTimeout(() => popup.print(), 250);
+    return true;
   };
 
   const exportTikz = () => {
@@ -1418,8 +1413,9 @@ export default function Home() {
     }
       await presentation.writeFile({ fileName: `${safeFilename(title)}.pptx` });
       setNotice("PowerPoint exported");
-    } catch {
+    } catch (error) {
       setNotice("PowerPoint export failed");
+      throw error;
     }
   };
 
@@ -1668,15 +1664,15 @@ export default function Home() {
     return points[Math.floor(points.length / 2)];
   })();
 
-  const recordExport = (fileName: string, format: string) => setExportReceipt({ fileName, format });
+  const recordExport = (fileName: string, format: string, destination = "Download requested") => setExportReceipt({ fileName, format, destination });
   const renderExportActions = (close: () => void) => <>
     <Button size="sm" kind="ghost" onClick={() => { exportSvg(); recordExport(`${safeFilename(title)}.svg`, "SVG"); close(); }}>SVG</Button>
-    <Button size="sm" kind="ghost" onClick={() => { void exportPng().then(() => recordExport(`${safeFilename(title)}.png`, "PNG")); close(); }}>PNG</Button>
+    <Button size="sm" kind="ghost" onClick={() => { void exportPng().then(() => recordExport(`${safeFilename(title)}.png`, "PNG")).catch((error) => setNotice(error instanceof Error ? error.message : "PNG export failed")); close(); }}>PNG</Button>
     <Button size="sm" kind="ghost" onClick={() => { exportTikz(); recordExport(`${safeFilename(title)}.tex`, "TeX"); close(); }}>TeX</Button>
-    <Button size="sm" kind="ghost" onClick={() => { void exportPowerPoint().then(() => recordExport(`${safeFilename(title)}.pptx`, "PowerPoint")); close(); }}>PPTX</Button>
+    <Button size="sm" kind="ghost" onClick={() => { void exportPowerPoint().then(() => recordExport(`${safeFilename(title)}.pptx`, "PowerPoint")).catch(() => undefined); close(); }}>PPTX</Button>
     <Button size="sm" kind="ghost" onClick={() => { exportNetlist(); recordExport(`${safeFilename(title)}.net`, "Netlist"); close(); }}>Netlist</Button>
     <Button size="sm" kind="ghost" onClick={() => { exportBom(); recordExport(`${safeFilename(title)}-bom.csv`, "BOM CSV"); close(); }}>BOM CSV</Button>
-    <Button size="sm" kind="primary" onClick={() => { exportPdf(); recordExport(`${safeFilename(title)}.pdf`, "PDF"); close(); }}>PDF</Button>
+    <Button size="sm" kind="primary" onClick={() => { if (exportPdf()) recordExport(`${safeFilename(title)}.pdf`, "PDF", "Print dialog opened"); close(); }}>PDF</Button>
   </>;
 
   const renderLibraryPreview = (kind: ElementKind) => {
@@ -1760,7 +1756,7 @@ export default function Home() {
       <h1 className="sr-only" id="app-title">SetupSketch scientific diagram editor</h1>
       <style>{`@media print { @page { size: ${publication.pagePreset === "a3" ? "A3 landscape" : "A4 landscape"}; margin: 8mm; } }`}</style>
 
-      {exportReceipt && <ExportReceipt className="setup-export-receipt" fileName={exportReceipt.fileName} format={exportReceipt.format} destination="Browser downloads" onDismiss={() => setExportReceipt(null)} />}
+      {exportReceipt && <ExportReceipt className="setup-export-receipt" fileName={exportReceipt.fileName} format={exportReceipt.format} destination={exportReceipt.destination} onDismiss={() => setExportReceipt(null)} />}
 
       <Grid as="section" fullWidth condensed className="workspace" id="diagram-workspace" aria-labelledby="app-title" data-library-open={libraryOpen} data-inspector-open={Boolean(inspectorMode)} data-inspector={inspectorMode ?? "none"} tabIndex={-1}>
         <ComponentLibrary
@@ -1827,7 +1823,7 @@ export default function Home() {
                   <IconButton size="sm" kind="ghost" className="context-danger" label="Delete" onClick={removeSelected}><TrashCan size={16} aria-hidden={true} /></IconButton>
                 </EdgeToolbar>}
                 <Controls showFitView={false} showInteractive={false} orientation={narrowWorkspace ? "horizontal" : "vertical"}>
-                  <ControlButton onClick={fitCanvas} title={selectedIds.length ? "Fit selection" : "Fit diagram"} aria-label={selectedIds.length ? "Fit selection" : "Fit diagram"}><UiIcon name="fit" /></ControlButton>
+                  <ControlButton onClick={fitCanvas} title={selectedIds.length ? "Fit selection for editing" : "Fit overview"} aria-label={selectedIds.length ? "Fit selection for editing" : "Fit overview"}><UiIcon name="fit" /></ControlButton>
                 </Controls>
               </DiagramCanvas>
             </div>
@@ -2031,7 +2027,7 @@ export default function Home() {
                 { id: "checklist", label: "Checklist complete", value: experiment.checklist.length ? `${experiment.checklist.filter((item) => item.done).length}/${experiment.checklist.length}` : "Not defined" },
               ]}
               actions={[
-                { id: "export-pdf", label: "Export review PDF", emphasis: "primary", disabled: validationIssues.some((issue) => issue.severity === "error"), onClick: () => { exportPdf(); recordExport(`${safeFilename(title)}.pdf`, "PDF"); } },
+                { id: "export-pdf", label: "Export review PDF", emphasis: "primary", disabled: validationIssues.some((issue) => issue.severity === "error"), onClick: () => { if (exportPdf()) recordExport(`${safeFilename(title)}.pdf`, "PDF", "Print dialog opened"); } },
                 { id: "edit-procedure", label: "Edit procedure", emphasis: "secondary", collapseAt: "sm", onClick: () => setInspectorMode("experiment") },
                 { id: "save-project", label: "Save project JSON", emphasis: "tertiary", overflowOnly: true, onClick: () => { saveJson(); recordExport(`${safeFilename(title)}.json`, "JSON"); } },
               ]}

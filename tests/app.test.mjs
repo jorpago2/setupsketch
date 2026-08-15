@@ -132,7 +132,10 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /parsed\.viewportMode === viewportMode/);
   assert.match(editor, /viewportMode === "wide"/);
   assert.match(editor, /widthRatio >= 0\.95 && widthRatio <= 1\.05/);
-  assert.match(editor, /window\.addEventListener\("resize", scheduleWorkspaceFit\)/);
+  assert.doesNotMatch(editor, /window\.addEventListener\("resize", scheduleWorkspaceFit\)/);
+  assert.match(editor, /Overview fitted · zoom in to edit labels and ports/);
+  assert.match(editor, /image\.onerror/);
+  assert.match(editor, /if \(exportPdf\(\)\) recordExport/);
   assert.equal([...editor.matchAll(/\(min-width: 99rem\)/g)].length, 1);
   assert.match(editor, /label="Properties"/);
   assert.match(editorConfig, /textnote: \{ width: 150, height: 70 \}/);
