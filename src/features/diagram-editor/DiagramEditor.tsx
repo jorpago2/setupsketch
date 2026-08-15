@@ -133,36 +133,46 @@ const isPublicationSettings = (value: unknown): value is PublicationSettings => 
     settings.labelScale >= 0.7 && settings.labelScale <= 1.5;
 };
 
+const MAX_IMPORT_BYTES = 2_000_000;
+const MAX_ELEMENTS = 5_000;
+const MAX_CONNECTIONS = 10_000;
+const MAX_WAYPOINTS_PER_CONNECTION = 100;
+const MAX_TEXT_LENGTH = 10_000;
+const MAX_COORDINATE = 1_000_000;
+
+const boundedText = (value: unknown) => typeof value === "string" && value.length <= MAX_TEXT_LENGTH;
+
 const isDiagramFile = (value: unknown): value is DiagramFile => {
   if (!value || typeof value !== "object") return false;
   const diagram = value as Record<string, unknown>;
-  if (diagram.title !== undefined && typeof diagram.title !== "string") return false;
+  if (diagram.title !== undefined && !boundedText(diagram.title)) return false;
   if (diagram.publication !== undefined && !isPublicationSettings(diagram.publication)) return false;
   if (diagram.experiment !== undefined && !isExperimentRecord(diagram.experiment)) return false;
   if (diagram.viewport !== undefined && !isViewport(diagram.viewport)) return false;
   if (diagram.viewportMode !== undefined && diagram.viewportMode !== "narrow" && diagram.viewportMode !== "wide") return false;
   if (diagram.viewportWidth !== undefined && (typeof diagram.viewportWidth !== "number" || !Number.isFinite(diagram.viewportWidth) || diagram.viewportWidth <= 0)) return false;
-  if (!Array.isArray(diagram.elements) || !Array.isArray(diagram.connections)) return false;
+  if (!Array.isArray(diagram.elements) || diagram.elements.length > MAX_ELEMENTS ||
+      !Array.isArray(diagram.connections) || diagram.connections.length > MAX_CONNECTIONS) return false;
   const ids = new Set<string>();
   for (const candidate of diagram.elements) {
     if (!candidate || typeof candidate !== "object") return false;
     const element = candidate as Record<string, unknown>;
     if (
-      typeof element.id !== "string" || ids.has(element.id) ||
+      !boundedText(element.id) || ids.has(element.id as string) ||
       typeof element.kind !== "string" || !elementKinds.has(element.kind as ElementKind) ||
-      typeof element.label !== "string" || typeof element.color !== "string" ||
-      typeof element.x !== "number" || !Number.isFinite(element.x) ||
-      typeof element.y !== "number" || !Number.isFinite(element.y) ||
+      !boundedText(element.label) || !boundedText(element.color) ||
+      typeof element.x !== "number" || !Number.isFinite(element.x) || Math.abs(element.x) > MAX_COORDINATE ||
+      typeof element.y !== "number" || !Number.isFinite(element.y) || Math.abs(element.y) > MAX_COORDINATE ||
       typeof element.rotation !== "number" || !Number.isFinite(element.rotation) ||
       ["manufacturer", "model", "specs", "notes", "groupId"].some((key) =>
-        element[key] !== undefined && typeof element[key] !== "string") ||
+        element[key] !== undefined && !boundedText(element[key])) ||
       ["serialNumber", "calibrationDate", "calibrationDueDate", "uncertainty", "datasheetUrl"].some((key) =>
-        element[key] !== undefined && typeof element[key] !== "string") ||
+        element[key] !== undefined && !boundedText(element[key])) ||
       ["flipX", "flipY", "locked"].some((key) => element[key] !== undefined && typeof element[key] !== "boolean") ||
       ["scale", "width", "height", "powerDbm", "gainDb", "lossDb", "noiseFigureDb", "bandwidthHz", "wavelengthNm"].some((key) => element[key] !== undefined &&
         (typeof element[key] !== "number" || !Number.isFinite(element[key] as number)))
     ) return false;
-    ids.add(element.id);
+    ids.add(element.id as string);
   }
   return diagram.connections.every((candidate) => {
     if (!candidate || typeof candidate !== "object") return false;
@@ -176,8 +186,8 @@ const isDiagramFile = (value: unknown): value is DiagramFile => {
       (connection.portType === undefined || Object.hasOwn(portTypeLabels, connection.portType as PortType)) &&
       ["lossDb", "bandwidthHz"].every((key) => connection[key] === undefined ||
         typeof connection[key] === "number" && Number.isFinite(connection[key] as number)) &&
-      (connection.waypoints === undefined || Array.isArray(connection.waypoints) && connection.waypoints.every((point) =>
-        point && typeof point === "object" && Number.isFinite((point as Point).x) && Number.isFinite((point as Point).y))) &&
+      (connection.waypoints === undefined || Array.isArray(connection.waypoints) && connection.waypoints.length <= MAX_WAYPOINTS_PER_CONNECTION && connection.waypoints.every((point) =>
+        point && typeof point === "object" && Number.isFinite((point as Point).x) && Math.abs((point as Point).x) <= MAX_COORDINATE && Number.isFinite((point as Point).y) && Math.abs((point as Point).y) <= MAX_COORDINATE)) &&
       ids.has(connection.from) && ids.has(connection.to);
   });
 };
@@ -1446,17 +1456,25 @@ export default function Home() {
     const file = event.target.files?.[0];
     if (!file) return;
     try {
+      if (file.size > MAX_IMPORT_BYTES) throw new Error("BOM exceeds the 2 MB import limit");
       const [header, ...rows] = parseCsv(await file.text());
+      if (rows.length > MAX_ELEMENTS) throw new Error(`BOM exceeds the ${MAX_ELEMENTS.toLocaleString()} row limit`);
       const columns = new Map(header.map((cell, index) => [cell.trim().toLowerCase(), index]));
       const kindColumn = columns.get("kind");
       if (kindColumn === undefined) throw new Error("Missing Kind column");
       const imported: DiagramElement[] = [];
+      const bomBaseY = Math.max(80, ...elements.map((element) => element.y + 120));
       for (const row of rows) {
         const kind = row[kindColumn]?.trim() as ElementKind;
         if (!elementKinds.has(kind)) continue;
         const quantity = Math.min(100, Math.max(1, Number.parseInt(row[columns.get("quantity") ?? -1] ?? "1", 10) || 1));
+        if (elements.length + imported.length + quantity > MAX_ELEMENTS) throw new Error(`BOM exceeds the ${MAX_ELEMENTS.toLocaleString()} component limit`);
         for (let count = 0; count < quantity; count += 1) {
-          const position = findOpenPosition([...elements, ...imported], dimensions);
+          const placementIndex = imported.length;
+          const position = {
+            x: 80 + (placementIndex % 8) * 140,
+            y: bomBaseY + Math.floor(placementIndex / 8) * 100,
+          };
           imported.push({
             id: `${kind}-bom-${Date.now()}-${elements.length + imported.length}`,
             kind,
@@ -1486,8 +1504,8 @@ export default function Home() {
       commit([...elements, ...imported]);
       setSelectedIds(imported.map((element) => element.id));
       setNotice(`${imported.length} BOM components imported`);
-    } catch {
-      setNotice("BOM import failed: use the exported CSV format");
+    } catch (error) {
+      setNotice(error instanceof Error ? `BOM import failed: ${error.message}` : "BOM import failed: use the exported CSV format");
     } finally {
       event.target.value = "";
     }
@@ -1497,6 +1515,7 @@ export default function Home() {
     const file = event.target.files?.[0];
     if (!file) return;
     try {
+      if (file.size > MAX_IMPORT_BYTES) throw new Error("Diagram exceeds the 2 MB import limit");
       const parsed: unknown = JSON.parse(await file.text());
       if (!isDiagramFile(parsed)) throw new Error("Invalid diagram");
       setPast((items) => [...items, cloneSnapshot(elements, connections, publication, experiment)]);
@@ -1509,8 +1528,8 @@ export default function Home() {
       setFuture([]);
       setSelectedIds([]);
       setNotice("Diagram loaded");
-    } catch {
-      setNotice("That file is not a valid SetupSketch diagram");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "That file is not a valid SetupSketch diagram");
     } finally {
       event.target.value = "";
     }
