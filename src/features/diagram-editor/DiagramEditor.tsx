@@ -1792,6 +1792,7 @@ export default function Home() {
         className="setupsketch-header"
         aria-label="SetupSketch scientific diagram editor"
         product="SetupSketch"
+        compactProduct="Setup"
         productIcon="setup-sketch"
         descriptor="Scientific diagram editor"
         href="./"
