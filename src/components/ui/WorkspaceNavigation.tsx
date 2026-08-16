@@ -6,6 +6,7 @@ type WorkspaceNavigationProps = {
   activeInspector: string | null;
   onToggleLibrary: () => void;
   onToggleInspector: (mode: "document" | "experiment" | "review") => void;
+  registerItemRef?: (id: string, node: HTMLButtonElement | null) => void;
 };
 
 export function WorkspaceNavigation({
@@ -13,6 +14,7 @@ export function WorkspaceNavigation({
   activeInspector,
   onToggleLibrary,
   onToggleInspector,
+  registerItemRef,
 }: WorkspaceNavigationProps) {
   const navOptions = [
     { id: "library", controls: "component-library", label: "Components", icon: GridIcon },
@@ -26,8 +28,9 @@ export function WorkspaceNavigation({
     <ScientificToolRail
       className="workspace-switcher"
       label="Workspace panels"
-      activeId={activeId ?? "library"}
+      activeId={activeId}
       expandedId={activeId}
+      registerItemRef={registerItemRef}
       onChange={(id) => {
         if (id === null) {
           if (activeId === "library") onToggleLibrary();

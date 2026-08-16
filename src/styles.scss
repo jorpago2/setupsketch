@@ -7,6 +7,10 @@
   height: 100%;
 }
 
+.setupsketch-root {
+  min-height: 100%;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -44,17 +48,8 @@ body {
   outline-offset: 1px;
 }
 
-.component-add {
-  min-height: 44px;
-  white-space: nowrap;
-}
-
 .color-input:focus-visible {
   outline: 2px solid var(--color-focus);
-  outline-offset: 2px;
-}
-
-.color-input:focus-visible {
   outline-offset: 1px;
 }
 
@@ -415,11 +410,8 @@ body {
   font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0;
-  text-transform: none;
-}
-
-.library-section-heading {
   margin-bottom: var(--space-xs);
+  text-transform: none;
 }
 
 .component-grid {
@@ -666,6 +658,15 @@ body {
 
 }
 
+.diagram-export {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 @media print {
   body {
     background: var(--color-surface-raised);
@@ -716,15 +717,6 @@ body {
 .setup-header-title {
   inline-size: min(18rem, 100%);
   min-inline-size: 0;
-}
-
-.diagram-export {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  visibility: hidden;
-  pointer-events: none;
 }
 
 .sidebar-content > .layers-panel:first-child {

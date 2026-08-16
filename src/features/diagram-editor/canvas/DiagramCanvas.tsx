@@ -2,7 +2,6 @@
 
 import { memo, type ReactNode } from "react";
 import {
-  Background,
   BaseEdge,
   ConnectionMode,
   ReactFlow,
@@ -54,12 +53,10 @@ type DiagramCanvasProps<NodeType extends Node, EdgeType extends Edge> = Omit<
   "children" | "connectionMode" | "deleteKeyCode" | "minZoom" | "maxZoom"
 > & {
   children?: ReactNode;
-  gridVisible: boolean;
 };
 
 export function DiagramCanvas<NodeType extends Node, EdgeType extends Edge>({
   children,
-  gridVisible,
   ...props
 }: DiagramCanvasProps<NodeType, EdgeType>) {
   return (
@@ -70,7 +67,6 @@ export function DiagramCanvas<NodeType extends Node, EdgeType extends Edge>({
       minZoom={0.25}
       maxZoom={2.5}
     >
-      {gridVisible && <Background gap={20} size={1} color="var(--color-rule)" />}
       {children}
     </ReactFlow>
   );

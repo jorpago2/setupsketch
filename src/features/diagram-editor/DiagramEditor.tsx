@@ -2,6 +2,7 @@
 
 import {
   ChangeEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   memo,
   useCallback,
   useEffect,
@@ -578,6 +579,8 @@ export default function Home() {
   const [experiment, setExperiment] = useState(defaultExperiment);
   const [noiseTemperatureK, setNoiseTemperatureK] = useState(DEFAULT_NOISE_TEMPERATURE_K);
   const [pendingDestructiveAction, setPendingDestructiveAction] = useState<PendingDestructiveAction | null>(null);
+  const [moduleDialogOpen, setModuleDialogOpen] = useState(false);
+  const [moduleName, setModuleName] = useState("Measurement block");
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [libraryQuery, setLibraryQuery] = useState("");
   const [favoriteKinds, setFavoriteKinds] = useState<ElementKind[]>([]);
@@ -586,7 +589,7 @@ export default function Home() {
   const [savedModules, setSavedModules] = useState<SavedModule[]>([]);
   const [checklistDraft, setChecklistDraft] = useState("");
   const [savedViewport, setSavedViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
-  const narrowWorkspace = useWorkspaceMediaQuery("(max-width: 63.999rem)");
+  const narrowWorkspace = useWorkspaceMediaQuery("(max-width: 65.99rem)");
   const dualPanelWorkspace = useWorkspaceMediaQuery("(min-width: 99rem)");
   const svgRef = useRef<SVGSVGElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -594,8 +597,21 @@ export default function Home() {
   const editBefore = useRef<Snapshot | null>(null);
   const flowDragBefore = useRef<Snapshot | null>(null);
   const flowInstanceRef = useRef<ReactFlowInstance<CanvasFlowNode, ScientificFlowEdge> | null>(null);
-  const autoFittingViewportRef = useRef(false);
   const pendingViewportRef = useRef<Viewport | null>(null);
+  const projectToggleRef = useRef<HTMLButtonElement>(null);
+  const exportToggleRef = useRef<HTMLButtonElement>(null);
+  const moduleSaveTriggerRef = useRef<HTMLButtonElement>(null);
+  const workspaceRef = useRef<HTMLElement>(null);
+  const workspaceNavigationRefs = useRef(new Map<string, HTMLButtonElement>());
+
+  const registerWorkspaceNavigationRef = useCallback((id: string, node: HTMLButtonElement | null) => {
+    if (node) workspaceNavigationRefs.current.set(id, node);
+    else workspaceNavigationRefs.current.delete(id);
+  }, []);
+
+  const focusWorkspaceNavigation = useCallback((id: string) => {
+    requestAnimationFrame(() => workspaceNavigationRefs.current.get(id)?.focus());
+  }, []);
 
   const dimensions = pagePresets[publication.pagePreset];
   const selected = selectedIds.length === 1 ? elements.find((element) => element.id === selectedIds[0]) ?? null : null;
@@ -701,12 +717,16 @@ export default function Home() {
     setInspectorMode("selection");
   }, [dualPanelWorkspace]);
   const closeLibrary = () => {
-    document.getElementById("library-toggle")?.focus();
     setLibraryOpen(false);
+    focusWorkspaceNavigation("library");
   };
   const closeInspector = () => {
-    document.getElementById(inspectorMode === "selection" ? "diagram-workspace" : `${inspectorMode}-toggle`)?.focus();
+    const closingMode = inspectorMode;
     setInspectorMode(null);
+    requestAnimationFrame(() => {
+      if (closingMode === "selection") workspaceRef.current?.focus();
+      else if (closingMode) workspaceNavigationRefs.current.get(closingMode)?.focus();
+    });
   };
 
   const restoreFlowViewport = useCallback((viewport: Viewport) => {
@@ -805,7 +825,6 @@ export default function Home() {
   }, [fitFlowToWorkspace]);
 
   const rememberFlowViewport = useCallback((viewport: Viewport) => {
-    if (autoFittingViewportRef.current) return;
     setSavedViewport((current) => current.x === viewport.x && current.y === viewport.y && current.zoom === viewport.zoom ? current : viewport);
   }, []);
 
@@ -824,27 +843,6 @@ export default function Home() {
   useEffect(() => {
     if (!dualPanelWorkspace && libraryOpen && inspectorMode) setLibraryOpen(false);
   }, [dualPanelWorkspace, inspectorMode, libraryOpen]);
-
-  useEffect(() => {
-    const dismissWithEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      if (projectMenuOpen) {
-        document.getElementById("project-toggle")?.focus();
-        setProjectMenuOpen(false);
-      } else if (exportMenuOpen) {
-        document.getElementById("export-toggle")?.focus();
-        setExportMenuOpen(false);
-      } else if (inspectorMode) {
-        document.getElementById(inspectorMode === "selection" ? "diagram-workspace" : `${inspectorMode}-toggle`)?.focus();
-        setInspectorMode(null);
-      } else if (libraryOpen) {
-        document.getElementById("library-toggle")?.focus();
-        setLibraryOpen(false);
-      }
-    };
-    document.addEventListener("keydown", dismissWithEscape);
-    return () => document.removeEventListener("keydown", dismissWithEscape);
-  }, [exportMenuOpen, inspectorMode, libraryOpen, projectMenuOpen]);
 
   useEffect(() => {
     if (!hasSelection && inspectorMode === "selection") setInspectorMode(null);
@@ -1215,44 +1213,59 @@ export default function Home() {
     commit(direction === "front" ? [...rest, ...chosen] : [...chosen, ...rest]);
   };
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+  const handleEditorKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") {
+      if (pendingDestructiveAction || moduleDialogOpen) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (projectMenuOpen) {
+        setProjectMenuOpen(false);
+        requestAnimationFrame(() => projectToggleRef.current?.focus());
+      } else if (exportMenuOpen) {
+        setExportMenuOpen(false);
+        requestAnimationFrame(() => exportToggleRef.current?.focus());
+      } else if (inspectorMode) {
+        closeInspector();
+      } else if (libraryOpen) {
+        closeLibrary();
+      } else {
         setConnectMode(false);
         setConnectFrom(null);
         setSelectedIds([]);
         setSelectedConnectionId(null);
-        return;
       }
-      const target = event.target instanceof Element ? event.target : null;
-      const interfaceControl = target?.closest("input, textarea, select, button, a, [contenteditable='true']");
-      if (interfaceControl) return;
-      if (target?.closest(".react-flow") && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
-      if (event.key === "Delete" || event.key === "Backspace") removeSelected();
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
-        event.preventDefault();
-        if (event.shiftKey) redo();
-        else undo();
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") {
-        event.preventDefault();
-        redo();
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "d") {
-        event.preventDefault();
-        duplicateSelected();
-      }
-      if (selectedIds.length && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
-        event.preventDefault();
-        const distance = event.shiftKey ? GRID_STEP : 1;
-        const dx = event.key === "ArrowLeft" ? -distance : event.key === "ArrowRight" ? distance : 0;
-        const dy = event.key === "ArrowUp" ? -distance : event.key === "ArrowDown" ? distance : 0;
-        commit(moveElements(elements, selection, dx, dy, dimensions));
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  });
+      return;
+    }
+
+    const target = event.target instanceof Element ? event.target : null;
+    const interfaceControl = target?.closest("input, textarea, select, button, a, [contenteditable='true']");
+    if (interfaceControl) return;
+    if (target?.closest(".react-flow") && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+    if (event.key === "Delete" || event.key === "Backspace") {
+      event.preventDefault();
+      removeSelected();
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
+      event.preventDefault();
+      if (event.shiftKey) redo();
+      else undo();
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") {
+      event.preventDefault();
+      redo();
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "d") {
+      event.preventDefault();
+      duplicateSelected();
+    }
+    if (selectedIds.length && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+      event.preventDefault();
+      const distance = event.shiftKey ? GRID_STEP : 1;
+      const dx = event.key === "ArrowLeft" ? -distance : event.key === "ArrowRight" ? distance : 0;
+      const dy = event.key === "ArrowUp" ? -distance : event.key === "ArrowDown" ? distance : 0;
+      commit(moveElements(elements, selection, dx, dy, dimensions));
+    }
+  };
 
   const exportFrame = () => {
     if (!publication.cropToContent || !elements.length) return { x: 0, y: 0, width: dimensions.width, height: dimensions.height };
@@ -1632,19 +1645,24 @@ export default function Home() {
     if (!action) return;
     if (action.kind === "clear") executeClearDiagram();
     else executeTemplate(action.templateId);
-    requestAnimationFrame(() => document.getElementById("project-toggle")?.focus());
+    requestAnimationFrame(() => projectToggleRef.current?.focus());
   };
 
   const cancelPendingDestructiveAction = () => {
     setPendingDestructiveAction(null);
-    requestAnimationFrame(() => document.getElementById("project-toggle")?.focus());
+    requestAnimationFrame(() => projectToggleRef.current?.focus());
   };
 
   const saveSelectionAsModule = () => {
+    if (!selectedIds.length) return;
+    setModuleName("Measurement block");
+    setModuleDialogOpen(true);
+  };
+
+  const confirmSaveSelectionAsModule = () => {
     const chosen = elements.filter((element) => selection.has(element.id));
-    if (!chosen.length) return;
-    const name = window.prompt("Reusable module name:", "Measurement block")?.trim();
-    if (!name) return;
+    const name = moduleName.trim();
+    if (!chosen.length || !name) return;
     const originX = Math.min(...chosen.map((element) => element.x));
     const originY = Math.min(...chosen.map((element) => element.y));
     const module: SavedModule = {
@@ -1657,7 +1675,9 @@ export default function Home() {
       })),
     };
     setSavedModules((items) => [...items, module]);
+    setModuleDialogOpen(false);
     setNotice("Reusable module saved");
+    requestAnimationFrame(() => moduleSaveTriggerRef.current?.focus());
   };
 
   const insertModule = (moduleId: string) => {
@@ -1756,7 +1776,7 @@ export default function Home() {
   </>;
 
   const projectActions = <Popover as="div" className="toolbar-menu toolbar-project" open={projectMenuOpen} align="bottom-end" onRequestClose={() => setProjectMenuOpen(false)}>
-    <IconButton id="project-toggle" size="sm" kind="ghost" align="bottom-end" label="Project" aria-expanded={projectMenuOpen} aria-controls="project-menu" aria-haspopup="dialog" onClick={() => setProjectMenuOpen((open) => !open)}><UiIcon name="project" /></IconButton>
+    <IconButton ref={projectToggleRef} id="project-toggle" size="sm" kind="ghost" align="bottom-end" label="Project" aria-expanded={projectMenuOpen} aria-controls="project-menu" aria-haspopup="dialog" onClick={() => setProjectMenuOpen((open) => !open)}><UiIcon name="project" /></IconButton>
     <PopoverContent>
       <Layer id="project-menu" withBackground className="toolbar-menu-actions">
         <Select id="project-template" size="sm" labelText="Template" className="connection-type" defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; setProjectMenuOpen(false); }}>
@@ -1785,8 +1805,9 @@ export default function Home() {
     : { state: notice === "Saved" ? "up-to-date" as const : "modified" as const, label: notice };
 
   return (
+    <div className="setupsketch-root" onKeyDownCapture={handleEditorKeyDown}>
     <ScientificAppShell
-      className="setupsketch-app"
+      className={`setupsketch-app${libraryOpen || inspectorMode ? " has-workspace-panel" : ""}`}
       recovery={autosave.recovery && <ScientificRecoveryNotice savedAt={autosave.recovery.savedAt} onRestore={autosave.restore} onDiscard={autosave.discard} />}
       header={<ScientificHeader
         className="setupsketch-header"
@@ -1823,14 +1844,14 @@ export default function Home() {
           {narrowWorkspace && past.length > 0 && <IconButton size="sm" kind="ghost" align="bottom-end" label="Undo" onClick={undo}><UiIcon name="undo" /></IconButton>}
           {projectActions}
           <Popover as="div" className="toolbar-export-mobile" open={exportMenuOpen} align="bottom-end" onRequestClose={() => setExportMenuOpen(false)}>
-            <IconButton id="export-toggle" size="sm" kind="ghost" align="bottom-end" label="Export" aria-expanded={exportMenuOpen} aria-controls="export-menu" aria-haspopup="dialog" onClick={() => setExportMenuOpen((open) => !open)}><UiIcon name="export" /></IconButton>
+            <IconButton ref={exportToggleRef} id="export-toggle" size="sm" kind="ghost" align="bottom-end" label="Export" aria-expanded={exportMenuOpen} aria-controls="export-menu" aria-haspopup="dialog" onClick={() => setExportMenuOpen((open) => !open)}><UiIcon name="export" /></IconButton>
             <PopoverContent>
               <Layer id="export-menu" withBackground className="toolbar-export-actions">{renderExportActions(() => setExportMenuOpen(false))}</Layer>
             </PopoverContent>
           </Popover>
         </>}
       />}
-      navigation={<WorkspaceNavigation libraryOpen={libraryOpen} activeInspector={inspectorMode} onToggleLibrary={toggleLibrary} onToggleInspector={toggleInspector} />}
+      navigation={<WorkspaceNavigation libraryOpen={libraryOpen} activeInspector={inspectorMode} onToggleLibrary={toggleLibrary} onToggleInspector={toggleInspector} registerItemRef={registerWorkspaceNavigationRef} />}
       statusBar={<ScientificStatusBar aria-label="Diagram status" status={shellStatus} metadata={<>
         <ScientificAutosaveStatus status={autosave.status} savedAt={autosave.lastSavedAt} />
         <span>{elements.length} components</span>
@@ -1856,9 +1877,31 @@ export default function Home() {
           : "All components and connections will be removed. You can restore them with Undo."}</p>
       </Modal>
 
+      <Modal
+        open={moduleDialogOpen}
+        size="sm"
+        modalLabel="Reusable component group"
+        modalHeading="Save selection as module"
+        primaryButtonText="Save module"
+        primaryButtonDisabled={!moduleName.trim()}
+        secondaryButtonText="Cancel"
+        onRequestClose={() => {
+          setModuleDialogOpen(false);
+          requestAnimationFrame(() => moduleSaveTriggerRef.current?.focus());
+        }}
+        onRequestSubmit={confirmSaveSelectionAsModule}
+      >
+        <TextInput
+          id="module-name"
+          labelText="Module name"
+          value={moduleName}
+          onChange={(event) => setModuleName(event.target.value)}
+        />
+      </Modal>
+
       {exportReceipt && <ExportReceipt className="setup-export-receipt" fileName={exportReceipt.fileName} format={exportReceipt.format} destination={exportReceipt.destination} onDismiss={() => setExportReceipt(null)} />}
 
-      <Grid as="section" fullWidth condensed className="workspace" id="diagram-workspace" aria-labelledby="app-title" data-library-open={libraryOpen} data-inspector-open={Boolean(inspectorMode)} data-inspector={inspectorMode ?? "none"} tabIndex={-1}>
+      <Grid as="section" ref={workspaceRef} fullWidth condensed className="workspace" id="diagram-workspace" aria-labelledby="app-title" data-library-open={libraryOpen} data-inspector-open={Boolean(inspectorMode)} data-inspector={inspectorMode ?? "none"} tabIndex={-1}>
         <ComponentLibrary
           open={libraryOpen}
           groups={visibleGroups}
@@ -1909,7 +1952,6 @@ export default function Home() {
                 onInit={initializeFlow}
                 onMoveEnd={(_, viewport) => rememberFlowViewport(viewport)}
                 attributionPosition="bottom-left"
-                gridVisible={layers.grid}
               >
                 {selectedIds.length > 0 && <NodeToolbar nodeId={selectedIds} isVisible={inspectorMode !== "selection" && !narrowWorkspace} className="context-toolbar" position={Position.Top}>
                   <IconButton size="sm" kind="ghost" label="Properties" onClick={openSelectionInspector}><SettingsAdjust size={16} aria-hidden={true} /></IconButton>
@@ -2061,7 +2103,7 @@ export default function Home() {
                 <Button size="sm" kind="tertiary" onClick={distributeSelection} disabled={selectedIds.length < 3}>Distribute</Button>
                 <Button size="sm" kind="tertiary" onClick={groupSelection}>Group</Button>
                 <Button size="sm" kind="tertiary" onClick={ungroupSelection}>Ungroup</Button>
-                <Button size="sm" kind="tertiary" onClick={saveSelectionAsModule}>Save module</Button>
+                <Button ref={moduleSaveTriggerRef} size="sm" kind="tertiary" onClick={saveSelectionAsModule}>Save module</Button>
                 <Button size="sm" kind="tertiary" onClick={() => changeSelected({ locked: true })}>Lock</Button>
                 <Button size="sm" kind="tertiary" renderIcon={Copy} onClick={duplicateSelected}>Duplicate</Button>
                 <Button size="sm" kind="danger--tertiary" renderIcon={TrashCan} onClick={removeSelected}>Delete</Button>
@@ -2147,7 +2189,7 @@ export default function Home() {
             ]}
             />
           </>}
-          {inspectorMode === "document" && <InspectorDisclosure className="layers-panel" buttonId="layout-title" label="Layout" initiallyOpen>
+          {inspectorMode === "document" && <InspectorDisclosure className="layers-panel" buttonId="layout-title" label="Canvas" initiallyOpen>
             <Checkbox id="snap-to-grid" labelText="Snap to grid" checked={snapEnabled} onChange={(_, { checked }) => setSnapEnabled(checked)} />
             <div className="port-legend">{(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <span key={type}><i style={{ background: portTypeColors[type] }} />{label}</span>)}</div>
           </InspectorDisclosure>}
@@ -2231,5 +2273,6 @@ export default function Home() {
         </InspectorPanel>
       </Grid>
     </ScientificAppShell>
+    </div>
   );
 }

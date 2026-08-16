@@ -6,13 +6,13 @@ const expectNoSeriousAccessibilityViolations = async (page: Page) => {
   expect(result.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
 };
 
-const importDiagram = async (page: Page, body: object) => {
+const importDiagram = async (page: Page, body: object, expectedComponents = 42) => {
   await page.locator('input[aria-label="Open diagram JSON"]').setInputFiles({
     name: "diagram.json",
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(body)),
   });
-  await expect(page.locator(".react-flow__node-scientific")).toHaveCount(42);
+  await expect(page.locator(".react-flow__node-scientific")).toHaveCount(expectedComponents);
 };
 
 const branchedRfDiagram = () => {
@@ -98,4 +98,72 @@ test("fit, import errors and blocked PDF export remain usable", async ({ page })
   await page.getByRole("button", { name: "PDF", exact: true }).click();
   await expect(page.locator("body")).toContainText("Allow pop-ups to export the vector PDF");
   await expect(page.locator(".setup-export-receipt")).toHaveCount(0);
+});
+
+test("selection tools stay in React and Escape closes one visual layer at a time", async ({ page }) => {
+  await page.goto("./");
+  await importDiagram(page, {
+    version: 12,
+    title: "Selection workflow",
+    elements: [
+      { id: "source", kind: "laser", label: "Source", x: 280, y: 320, rotation: 0, color: "#20242a" },
+      { id: "detector", kind: "detector", label: "Detector", x: 760, y: 320, rotation: 0, color: "#20242a" },
+    ],
+    connections: [],
+  }, 2);
+  const nodes = page.locator(".react-flow__node-scientific");
+  await nodes.first().click();
+
+  if ((page.viewportSize()?.width ?? 0) > 1055) {
+    await nodes.nth(1).click({ modifiers: ["Shift"] });
+    await expect(page.locator(".react-flow__node-scientific.selected")).toHaveCount(2);
+    await page.getByRole("button", { name: "Properties" }).click();
+  }
+
+  await expect(page.locator("#selection-inspector")).toBeVisible();
+  const selectedCount = (page.viewportSize()?.width ?? 0) > 1055 ? 2 : 1;
+  await expect(page.locator(".react-flow__node-scientific.selected")).toHaveCount(selectedCount);
+
+  if (selectedCount > 1) {
+    await page.getByRole("button", { name: "Save module" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("Save selection as module", { exact: true })).toBeVisible();
+    await dialog.getByLabel("Module name").fill("RF source module");
+    await dialog.getByRole("button", { name: "Save module" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.locator("body")).toContainText("Reusable module saved");
+  }
+
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#selection-inspector")).toBeHidden();
+  await expect(page.locator("#diagram-workspace")).toBeFocused();
+  await expect(page.locator(".react-flow__node-scientific.selected")).toHaveCount(selectedCount);
+
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".react-flow__node-scientific.selected")).toHaveCount(0);
+});
+
+test("Carbon layout controls update the React-owned document state", async ({ page }) => {
+  await page.goto("./");
+  await page.getByRole("button", { name: "Layout", exact: true }).click();
+
+  const snap = page.getByRole("checkbox", { name: "Snap to grid" });
+  await expect(snap).toBeChecked();
+  await snap.focus();
+  await page.keyboard.press("Space");
+  await expect(snap).not.toBeChecked();
+
+  await page.getByRole("button", { name: "Publication", exact: true }).click();
+  await page.getByRole("combobox", { name: "Page" }).selectOption("a3");
+  await expect(page.getByRole("combobox", { name: "Page" })).toHaveValue("a3");
+
+  const monochrome = page.getByRole("checkbox", { name: "Monochrome" });
+  await monochrome.focus();
+  await page.keyboard.press("Space");
+  await expect(monochrome).toBeChecked();
+
+  const labelScale = page.getByRole("slider", { name: /Label scale/ });
+  await labelScale.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(labelScale).toHaveAttribute("aria-valuenow", "1.1");
 });

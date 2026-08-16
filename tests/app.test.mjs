@@ -86,9 +86,10 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /current === mode \? null : mode/);
   assert.match(editor, /data-library-open=\{libraryOpen\}/);
   assert.match(editor, /data-inspector-open=\{Boolean\(inspectorMode\)\}/);
+  assert.match(editor, /has-workspace-panel/);
   assert.match(workspaceNavigation, /controls: "component-library"/);
   assert.match(workspaceNavigation, /<ScientificToolRail/);
-  assert.match(workspaceNavigation, /activeId=\{activeId \?\? "library"\}/);
+  assert.match(workspaceNavigation, /activeId=\{activeId\}/);
   assert.match(workspaceNavigation, /expandedId=\{activeId\}/);
   assert.match(workspaceNavigation, /controlsId: controls/);
   assert.match(editor, /id="selection-inspector"/);
@@ -122,7 +123,8 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /minZoom: 0\.25/);
   assert.match(editor, /const \[notice, setNotice\] = useState\("Saved"\)/);
   for (const feature of ['NodeToolbar', 'EdgeToolbar', 'NodeResizer', 'ControlButton', 'onConnectStart', 'onMoveEnd', 'diagram-export', 'role="group"', 'className="property-section"', 'BOM CSV', 'Import BOM', 'Arrange overlaps']) assert.match(editor, new RegExp(feature));
-  for (const feature of ['ReactFlow', 'ConnectionMode.Loose', 'BaseEdge', 'gridVisible']) assert.match(diagramCanvas, new RegExp(feature));
+  for (const feature of ['ReactFlow', 'ConnectionMode.Loose', 'BaseEdge']) assert.match(diagramCanvas, new RegExp(feature));
+  assert.doesNotMatch(diagramCanvas, /<Background|gridVisible/);
   assert.match(editor, /<DiagramCanvas<CanvasFlowNode, ScientificFlowEdge>/);
   assert.match(editor, /connectionLineType=\{flowConnectionLineType\}/);
   assert.doesNotMatch(editor, /ScientificFlowEdgeComponent|routeOrthogonal\(sourceStub/);
@@ -142,6 +144,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /budgetAnalysis/);
   assert.match(editor, /Showing \{budgetCountLabel\} calculated paths/);
   assert.equal([...editor.matchAll(/\(min-width: 99rem\)/g)].length, 1);
+  assert.match(editor, /\(max-width: 65\.99rem\)/);
   assert.match(editor, /label="Properties"/);
   assert.match(editorConfig, /textnote: \{ width: 150, height: 70 \}/);
   assert.match(editor, /annotation \? 48 : 128/);
@@ -159,6 +162,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editorControls, /<Accordion align="end" isFlush/);
   assert.doesNotMatch(styles, /\.cds--accordion__|\.cds--popover-content/);
   assert.match(workspaceStyles, /workspace\[data-library-open="true"\]/);
+  assert.match(workspaceStyles, /has-workspace-panel > \.scientific-recovery-notice/);
   assert.match(workspaceStyles, /workspace\[data-inspector-open="true"\]/);
   assert.match(workspaceStyles, /container:\s*sidebar \/ inline-size/);
   assert.match(workspaceStyles, /workspace\[data-inspector="document"\]/);
@@ -170,6 +174,14 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /product="SetupSketch"/);
   assert.match(editor, /productIcon="setup-sketch"/);
   assert.match(editor, /<ScientificAppShell\b/);
+  assert.match(editor, /onKeyDownCapture=\{handleEditorKeyDown\}/);
+  assert.match(workspaceNavigation, /registerItemRef=\{registerItemRef\}/);
+  assert.doesNotMatch(editor, /(?:document|window)\.addEventListener\("keydown"/);
+  assert.doesNotMatch(editor, /document\.getElementById|window\.prompt/);
+  assert.match(editor, /data\.gridVisible \? " has-grid"/);
+  assert.match(styles, /\.flow-paper\.has-grid/);
+  assert.match(editor, /modalHeading="Save selection as module"/);
+  assert.match(editor, /primaryButtonDisabled=\{!moduleName\.trim\(\)\}/);
   assert.match(editor, /status=\{shellStatus\}/);
   assert.match(editor, /<ScientificStatusBar\b[^>]*status=\{shellStatus\}/);
   assert.match(editor, /<Grid as="section"[^>]*aria-labelledby="app-title"/);
