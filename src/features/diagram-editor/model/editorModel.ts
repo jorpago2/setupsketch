@@ -122,6 +122,8 @@ export const calculateBudgets = (
   const byId = new Map(elements.map((element) => [element.id, element]));
   const outgoing = new Map<string, ModelConnection[]>();
   for (const connection of connections) outgoing.set(connection.from, [...(outgoing.get(connection.from) ?? []), connection]);
+  const domainFor = (connection: ModelConnection): BudgetResult["domain"] =>
+    connection.portType ?? (connection.type === "beam" ? "optical-free-space" : "rf");
   const results: BudgetResult[] = [];
   let total = 0;
   let totalIsExact = true;
@@ -177,18 +179,15 @@ export const calculateBudgets = (
       return;
     }
     const last = path.at(-1)!;
-    const nextLinks = (outgoing.get(last.id) ?? []).filter((link) => !domain || (link.portType ?? "rf") === domain);
+    const nextLinks = (outgoing.get(last.id) ?? []).filter((link) => !domain || domainFor(link) === domain);
     if (!nextLinks.length) {
       if (domain) summarize(path, links, domain);
       return;
     }
     for (const link of nextLinks) {
       const next = byId.get(link.to);
-      if (!next || path.some((element) => element.id === next.id)) {
-        if (domain) summarize(path, links, domain);
-        continue;
-      }
-      walk([...path, next], [...links, link], domain ?? link.portType ?? (link.type === "beam" ? "optical-free-space" : "rf"));
+      if (!next || path.some((element) => element.id === next.id)) continue;
+      walk([...path, next], [...links, link], domain ?? domainFor(link));
     }
   };
   elements.filter((element) => element.powerDbm !== undefined).forEach((source) => walk([source], []));

@@ -181,6 +181,38 @@ test("path budgets combine dB values, bottleneck bandwidth and Friis noise", () 
   assert.ok(budget.noiseDensityDbmHz! > -174 && budget.noiseDensityDbmHz! < -173.9);
 });
 
+test("legacy beam chains infer one optical domain for every link", () => {
+  const summary = calculateBudgets(
+    [
+      { id: "source", kind: "laser", label: "Source", x: 0, y: 0, powerDbm: 0 },
+      { id: "mirror", kind: "mirror", label: "Mirror", x: 100, y: 0 },
+      { id: "detector", kind: "detector", label: "Detector", x: 200, y: 0 },
+    ],
+    [
+      { id: "first", from: "source", to: "mirror", type: "beam" },
+      { id: "second", from: "mirror", to: "detector", type: "beam" },
+    ],
+  );
+  assert.equal(summary.total, 1);
+  assert.deepEqual(summary.items[0].labels, ["Source", "Mirror", "Detector"]);
+  assert.equal(summary.items[0].id, "first-second");
+  assert.equal(summary.items[0].domain, "optical-free-space");
+});
+
+test("closed loops are not reported as terminated path budgets", () => {
+  const summary = calculateBudgets(
+    [
+      { id: "source", kind: "source", label: "Source", x: 0, y: 0, powerDbm: 0 },
+      { id: "loop", kind: "load", label: "Loop", x: 100, y: 0 },
+    ],
+    [
+      { id: "out", from: "source", to: "loop", portType: "rf" },
+      { id: "return", from: "loop", to: "source", portType: "rf" },
+    ],
+  );
+  assert.deepEqual(summary, { items: [], included: 0, total: 0, truncated: false, totalIsExact: true });
+});
+
 test("path budget noise follows kT and reports truncation explicitly", () => {
   const source = { id: "source", kind: "source", label: "Source", x: 0, y: 0, powerDbm: 0, bandwidthHz: 1e6 };
   const sinks = Array.from({ length: 41 }, (_, index) => ({ id: `sink-${index}`, kind: "sink", label: `Sink ${index}`, x: index, y: 1 }));

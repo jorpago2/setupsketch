@@ -23,3 +23,31 @@ export const closestPortPair = (from: DiagramElement, to: DiagramElement, reques
 
 export const getConnectionType = (connection: Connection): ConnectionType => connection.type ?? ([portTypeColors["optical-free-space"], "#e84d3c"].includes(connection.color.toLowerCase()) ? "beam" : "signal");
 export const getConnectionDomain = (connection: Connection, from?: DiagramElement): PortType => connection.portType ?? (from && connection.fromPort ? portTypeFor(from.kind, connection.fromPort) : getConnectionType(connection) === "beam" ? "optical-free-space" : "rf");
+
+export const normalizeConnectionPorts = (elements: DiagramElement[], connections: Connection[]): Connection[] => {
+  const byId = new Map(elements.map((element) => [element.id, element]));
+  const nearest = <T extends { x: number; y: number }>(origin: T, candidates: T[]) =>
+    candidates.reduce((best, candidate) => Math.hypot(candidate.x - origin.x, candidate.y - origin.y) < Math.hypot(best.x - origin.x, best.y - origin.y) ? candidate : best);
+
+  return connections.map((connection) => {
+    const from = byId.get(connection.from);
+    const to = byId.get(connection.to);
+    if (!from || !to) return connection;
+    const domain = getConnectionDomain(connection, from);
+    const sourcePorts = portsFor(from).filter((port) => port.type === domain);
+    const targetPorts = portsFor(to).filter((port) => port.type === domain);
+    const source = sourcePorts.find((port) => port.id === connection.fromPort);
+    const target = targetPorts.find((port) => port.id === connection.toPort);
+    if (source && target) return connection.portType ? connection : { ...connection, portType: domain };
+    if (source && targetPorts.length) return { ...connection, portType: domain, toPort: nearest(source, targetPorts).id };
+    if (target && sourcePorts.length) return { ...connection, portType: domain, fromPort: nearest(target, sourcePorts).id };
+    const pair = sourcePorts.length && targetPorts.length
+      ? sourcePorts.flatMap((candidateSource) => targetPorts.map((candidateTarget) => ({
+        source: candidateSource,
+        target: candidateTarget,
+        distance: Math.hypot(candidateTarget.x - candidateSource.x, candidateTarget.y - candidateSource.y),
+      }))).reduce((best, candidate) => candidate.distance < best.distance ? candidate : best)
+      : closestPortPair(from, to);
+    return { ...connection, portType: domain, fromPort: pair.source.id, toPort: pair.target.id };
+  });
+};

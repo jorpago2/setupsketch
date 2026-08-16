@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { ScientificTaskPanel } from "@jorpago2/scientific-ui";
 
 type InspectorPanelProps = {
@@ -9,11 +9,13 @@ type InspectorPanelProps = {
   closeLabel: string;
   onClose: () => void;
   children: ReactNode;
+  panelRef?: Ref<HTMLElement>;
 };
 
-export function InspectorPanel({ id, label, ariaLabel, hidden, closeLabel, onClose, children }: InspectorPanelProps) {
+export function InspectorPanel({ id, label, ariaLabel, hidden, closeLabel, onClose, children, panelRef }: InspectorPanelProps) {
   return (
     <ScientificTaskPanel
+      ref={panelRef}
       id={id}
       className="inspector sidebar"
       title={label}
@@ -25,6 +27,7 @@ export function InspectorPanel({ id, label, ariaLabel, hidden, closeLabel, onClo
       aria-label={ariaLabel}
       aria-hidden={hidden}
       hidden={hidden}
+      tabIndex={-1}
     >
       {children}
     </ScientificTaskPanel>

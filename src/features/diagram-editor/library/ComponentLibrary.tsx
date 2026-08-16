@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { Accordion, AccordionItem, Button, IconButton, Search } from "@carbon/react";
 import { Favorite, FavoriteFilled, TrashCan } from "@carbon/react/icons";
 import { ScientificTaskPanel } from "@jorpago2/scientific-ui";
@@ -27,6 +27,7 @@ type ComponentLibraryProps = {
   onAddElement: (kind: ElementKind, label: string) => void;
   onToggleFavorite: (kind: ElementKind) => void;
   renderPreview: (kind: ElementKind) => ReactNode;
+  panelRef?: Ref<HTMLElement>;
 };
 
 export function ComponentLibrary({
@@ -45,9 +46,11 @@ export function ComponentLibrary({
   onAddElement,
   onToggleFavorite,
   renderPreview,
+  panelRef,
 }: ComponentLibraryProps) {
   return (
     <ScientificTaskPanel
+      ref={panelRef}
       id="component-library"
       className="library sidebar"
       title="Library"
@@ -59,6 +62,7 @@ export function ComponentLibrary({
       aria-label="Component library"
       aria-hidden={!open}
       hidden={!open}
+      tabIndex={-1}
     >
           <Search
             className="library-search"

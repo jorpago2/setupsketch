@@ -122,6 +122,22 @@ body {
   display: grid;
 }
 
+.toolbar-menu-theme {
+  display: flex;
+  min-block-size: var(--scientific-ui-target-size);
+  align-items: center;
+  justify-content: space-between;
+  padding-inline-start: var(--space-xs);
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+.toolbar-menu-actions .toolbar-menu-theme button {
+  inline-size: var(--scientific-ui-target-size);
+  max-inline-size: var(--scientific-ui-target-size);
+  justify-content: center;
+}
+
 .toolbar-menu-actions button,
 .toolbar-export-actions button {
   width: 100%;
@@ -229,6 +245,7 @@ body {
   position: relative;
   display: grid;
   place-items: center;
+  color: var(--color-ink);
   cursor: grab;
 }
 
@@ -632,10 +649,6 @@ body {
 }
 
 @media (min-width: 40rem) {
-  .brand small {
-    display: block;
-  }
-
   /* Carbon reserves 25% of accordion content at this viewport breakpoint. */
   .component-grid,
   .property-section-content,

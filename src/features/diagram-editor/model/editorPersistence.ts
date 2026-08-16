@@ -1,10 +1,19 @@
 import type { Connection, DiagramElement, ExperimentRecord, PublicationSettings, Snapshot } from "../editorTypes";
 
-export const cloneSnapshot = (elements: DiagramElement[], connections: Connection[], publication: PublicationSettings, experiment: ExperimentRecord): Snapshot => ({
+export const cloneSnapshot = (
+  elements: DiagramElement[],
+  connections: Connection[],
+  publication: PublicationSettings,
+  experiment: ExperimentRecord,
+  title: string,
+  noiseTemperatureK: number,
+): Snapshot => ({
+  title,
   elements: elements.map((element) => ({ ...element })),
   connections: connections.map((connection) => ({ ...connection, waypoints: connection.waypoints?.map((point) => ({ ...point })) })),
   publication: { ...publication },
   experiment: { procedure: experiment.procedure, checklist: experiment.checklist.map((item) => ({ ...item })) },
+  noiseTemperatureK,
 });
 
 export const download = (blob: Blob, filename: string) => {

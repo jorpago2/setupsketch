@@ -17,5 +17,12 @@ export type DiagramElement = {
 export type Connection = { id: string; from: string; to: string; color: string; type?: ConnectionType; fromPort?: string; toPort?: string; routing?: Routing; waypoints?: Point[]; portType?: PortType; lossDb?: number; bandwidthHz?: number };
 export type ChecklistItem = { id: string; text: string; done: boolean };
 export type ExperimentRecord = { procedure: string; checklist: ChecklistItem[] };
-export type Snapshot = { elements: DiagramElement[]; connections: Connection[]; publication: PublicationSettings; experiment: ExperimentRecord };
+export type Snapshot = {
+  title: string;
+  elements: DiagramElement[];
+  connections: Connection[];
+  publication: PublicationSettings;
+  experiment: ExperimentRecord;
+  noiseTemperatureK: number;
+};
 export type SavedModule = { id: string; name: string; elements: DiagramElement[]; connections: Connection[] };

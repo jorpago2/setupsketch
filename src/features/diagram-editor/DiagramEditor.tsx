@@ -92,9 +92,9 @@ import { InspectorDisclosure, UiIcon } from "../../components/ui/EditorControls"
 import type { Connection, DiagramElement, ExperimentRecord, InspectorMode, LayerVisibility, PagePreset, Point, PublicationSettings, Routing, SavedModule, Snapshot, ViewportMode } from "./editorTypes";
 import { annotationDefaultSizes, defaultCollapsedGroups, defaultExperiment, defaultPublication, DEFAULT_VIEWPORT, DIAGRAM_VERSION, FLOW_SNAP_GRID, FAVORITES_KEY, GRID_STEP, MODULES_KEY, pagePresets, resizableAnnotationKinds, STORAGE_KEY } from "./editorConfig";
 import { cloneSnapshot, download, safeFilename } from "./model/editorPersistence";
-import { closestPortPair, getConnectionDomain, getConnectionType, portsFor } from "./model/connectionGeometry";
+import { closestPortPair, getConnectionDomain, getConnectionType, normalizeConnectionPorts, portsFor } from "./model/connectionGeometry";
 import { csvCell, escapeLatex, formatBandwidth, optionalNumber, svgDataUri } from "./model/exportFormatting";
-import { ExportReceipt, SCIENTIFIC_AUTOSAVE_FORMAT, ScientificAppShell, ScientificAutosaveStatus, ScientificHeader, ScientificOutcomeSummary, ScientificRecoveryNotice, ScientificStatusBar, ScientificValidationSummary, useScientificAutosave } from "@jorpago2/scientific-ui";
+import { ExportReceipt, SCIENTIFIC_AUTOSAVE_FORMAT, ScientificAppShell, ScientificAutosaveStatus, ScientificHeader, ScientificOutcomeSummary, ScientificRecoveryNotice, ScientificStatusBar, ScientificThemeToggle, ScientificValidationSummary, useScientificAutosave } from "@jorpago2/scientific-ui";
 
 type DiagramFile = {
   version?: number;
@@ -180,12 +180,16 @@ const isDiagramFile = (value: unknown): value is DiagramFile => {
       ["scale", "width", "height", "powerDbm", "gainDb", "lossDb", "noiseFigureDb", "bandwidthHz", "wavelengthNm"].some((key) => element[key] !== undefined &&
         (typeof element[key] !== "number" || !Number.isFinite(element[key] as number)))
     ) return false;
+    if (["scale", "width", "height"].some((key) => element[key] !== undefined && (element[key] as number) <= 0)) return false;
     ids.add(element.id as string);
   }
+  const connectionIds = new Set<string>();
   return diagram.connections.every((candidate) => {
     if (!candidate || typeof candidate !== "object") return false;
     const connection = candidate as Record<string, unknown>;
-    return typeof connection.id === "string" && typeof connection.from === "string" &&
+    if (!boundedText(connection.id) || !(connection.id as string).trim() || connectionIds.has(connection.id as string)) return false;
+    connectionIds.add(connection.id as string);
+    return typeof connection.from === "string" &&
       typeof connection.to === "string" && typeof connection.color === "string" &&
       (connection.type === undefined || connection.type === "beam" || connection.type === "signal") &&
       (connection.routing === undefined || connection.routing === "straight" || connection.routing === "orthogonal") &&
@@ -239,7 +243,7 @@ function ComponentPortStubs({ element }: { element: DiagramElement }) {
       y1={port.y * 0.58}
       x2={port.x}
       y2={port.y}
-      stroke={element.color === "#20242a" ? element.color : portTypeColors[portTypeFor(element.kind, port.id)]}
+      stroke={element.color === "#20242a" || element.color === "currentColor" ? element.color : portTypeColors[portTypeFor(element.kind, port.id)]}
       strokeWidth="3.2"
       strokeLinecap="round"
       vectorEffect="non-scaling-stroke"
@@ -469,7 +473,7 @@ type PaperNodeData = {
 type ScientificFlowNode = ReactFlowNode<ScientificNodeData, "scientific">;
 type PaperFlowNode = ReactFlowNode<PaperNodeData, "paper">;
 type CanvasFlowNode = ScientificFlowNode | PaperFlowNode;
-type ScientificEdgeData = { connection: Connection; waypoints?: Point[] };
+type ScientificEdgeData = { connection: Connection; waypoints?: Point[]; orthogonal?: boolean };
 type ScientificFlowEdge = ReactFlowEdge<ScientificEdgeData>;
 
 const scientificNodeSize = (element: DiagramElement) => {
@@ -500,7 +504,7 @@ const ScientificFlowNodeComponent = memo(function ScientificFlowNodeComponent({ 
     width: Math.max(40, Math.min(600, (width - 8) / scale)),
     height: Math.max(30, Math.min(500, (height - 28) / scale)),
   } : element;
-  const renderedElement = data.monochrome ? { ...liveElement, color: "#20242a" } : liveElement;
+  const renderedElement = data.monochrome ? { ...liveElement, color: "currentColor" } : liveElement;
   return (
     <div className={`scientific-flow-node${selected ? " is-selected" : ""}${element.locked ? " is-locked" : ""}`} style={{ width, height }}>
       <NodeResizer
@@ -518,7 +522,7 @@ const ScientificFlowNodeComponent = memo(function ScientificFlowNodeComponent({ 
             <ComponentPortStubs element={renderedElement} />
             <ComponentShape element={renderedElement} monochrome={data.monochrome} />
           </g>
-          {data.labelsVisible && !annotationKinds.has(element.kind) && <text y={70 * (element.scale ?? 1)} textAnchor="middle" fill="#252b33" fontSize={14 * data.labelScale} fontWeight="600" fontFamily="Arial, sans-serif" transform={`rotate(${-element.rotation})`}>{element.label}</text>}
+          {data.labelsVisible && !annotationKinds.has(element.kind) && <text y={70 * (element.scale ?? 1)} textAnchor="middle" fill="currentColor" fontSize={14 * data.labelScale} fontWeight="600" transform={`rotate(${-element.rotation})`}>{element.label}</text>}
         </g>
       </svg>
       {portsFor(element).map((port) => (
@@ -589,6 +593,7 @@ export default function Home() {
   const [savedModules, setSavedModules] = useState<SavedModule[]>([]);
   const [checklistDraft, setChecklistDraft] = useState("");
   const [savedViewport, setSavedViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
+  const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<CanvasFlowNode, ScientificFlowEdge> | null>(null);
   const narrowWorkspace = useWorkspaceMediaQuery("(max-width: 65.99rem)");
   const dualPanelWorkspace = useWorkspaceMediaQuery("(min-width: 99rem)");
   const svgRef = useRef<SVGSVGElement>(null);
@@ -598,10 +603,16 @@ export default function Home() {
   const flowDragBefore = useRef<Snapshot | null>(null);
   const flowInstanceRef = useRef<ReactFlowInstance<CanvasFlowNode, ScientificFlowEdge> | null>(null);
   const pendingViewportRef = useRef<Viewport | null>(null);
+  const pendingFitRef = useRef(false);
   const projectToggleRef = useRef<HTMLButtonElement>(null);
   const exportToggleRef = useRef<HTMLButtonElement>(null);
   const moduleSaveTriggerRef = useRef<HTMLButtonElement>(null);
   const workspaceRef = useRef<HTMLElement>(null);
+  const stageRef = useRef<HTMLElement>(null);
+  const libraryPanelRef = useRef<HTMLElement>(null);
+  const selectionPanelRef = useRef<HTMLElement>(null);
+  const workspacePanelRef = useRef<HTMLElement>(null);
+  const layoutFitReadyRef = useRef(false);
   const workspaceNavigationRefs = useRef(new Map<string, HTMLButtonElement>());
 
   const registerWorkspaceNavigationRef = useCallback((id: string, node: HTMLButtonElement | null) => {
@@ -683,7 +694,7 @@ export default function Home() {
       target: connection.to,
       sourceHandle: connection.fromPort,
       targetHandle: connection.toPort,
-      data: { connection: { ...connection, type }, waypoints: connection.waypoints },
+      data: { connection: { ...connection, type }, waypoints: connection.waypoints, orthogonal: connection.routing === "orthogonal" },
       pathOptions: edgeType === "smoothstep"
         ? { offset: 28, borderRadius: 8 }
         : edgeType === "bezier" ? { curvature: 0.22 } : undefined,
@@ -749,16 +760,26 @@ export default function Home() {
         : element.id === "detector" && element.rotation === 0 ? { ...element, rotation: 90 } : element);
     }
     setElements(storedElements);
-    setConnections(migrateCanvasRouting(parsed.connections, parsed.version ?? 0));
+    setConnections(normalizeConnectionPorts(storedElements, migrateCanvasRouting(parsed.connections, parsed.version ?? 0)));
     if (parsed.publication) setPublication({ ...defaultPublication, ...parsed.publication });
     if (parsed.experiment) setExperiment(parsed.experiment);
     setNoiseTemperatureK(parsed.noiseTemperatureK ?? DEFAULT_NOISE_TEMPERATURE_K);
+    setSelectedIds([]);
+    setSelectedConnectionId(null);
+    setConnectMode(false);
+    setConnectFrom(null);
     const widthRatio = parsed.viewportWidth ? window.innerWidth / parsed.viewportWidth : 0;
-    if ((parsed.version ?? 0) >= 12 && parsed.viewport && viewportMode === "wide" && parsed.viewportMode === viewportMode && widthRatio >= 0.95 && widthRatio <= 1.05) restoreFlowViewport(parsed.viewport);
+    if ((parsed.version ?? 0) >= 12 && parsed.viewport && viewportMode === "wide" && parsed.viewportMode === viewportMode && widthRatio >= 0.95 && widthRatio <= 1.05 &&
+      Math.abs(parsed.viewport.x) <= dimensions.width * 2 && Math.abs(parsed.viewport.y) <= dimensions.height * 2) {
+      pendingFitRef.current = false;
+      restoreFlowViewport(parsed.viewport);
+    } else {
+      pendingFitRef.current = true;
+    }
     setPast([]);
     setFuture([]);
     setNotice("Previous session restored");
-  }, [restoreFlowViewport, viewportMode]);
+  }, [dimensions.height, dimensions.width, restoreFlowViewport, viewportMode]);
 
   const diagramSession = useMemo<DiagramFile>(() => ({
     version: DIAGRAM_VERSION,
@@ -796,21 +817,31 @@ export default function Home() {
     initialRecovery: legacyRecovery,
   });
 
-  const fitFlowToWorkspace = useCallback((instance: ReactFlowInstance<CanvasFlowNode, ScientificFlowEdge>) => {
-    const nodes = instance.getNodes().filter((node) => !node.hidden);
+  const createSnapshot = useCallback(
+    () => cloneSnapshot(elements, connections, publication, experiment, title, noiseTemperatureK),
+    [connections, elements, experiment, noiseTemperatureK, publication, title],
+  );
+
+  const fitFlowToWorkspace = useCallback((
+    instance: ReactFlowInstance<CanvasFlowNode, ScientificFlowEdge>,
+    availableNodes = instance.getNodes(),
+  ) => {
+    const nodes = availableNodes.filter((node) => !node.hidden);
     const contentNodes = nodes.filter((node) => node.id !== "__paper__");
     const paper = nodes.find((node) => node.id === "__paper__");
-    const targets = narrowWorkspace && contentNodes.length ? contentNodes : paper ? [paper] : nodes;
+    const selectedNodes = inspectorMode === "selection" ? contentNodes.filter((node) => node.selected) : [];
+    const targets = selectedNodes.length ? selectedNodes : narrowWorkspace && contentNodes.length ? contentNodes : paper ? [paper] : nodes;
     return instance.fitView({
       nodes: targets,
-      padding: narrowWorkspace ? 0.12 : 0.04,
-      minZoom: 0.25,
-      maxZoom: 1,
+      padding: selectedNodes.length ? 0.2 : narrowWorkspace ? 0.12 : 0.04,
+      minZoom: selectedNodes.length ? 0.7 : narrowWorkspace ? 0.35 : 0.25,
+      maxZoom: selectedNodes.length ? 1.5 : 1,
     });
-  }, [narrowWorkspace]);
+  }, [inspectorMode, narrowWorkspace]);
 
   const initializeFlow = useCallback((instance: ReactFlowInstance<CanvasFlowNode, ScientificFlowEdge>) => {
     flowInstanceRef.current = instance;
+    setFlowInstance(instance);
     const viewport = pendingViewportRef.current;
     requestAnimationFrame(() => {
       if (viewport) {
@@ -824,6 +855,38 @@ export default function Home() {
     });
   }, [fitFlowToWorkspace]);
 
+  useEffect(() => {
+    if (!flowInstance) return;
+    if (!layoutFitReadyRef.current) {
+      layoutFitReadyRef.current = true;
+      return;
+    }
+    const frame = requestAnimationFrame(() => { void fitFlowToWorkspace(flowInstance); });
+    return () => cancelAnimationFrame(frame);
+  }, [fitFlowToWorkspace, flowInstance, libraryOpen]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!flowInstance || !stage || typeof ResizeObserver === "undefined") return;
+    let width = stage.clientWidth;
+    let height = stage.clientHeight;
+    let frame = 0;
+    const observer = new ResizeObserver(([entry]) => {
+      const nextWidth = entry.contentRect.width;
+      const nextHeight = entry.contentRect.height;
+      if (Math.abs(nextWidth - width) < 1 && Math.abs(nextHeight - height) < 1) return;
+      width = nextWidth;
+      height = nextHeight;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => { void fitFlowToWorkspace(flowInstance); });
+    });
+    observer.observe(stage);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [fitFlowToWorkspace, flowInstance]);
+
   const rememberFlowViewport = useCallback((viewport: Viewport) => {
     setSavedViewport((current) => current.x === viewport.x && current.y === viewport.y && current.zoom === viewport.zoom ? current : viewport);
   }, []);
@@ -834,15 +897,50 @@ export default function Home() {
     const visibleNodes = instance.getNodes().filter((node) => !node.hidden && node.id !== "__paper__");
     const selectedNodes = selectedIds.length ? visibleNodes.filter((node) => selectedIds.includes(node.id)) : [];
     const nodes = selectedNodes.length ? selectedNodes : visibleNodes.length ? visibleNodes : instance.getNodes().filter((node) => node.id === "__paper__");
-    void instance.fitView({ nodes, padding: selectedNodes.length ? 0.2 : 0.08, minZoom: selectedNodes.length ? 0.7 : 0.25, maxZoom: selectedNodes.length ? 1.5 : 1 });
+    void instance.fitView({ nodes, padding: selectedNodes.length ? 0.2 : 0.08, minZoom: selectedNodes.length ? 0.7 : narrowWorkspace ? 0.35 : 0.25, maxZoom: selectedNodes.length ? 1.5 : 1 });
     setNotice(selectedNodes.length ? "Selection fitted for editing" : "Overview fitted · zoom in to edit labels and ports");
-  }, [selectedIds]);
+  }, [narrowWorkspace, selectedIds]);
 
-  useEffect(() => setFlowNodes(modelFlowNodes), [modelFlowNodes, setFlowNodes]);
+  useEffect(() => {
+    setFlowNodes(modelFlowNodes);
+    if (!pendingFitRef.current || !flowInstance) return;
+    const frame = requestAnimationFrame(() => {
+      const contentNodes = modelFlowNodes.filter((node) => !node.hidden && node.id !== "__paper__");
+      const paper = modelFlowNodes.find((node) => node.id === "__paper__");
+      const targets = narrowWorkspace && contentNodes.length ? contentNodes : paper ? [paper] : contentNodes;
+      const x = Math.min(...targets.map((node) => node.position.x));
+      const y = Math.min(...targets.map((node) => node.position.y));
+      const right = Math.max(...targets.map((node) => node.position.x + (node.width ?? 0)));
+      const bottom = Math.max(...targets.map((node) => node.position.y + (node.height ?? 0)));
+      void flowInstance.setViewport(DEFAULT_VIEWPORT).then(() => flowInstance.fitBounds(
+        { x, y, width: right - x, height: bottom - y },
+        { padding: narrowWorkspace ? 0.12 : 0.04 },
+      )).finally(() => {
+        pendingFitRef.current = false;
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [flowInstance, modelFlowNodes, narrowWorkspace, setFlowNodes]);
+
+  useEffect(() => {
+    if (notice === "Saved" || connectMode) return;
+    const timeout = window.setTimeout(() => setNotice("Saved"), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [connectMode, notice]);
 
   useEffect(() => {
     if (!dualPanelWorkspace && libraryOpen && inspectorMode) setLibraryOpen(false);
   }, [dualPanelWorkspace, inspectorMode, libraryOpen]);
+
+  useEffect(() => {
+    if (!narrowWorkspace) return;
+    const panel = libraryOpen
+      ? libraryPanelRef.current
+      : inspectorMode === "selection" ? selectionPanelRef.current : inspectorMode ? workspacePanelRef.current : null;
+    if (!panel) return;
+    const frame = requestAnimationFrame(() => panel.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [inspectorMode, libraryOpen, narrowWorkspace]);
 
   useEffect(() => {
     if (!hasSelection && inspectorMode === "selection") setInspectorMode(null);
@@ -862,43 +960,47 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(FAVORITES_KEY, JSON.stringify(favoriteKinds));
+    try {
+      localStorage.setItem(FAVORITES_KEY, JSON.stringify(favoriteKinds));
+    } catch { /* Preferences are optional when browser storage is unavailable. */ }
   }, [favoriteKinds]);
 
   useEffect(() => {
-    localStorage.setItem(MODULES_KEY, JSON.stringify(savedModules));
+    try {
+      localStorage.setItem(MODULES_KEY, JSON.stringify(savedModules));
+    } catch { /* Reusable modules remain available for the current session. */ }
   }, [savedModules]);
 
   const commit = useCallback((nextElements: DiagramElement[], nextConnections = connections) => {
-    const before = editBefore.current ?? cloneSnapshot(elements, connections, publication, experiment);
+    const before = editBefore.current ?? createSnapshot();
     editBefore.current = null;
     setPast((items) => [...items.slice(-39), before]);
     setFuture([]);
     setElements(nextElements);
     setConnections(nextConnections);
-  }, [connections, elements, experiment, publication]);
+  }, [connections, createSnapshot]);
 
   const commitPublication = (next: PublicationSettings) => {
-    setPast((items) => [...items.slice(-39), cloneSnapshot(elements, connections, publication, experiment)]);
+    setPast((items) => [...items.slice(-39), createSnapshot()]);
     setFuture([]);
     setPublication(next);
   };
 
   const commitExperiment = (next: ExperimentRecord) => {
-    setPast((items) => [...items.slice(-39), cloneSnapshot(elements, connections, publication, experiment)]);
+    setPast((items) => [...items.slice(-39), createSnapshot()]);
     setFuture([]);
     setExperiment(next);
   };
 
   const beginPropertyEdit = () => {
-    if (!editBefore.current) editBefore.current = cloneSnapshot(elements, connections, publication, experiment);
+    if (!editBefore.current) editBefore.current = createSnapshot();
   };
 
   const finishPropertyEdit = (nextTarget: EventTarget | null, container: HTMLElement) => {
     if (nextTarget instanceof Node && container.contains(nextTarget)) return;
     const before = editBefore.current;
     editBefore.current = null;
-    if (!before || JSON.stringify(before) === JSON.stringify(cloneSnapshot(elements, connections, publication, experiment))) return;
+    if (!before || JSON.stringify(before) === JSON.stringify(createSnapshot())) return;
     setPast((items) => [...items.slice(-39), before]);
     setFuture([]);
   };
@@ -906,12 +1008,14 @@ export default function Home() {
   const undo = () => {
     const previous = past.at(-1);
     if (!previous) return;
-    setFuture((items) => [cloneSnapshot(elements, connections, publication, experiment), ...items]);
+    setFuture((items) => [createSnapshot(), ...items]);
     setPast((items) => items.slice(0, -1));
     setElements(previous.elements);
     setConnections(previous.connections);
     setPublication(previous.publication);
     setExperiment(previous.experiment);
+    setTitle(previous.title);
+    setNoiseTemperatureK(previous.noiseTemperatureK);
     setSelectedIds([]);
     setSelectedConnectionId(null);
   };
@@ -919,12 +1023,14 @@ export default function Home() {
   const redo = () => {
     const next = future[0];
     if (!next) return;
-    setPast((items) => [...items, cloneSnapshot(elements, connections, publication, experiment)]);
+    setPast((items) => [...items, createSnapshot()]);
     setFuture((items) => items.slice(1));
     setElements(next.elements);
     setConnections(next.connections);
     setPublication(next.publication);
     setExperiment(next.experiment);
+    setTitle(next.title);
+    setNoiseTemperatureK(next.noiseTemperatureK);
     setSelectedIds([]);
     setSelectedConnectionId(null);
   };
@@ -1108,8 +1214,8 @@ export default function Home() {
   }, []);
 
   const beginFlowDrag = useCallback<OnNodeDrag<CanvasFlowNode>>(() => {
-    flowDragBefore.current = cloneSnapshot(elements, connections, publication, experiment);
-  }, [connections, elements, experiment, publication]);
+    flowDragBefore.current = createSnapshot();
+  }, [createSnapshot]);
 
   const finishFlowDrag = useCallback<OnNodeDrag<CanvasFlowNode>>((_, __, draggedNodes) => {
     const positions = new Map(draggedNodes.filter((node) => node.id !== "__paper__").map((node) => [node.id, node.position]));
@@ -1273,14 +1379,26 @@ export default function Home() {
       ...elements.flatMap((element) => {
         const halfWidth = Math.max(75, (element.width ?? 120) * (element.scale ?? 1) / 2);
         const halfHeight = Math.max(65, (element.height ?? 100) * (element.scale ?? 1) / 2);
-        return [{ x: element.x - halfWidth, y: element.y - halfHeight }, { x: element.x + halfWidth, y: element.y + halfHeight }];
+        const radians = element.rotation * Math.PI / 180;
+        const rotatedHalfWidth = Math.abs(halfWidth * Math.cos(radians)) + Math.abs(halfHeight * Math.sin(radians));
+        const rotatedHalfHeight = Math.abs(halfWidth * Math.sin(radians)) + Math.abs(halfHeight * Math.cos(radians));
+        const labelHalfWidth = layers.labels && !annotationKinds.has(element.kind) ? element.label.length * 4 * publication.labelScale : 0;
+        const labelBottom = layers.labels && !annotationKinds.has(element.kind) ? 75 * (element.scale ?? 1) + 10 * publication.labelScale : 0;
+        return [
+          { x: element.x - Math.max(rotatedHalfWidth, labelHalfWidth), y: element.y - rotatedHalfHeight },
+          { x: element.x + Math.max(rotatedHalfWidth, labelHalfWidth), y: element.y + Math.max(rotatedHalfHeight, labelBottom) },
+        ];
       }),
       ...connections.flatMap((connection) => connection.waypoints ?? []),
+      ...(layers.labels ? [
+        { x: 42, y: 30 },
+        { x: Math.min(dimensions.width, 42 + title.length * 15 * publication.labelScale), y: publication.showCredit ? 86 : 66 },
+      ] : []),
     ];
-    const minX = Math.max(0, Math.min(...points.map((point) => point.x)) - 35);
-    const minY = Math.max(0, Math.min(...points.map((point) => point.y)) - 95);
-    const maxX = Math.min(dimensions.width, Math.max(...points.map((point) => point.x)) + 35);
-    const maxY = Math.min(dimensions.height, Math.max(...points.map((point) => point.y)) + 35);
+    const minX = Math.min(...points.map((point) => point.x)) - 35;
+    const minY = Math.min(...points.map((point) => point.y)) - 95;
+    const maxX = Math.max(...points.map((point) => point.x)) + 35;
+    const maxY = Math.max(...points.map((point) => point.y)) + 35;
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
   };
 
@@ -1289,10 +1407,27 @@ export default function Home() {
     const frame = exportFrame();
     const clone = svgRef.current.cloneNode(true) as SVGSVGElement;
     clone.querySelectorAll(".grid-layer").forEach((node) => node.remove());
+    const exportColors: Record<string, string> = {
+      "var(--color-canvas-surface)": "#ffffff",
+      "var(--color-canvas-muted)": "#a8a8a8",
+    };
+    for (const element of [clone, ...clone.querySelectorAll<SVGElement>("[fill], [stroke]")]) {
+      for (const attribute of ["fill", "stroke"]) {
+        const value = element.getAttribute(attribute);
+        if (value && exportColors[value]) element.setAttribute(attribute, exportColors[value]);
+      }
+    }
     clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
     clone.setAttribute("viewBox", `${frame.x} ${frame.y} ${frame.width} ${frame.height}`);
     clone.setAttribute("width", String(frame.width));
     clone.setAttribute("height", String(frame.height));
+    const background = clone.querySelector<SVGRectElement>(".export-background");
+    if (background) {
+      background.setAttribute("x", String(frame.x));
+      background.setAttribute("y", String(frame.y));
+      background.setAttribute("width", String(frame.width));
+      background.setAttribute("height", String(frame.height));
+    }
     return `<?xml version="1.0" encoding="UTF-8"?>\n${new XMLSerializer().serializeToString(clone)}`;
   };
 
@@ -1552,6 +1687,9 @@ export default function Home() {
       if (!imported.length) throw new Error("No recognized components");
       commit([...elements, ...imported]);
       setSelectedIds(imported.map((element) => element.id));
+      setSelectedConnectionId(null);
+      setConnectMode(false);
+      setConnectFrom(null);
       setNotice(`${imported.length} BOM components imported`);
     } catch (error) {
       setNotice(error instanceof Error ? `BOM import failed: ${error.message}` : "BOM import failed: use the exported CSV format");
@@ -1567,16 +1705,27 @@ export default function Home() {
       if (file.size > MAX_IMPORT_BYTES) throw new Error("Diagram exceeds the 2 MB import limit");
       const parsed: unknown = JSON.parse(await file.text());
       if (!isDiagramFile(parsed)) throw new Error("Invalid diagram");
-      setPast((items) => [...items, cloneSnapshot(elements, connections, publication, experiment)]);
+      setPast((items) => [...items, createSnapshot()]);
       setTitle(parsed.title || "Untitled setup");
       setElements(parsed.elements);
-      setConnections(migrateCanvasRouting(parsed.connections, parsed.version ?? 0));
+      setConnections(normalizeConnectionPorts(parsed.elements, migrateCanvasRouting(parsed.connections, parsed.version ?? 0)));
       setPublication(parsed.publication ? { ...defaultPublication, ...parsed.publication } : defaultPublication);
       setExperiment(parsed.experiment ?? defaultExperiment);
       setNoiseTemperatureK(parsed.noiseTemperatureK ?? DEFAULT_NOISE_TEMPERATURE_K);
-      restoreFlowViewport(parsed.viewport ?? DEFAULT_VIEWPORT);
+      const widthRatio = parsed.viewportWidth ? window.innerWidth / parsed.viewportWidth : 0;
+      if ((parsed.version ?? 0) >= 12 && parsed.viewport && viewportMode === "wide" && parsed.viewportMode === viewportMode && widthRatio >= 0.95 && widthRatio <= 1.05 &&
+        Math.abs(parsed.viewport.x) <= dimensions.width * 2 && Math.abs(parsed.viewport.y) <= dimensions.height * 2) {
+        pendingFitRef.current = false;
+        restoreFlowViewport(parsed.viewport);
+      } else {
+        pendingViewportRef.current = null;
+        pendingFitRef.current = true;
+      }
       setFuture([]);
       setSelectedIds([]);
+      setSelectedConnectionId(null);
+      setConnectMode(false);
+      setConnectFrom(null);
       setNotice("Diagram loaded");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "That file is not a valid SetupSketch diagram");
@@ -1590,6 +1739,8 @@ export default function Home() {
     setExperiment(defaultExperiment);
     setSelectedIds([]);
     setSelectedConnectionId(null);
+    setConnectMode(false);
+    setConnectFrom(null);
     setNotice("Diagram cleared · Undo is available");
   };
 
@@ -1631,6 +1782,8 @@ export default function Home() {
     setTitle(template.title);
     setSelectedIds([]);
     setSelectedConnectionId(null);
+    setConnectMode(false);
+    setConnectFrom(null);
     setNotice("Template loaded");
   };
 
@@ -1701,8 +1854,12 @@ export default function Home() {
       to: idMap.get(connection.to)!,
       waypoints: connection.waypoints?.map((point) => ({ x: point.x + offsetX, y: point.y + offsetY })),
     }));
-    commit([...elements, ...nextElements], [...connections, ...nextConnections]);
+    const combinedElements = [...elements, ...nextElements];
+    commit(combinedElements, normalizeConnectionPorts(combinedElements, [...connections, ...nextConnections]));
     setSelectedIds(nextElements.map((element) => element.id));
+    setSelectedConnectionId(null);
+    setConnectMode(false);
+    setConnectFrom(null);
     setNotice("Reusable module inserted");
     if (narrowWorkspace) setLibraryOpen(false);
   };
@@ -1779,6 +1936,11 @@ export default function Home() {
     <IconButton ref={projectToggleRef} id="project-toggle" size="sm" kind="ghost" align="bottom-end" label="Project" aria-expanded={projectMenuOpen} aria-controls="project-menu" aria-haspopup="dialog" onClick={() => setProjectMenuOpen((open) => !open)}><UiIcon name="project" /></IconButton>
     <PopoverContent>
       <Layer id="project-menu" withBackground className="toolbar-menu-actions">
+        {narrowWorkspace && <div className="toolbar-menu-theme"><span>Theme</span><ScientificThemeToggle /></div>}
+        {narrowWorkspace && <div className="toolbar-group" role="group" aria-label="Edit history">
+          <Button size="sm" kind="ghost" renderIcon={() => <UiIcon name="undo" />} disabled={!past.length} onClick={() => { undo(); setProjectMenuOpen(false); }}>Undo</Button>
+          <Button size="sm" kind="ghost" renderIcon={() => <UiIcon name="redo" />} disabled={!future.length} onClick={() => { redo(); setProjectMenuOpen(false); }}>Redo</Button>
+        </div>}
         <Select id="project-template" size="sm" labelText="Template" className="connection-type" defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; setProjectMenuOpen(false); }}>
           <option value="" disabled>Choose setup</option>
           {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
@@ -1802,7 +1964,7 @@ export default function Home() {
 
   const shellStatus = connectMode
     ? { state: "ready" as const, label: connectFrom ? `Select ${portTypeLabels[connectionDomain]} destination` : `Select ${portTypeLabels[connectionDomain]} source` }
-    : { state: notice === "Saved" ? "up-to-date" as const : "modified" as const, label: notice };
+    : { state: notice === "Saved" ? "up-to-date" as const : "ready" as const, label: notice };
 
   return (
     <div className="setupsketch-root" onKeyDownCapture={handleEditorKeyDown}>
@@ -1813,13 +1975,23 @@ export default function Home() {
         className="setupsketch-header"
         aria-label="SetupSketch scientific diagram editor"
         product="SetupSketch"
-        compactProduct="Setup"
         productIcon="setup-sketch"
         descriptor="Scientific diagram editor"
         href="./"
         skipLink={<SkipToContent href="#diagram-workspace">Skip to diagram workspace</SkipToContent>}
-        context={<TextInput className="setup-header-title scientific-header__field" id="diagram-title" size="sm" hideLabel labelText="Diagram title" value={title} onChange={(event) => setTitle(event.target.value)} />}
+        context={<TextInput
+          className="setup-header-title scientific-header__field"
+          id="diagram-title"
+          size="sm"
+          hideLabel
+          labelText="Diagram title"
+          value={title}
+          onFocus={beginPropertyEdit}
+          onBlur={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}
+          onChange={(event) => setTitle(event.target.value)}
+        />}
         status={shellStatus}
+        showThemeToggle={!narrowWorkspace}
         help={{
           summary: "Add scientific components, connect compatible ports, document the experiment, validate the setup and export the finished diagram.",
           shortcuts: [
@@ -1899,10 +2071,11 @@ export default function Home() {
         />
       </Modal>
 
-      {exportReceipt && <ExportReceipt className="setup-export-receipt" fileName={exportReceipt.fileName} format={exportReceipt.format} destination={exportReceipt.destination} onDismiss={() => setExportReceipt(null)} />}
+      {exportReceipt && <div className="scientific-notifications"><ExportReceipt className="setup-export-receipt" fileName={exportReceipt.fileName} format={exportReceipt.format} destination={exportReceipt.destination} onDismiss={() => setExportReceipt(null)} /></div>}
 
       <Grid as="section" ref={workspaceRef} fullWidth condensed className="workspace" id="diagram-workspace" aria-labelledby="app-title" data-library-open={libraryOpen} data-inspector-open={Boolean(inspectorMode)} data-inspector={inspectorMode ?? "none"} tabIndex={-1}>
         <ComponentLibrary
+          panelRef={libraryPanelRef}
           open={libraryOpen}
           groups={visibleGroups}
           savedModules={savedModules}
@@ -1920,7 +2093,17 @@ export default function Home() {
           renderPreview={renderLibraryPreview}
         />
 
-        <Column as="section" sm={4} md={8} lg={16} className="stage-wrap scientific-stage" aria-label="Diagram workspace">
+        <Column
+          ref={stageRef}
+          as="section"
+          sm={4}
+          md={8}
+          lg={16}
+          className="stage-wrap scientific-stage"
+          aria-label="Diagram workspace"
+          aria-hidden={narrowWorkspace && (libraryOpen || Boolean(inspectorMode)) || undefined}
+          inert={narrowWorkspace && (libraryOpen || Boolean(inspectorMode)) || undefined}
+        >
           <div className="stage scientific-stage">
             {elements.length === 0 && <div className="stage-empty"><strong>Start with a component</strong><p>Add one from the library or load a template from the toolbar.</p></div>}
             <div className="diagram-flow" role="group" aria-label={`${title}, editable scientific setup diagram`}>
@@ -1987,7 +2170,7 @@ export default function Home() {
                   <path d="M0 0L10 5L0 10Z" fill="context-stroke" />
                 </marker>
               </defs>
-              <rect width={dimensions.width} height={dimensions.height} fill="var(--color-canvas-surface)" />
+              <rect className="export-background" width={dimensions.width} height={dimensions.height} fill="var(--color-canvas-surface)" />
               {layers.grid && <rect className="grid-layer" width={dimensions.width} height={dimensions.height} fill="url(#majorGrid)" />}
               {layers.labels && <g className="labels-layer">
                 <text x="42" y="54" fill="#171b22" fontSize={25 * publication.labelScale} fontWeight="700" fontFamily="Arial, sans-serif">{title}</text>
@@ -2033,6 +2216,7 @@ export default function Home() {
         </Column>
 
         <InspectorPanel
+          panelRef={selectionPanelRef}
           id="selection-inspector"
           label={selectedIds.length > 1 ? "Selection properties" : selected ? "Component properties" : selectedConnection ? "Connection properties" : "Properties"}
           ariaLabel="Selection properties"
@@ -2083,8 +2267,8 @@ export default function Home() {
                   <TextArea id="component-notes" labelText="Notes" rows={3} value={selected.notes ?? ""} onChange={(event) => updateSelected({ notes: event.target.value })} />
               </InspectorDisclosure>
               <div className="compact-actions">
-                <Button size="sm" kind="tertiary" renderIcon={ReflectHorizontal} onClick={() => changeSelected({ flipX: !selected.flipX })}>Flip horizontal</Button>
-                <Button size="sm" kind="tertiary" renderIcon={ReflectVertical} onClick={() => changeSelected({ flipY: !selected.flipY })}>Flip vertical</Button>
+                <Button size="sm" kind="tertiary" aria-label="Flip horizontal" renderIcon={ReflectHorizontal} onClick={() => changeSelected({ flipX: !selected.flipX })}>Flip X</Button>
+                <Button size="sm" kind="tertiary" aria-label="Flip vertical" renderIcon={ReflectVertical} onClick={() => changeSelected({ flipY: !selected.flipY })}>Flip Y</Button>
                 <Button size="sm" kind="tertiary" renderIcon={selected.locked ? Unlocked : Locked} onClick={() => changeSelected({ locked: !selected.locked })}>{selected.locked ? "Unlock" : "Lock"}</Button>
                 <Button size="sm" kind="tertiary" renderIcon={BringToFront} onClick={() => reorderSelection("front")}>Bring front</Button>
                 <Button size="sm" kind="tertiary" renderIcon={SendToBack} onClick={() => reorderSelection("back")}>Send back</Button>
@@ -2095,7 +2279,7 @@ export default function Home() {
               </div>
             </div>
           ) : selectedIds.length > 1 ? (
-            <div className="property-form">
+            <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
               <p className="selection-count">{selectedIds.length} components selected</p>
               <div className="compact-actions">
                 <Button size="sm" kind="tertiary" onClick={() => alignSelection("y")}>Align row</Button>
@@ -2143,6 +2327,7 @@ export default function Home() {
         </InspectorPanel>
 
         <InspectorPanel
+          panelRef={workspacePanelRef}
           id="document-inspector"
           label={inspectorMode === "experiment" ? "Procedure" : inspectorMode === "review" ? "Review" : "Layout"}
           ariaLabel={`${inspectorMode ?? "Workspace"} settings`}
@@ -2160,13 +2345,13 @@ export default function Home() {
               summary={validationIssues.some((issue) => issue.severity === "error")
                 ? "Resolve structural errors before using or sharing this experimental setup."
                 : validationIssues.length || !experiment.procedure.trim() || experiment.checklist.some((item) => !item.done)
-                  ? "The diagram can be saved, but its scientific handoff is incomplete. Review the evidence below before export."
+                  ? "The diagram can be saved, but its scientific handoff is incomplete. Review the evidence before export."
                   : "The diagram, directed paths and operating procedure are ready for a reproducible experimental handoff."}
               metrics={[
                 { id: "components", label: "Components", value: elements.length },
                 { id: "connections", label: "Connections", value: connections.length },
-                { id: "path-budgets", label: "Directed path budgets", value: budgetSummary.truncated ? budgetCountLabel : budgetSummary.total },
-                { id: "checklist", label: "Checklist complete", value: experiment.checklist.length ? `${experiment.checklist.filter((item) => item.done).length}/${experiment.checklist.length}` : "Not defined" },
+                { id: "path-budgets", label: "Path budgets", value: budgetSummary.truncated ? budgetCountLabel : budgetSummary.total },
+                { id: "checklist", label: "Checklist", value: experiment.checklist.length ? `${experiment.checklist.filter((item) => item.done).length}/${experiment.checklist.length}` : "Not defined" },
               ]}
               actions={[
                 { id: "export-pdf", label: "Export review PDF", emphasis: "primary", disabled: validationIssues.some((issue) => issue.severity === "error"), onClick: () => { if (exportPdf()) recordExport(`${safeFilename(title)}.pdf`, "PDF", "Print dialog opened"); } },
@@ -2176,7 +2361,7 @@ export default function Home() {
             />
             <ScientificValidationSummary
             title="Readiness evidence"
-            description="Diagram structure, measurement paths and procedure completeness are evaluated independently from save state."
+            description="Structure, measurement paths and procedure readiness are evaluated independently from save state."
             status={{
               state: validationIssues.some((issue) => issue.severity === "error") ? "failed" : validationIssues.length || !experiment.procedure.trim() || experiment.checklist.some((item) => !item.done) ? "warning" : "validated",
               label: validationIssues.some((issue) => issue.severity === "error") ? "Structural errors" : validationIssues.length || !experiment.procedure.trim() || experiment.checklist.some((item) => !item.done) ? "Review before use" : "Experiment ready",
@@ -2194,7 +2379,7 @@ export default function Home() {
             <div className="port-legend">{(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <span key={type}><i style={{ background: portTypeColors[type] }} />{label}</span>)}</div>
           </InspectorDisclosure>}
           {inspectorMode === "review" && <InspectorDisclosure className="layers-panel budget-panel" buttonId="budget-title" label="Path budgets" meta={budgets.length ? budgetCountLabel : 0}>
-            <div className="property-form">
+            <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
               <NumberInput
                 id="noise-temperature"
                 size="sm"

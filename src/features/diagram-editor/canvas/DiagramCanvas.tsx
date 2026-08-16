@@ -12,7 +12,7 @@ import {
 } from "@xyflow/react";
 
 type CanvasPoint = { x: number; y: number };
-type WaypointEdgeData = { waypoints?: CanvasPoint[] };
+type WaypointEdgeData = { waypoints?: CanvasPoint[]; orthogonal?: boolean };
 type WaypointEdge = Edge<WaypointEdgeData, "waypoint">;
 
 const pointsToPath = (points: CanvasPoint[]) => {
@@ -21,6 +21,17 @@ const pointsToPath = (points: CanvasPoint[]) => {
     return !previous || previous.x !== point.x || previous.y !== point.y;
   });
   return `M ${compact.map((point) => `${point.x} ${point.y}`).join(" L ")}`;
+};
+
+const edgePoints = (source: CanvasPoint, target: CanvasPoint, waypoints: CanvasPoint[], orthogonal: boolean) => {
+  if (!orthogonal) return [source, ...waypoints, target];
+  const points = [source];
+  for (const waypoint of waypoints) {
+    const previous = points.at(-1)!;
+    points.push({ x: waypoint.x, y: previous.y }, waypoint);
+  }
+  const previous = points.at(-1)!;
+  return [...points, { x: target.x, y: previous.y }, target];
 };
 
 export const WaypointEdgeComponent = memo(function WaypointEdgeComponent({
@@ -35,11 +46,12 @@ export const WaypointEdgeComponent = memo(function WaypointEdgeComponent({
 }: EdgeProps<WaypointEdge>) {
   return (
     <BaseEdge
-      path={pointsToPath([
+      path={pointsToPath(edgePoints(
         { x: sourceX, y: sourceY },
-        ...(data?.waypoints ?? []),
         { x: targetX, y: targetY },
-      ])}
+        data?.waypoints ?? [],
+        Boolean(data?.orthogonal),
+      ))}
       markerStart={markerStart}
       markerEnd={markerEnd}
       style={style}
