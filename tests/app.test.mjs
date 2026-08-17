@@ -172,7 +172,9 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editorControls, /<Accordion align="end" isFlush/);
   assert.doesNotMatch(styles, /\.cds--accordion__|\.cds--popover-content/);
   assert.match(workspaceStyles, /workspace\[data-library-open="true"\]/);
-  assert.match(workspaceStyles, /has-workspace-panel > \.scientific-recovery-notice/);
+  assert.match(editor, /autosave\.recovery && \(!narrowWorkspace \|\| \(!libraryOpen && !inspectorMode\)\)/);
+  assert.match(workspaceStyles, /has-workspace-panel \.workspace > \.stage-wrap/);
+  assert.match(workspaceStyles, /has-workspace-panel > \.setupsketch-status/);
   assert.match(workspaceStyles, /workspace\[data-inspector-open="true"\]/);
   assert.match(workspaceStyles, /container:\s*sidebar \/ inline-size/);
   assert.match(workspaceStyles, /workspace\[data-inspector="document"\]/);

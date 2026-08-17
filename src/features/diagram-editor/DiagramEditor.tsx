@@ -1987,7 +1987,7 @@ export default function Home() {
     <div className="setupsketch-root" onKeyDownCapture={handleEditorKeyDown}>
     <ScientificAppShell
       className={`setupsketch-app${libraryOpen || inspectorMode ? " has-workspace-panel" : ""}`}
-      recovery={autosave.recovery && <ScientificRecoveryNotice savedAt={autosave.recovery.savedAt} onRestore={autosave.restore} onDiscard={autosave.discard} />}
+      recovery={autosave.recovery && (!narrowWorkspace || (!libraryOpen && !inspectorMode)) && <ScientificRecoveryNotice savedAt={autosave.recovery.savedAt} onRestore={autosave.restore} onDiscard={autosave.discard} />}
       header={<ScientificHeader
         className="setupsketch-header"
         aria-label="SetupSketch scientific diagram editor"
@@ -2019,7 +2019,7 @@ export default function Home() {
         primaryAction={headerActions}
       />}
       navigation={<WorkspaceNavigation libraryOpen={libraryOpen} activeInspector={inspectorMode} onToggleLibrary={toggleLibrary} onToggleInspector={toggleInspector} registerItemRef={registerWorkspaceNavigationRef} />}
-      statusBar={<ScientificStatusBar aria-label="Diagram status" status={shellStatus} metadata={<>
+      statusBar={<ScientificStatusBar className="setupsketch-status" aria-label="Diagram status" status={shellStatus} metadata={<>
         <ScientificAutosaveStatus status={autosave.status} savedAt={autosave.lastSavedAt} />
         <span>{elements.length} components</span>
         <span>{connections.length} connections</span>

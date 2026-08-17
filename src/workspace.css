@@ -43,11 +43,9 @@
 }
 
 @media (max-width: 65.99rem) {
-  .setupsketch-app.has-workspace-panel > .scientific-recovery-notice {
-    inset-block-start: auto;
-    inset-block-end: calc(var(--scientific-ui-mobile-nav-total-block-size) + var(--scientific-ui-spacing-03));
-    max-block-size: calc(100dvh - var(--scientific-ui-header-block-size) - var(--scientific-ui-mobile-nav-total-block-size) - 5rem);
-    overflow: auto;
+  .setupsketch-app.has-workspace-panel .workspace > .stage-wrap,
+  .setupsketch-app.has-workspace-panel > .setupsketch-status {
+    display: none;
   }
 
   .setupsketch-app .workspace > .library,

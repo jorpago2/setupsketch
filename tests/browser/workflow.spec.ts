@@ -278,6 +278,8 @@ test("selection tools stay in React and Escape closes one visual layer at a time
   await expect(page.locator(".react-flow__node-scientific.selected")).toHaveCount(selectedCount);
   if (selectedCount === 1) {
     await expect(page.locator("#selection-inspector")).toBeFocused();
+    await expect(page.locator(".stage-wrap")).toBeHidden();
+    await expect(page.locator(".scientific-status-bar")).toBeHidden();
     await expect(page.locator(".stage-wrap")).toHaveAttribute("inert", "");
     await expect(page.locator(".stage-wrap")).toHaveAttribute("aria-hidden", "true");
   }
@@ -294,6 +296,8 @@ test("selection tools stay in React and Escape closes one visual layer at a time
 
   await page.keyboard.press("Escape");
   await expect(page.locator("#selection-inspector")).toBeHidden();
+  await expect(page.locator(".stage-wrap")).toBeVisible();
+  await expect(page.locator(".scientific-status-bar")).toBeVisible();
   await expect(page.locator(".stage-wrap")).not.toHaveAttribute("inert", "");
   await expect(page.locator("#diagram-workspace")).toBeFocused();
   await expect(page.locator(".react-flow__node-scientific.selected")).toHaveCount(selectedCount);
