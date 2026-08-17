@@ -59,6 +59,19 @@
     height: calc(100dvh - var(--scientific-ui-header-block-size) - var(--scientific-ui-mobile-nav-total-block-size));
     max-height: none;
   }
+
+  .setupsketch-app .setup-header-title {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .setupsketch-app .setup-header-title input {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 .sidebar-content {

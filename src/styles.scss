@@ -88,14 +88,13 @@ body {
   border-inline-start: 0;
 }
 
-.toolbar-menu,
-.toolbar-export-mobile {
+.toolbar-header-actions {
   position: relative;
   display: block;
 }
 
-.toolbar-export-mobile {
-  margin-inline-end: var(--space-xs);
+.toolbar-header-menu {
+  width: min(272px, calc(100dvw - 2 * var(--space-sm)));
 }
 
 .toolbar-menu-actions,
@@ -400,9 +399,11 @@ body {
   max-width: 32ch;
   padding: var(--space-lg);
   color: var(--color-muted);
+  background: transparent;
 }
 
-.stage-empty strong {
+.stage-empty h2 {
+  margin: 0;
   color: var(--color-ink);
   font-size: var(--text-md);
 }

@@ -31,6 +31,7 @@ import {
   BringToFront,
   Corner,
   Locked,
+  OverflowMenuVertical,
   ReflectHorizontal,
   ReflectVertical,
   SendToBack,
@@ -94,7 +95,7 @@ import { annotationDefaultSizes, defaultCollapsedGroups, defaultExperiment, defa
 import { cloneSnapshot, download, safeFilename } from "./model/editorPersistence";
 import { closestPortPair, getConnectionDomain, getConnectionType, normalizeConnectionPorts, portsFor } from "./model/connectionGeometry";
 import { csvCell, escapeLatex, formatBandwidth, optionalNumber, svgDataUri } from "./model/exportFormatting";
-import { ExportReceipt, SCIENTIFIC_AUTOSAVE_FORMAT, ScientificAppShell, ScientificAutosaveStatus, ScientificHeader, ScientificOutcomeSummary, ScientificRecoveryNotice, ScientificStatusBar, ScientificThemeToggle, ScientificValidationSummary, useScientificAutosave } from "@jorpago2/scientific-ui";
+import { ExportReceipt, SCIENTIFIC_AUTOSAVE_FORMAT, ScientificAppShell, ScientificAutosaveStatus, ScientificEmptyState, ScientificHeader, ScientificOutcomeSummary, ScientificRecoveryNotice, ScientificStatusBar, ScientificValidationSummary, useScientificAutosave, type ScientificState } from "@jorpago2/scientific-ui";
 
 type DiagramFile = {
   version?: number;
@@ -108,6 +109,8 @@ type DiagramFile = {
   viewportWidth?: number;
   noiseTemperatureK?: number;
 };
+
+type SetupShellState = Extract<ScientificState, "needs-input" | "ready" | "modified" | "up-to-date">;
 
 type PendingDestructiveAction =
   | { kind: "clear" }
@@ -573,11 +576,10 @@ export default function Home() {
   });
   const [past, setPast] = useState<Snapshot[]>([]);
   const [future, setFuture] = useState<Snapshot[]>([]);
-  const [notice, setNotice] = useState("Saved");
+  const [notice, setNotice] = useState("Empty diagram · add components");
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [inspectorMode, setInspectorMode] = useState<InspectorMode | null>(null);
-  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
-  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [headerActionsOpen, setHeaderActionsOpen] = useState(false);
   const [exportReceipt, setExportReceipt] = useState<{ fileName: string; format: string; destination: string } | null>(null);
   const [publication, setPublication] = useState(defaultPublication);
   const [experiment, setExperiment] = useState(defaultExperiment);
@@ -604,8 +606,7 @@ export default function Home() {
   const flowInstanceRef = useRef<ReactFlowInstance<CanvasFlowNode, ScientificFlowEdge> | null>(null);
   const pendingViewportRef = useRef<Viewport | null>(null);
   const pendingFitRef = useRef(false);
-  const projectToggleRef = useRef<HTMLButtonElement>(null);
-  const exportToggleRef = useRef<HTMLButtonElement>(null);
+  const headerActionsToggleRef = useRef<HTMLButtonElement>(null);
   const moduleSaveTriggerRef = useRef<HTMLButtonElement>(null);
   const workspaceRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLElement>(null);
@@ -1046,6 +1047,7 @@ export default function Home() {
       color: defaultColor(kind),
     };
     commit([...elements, element]);
+    setNotice("Diagram modified");
     requestAnimationFrame(() => setSelectedIds([element.id]));
     setSelectedConnectionId(null);
     setRecentKinds((items) => [kind, ...items.filter((item) => item !== kind)].slice(0, 6));
@@ -1324,12 +1326,9 @@ export default function Home() {
       if (pendingDestructiveAction || moduleDialogOpen) return;
       event.preventDefault();
       event.stopPropagation();
-      if (projectMenuOpen) {
-        setProjectMenuOpen(false);
-        requestAnimationFrame(() => projectToggleRef.current?.focus());
-      } else if (exportMenuOpen) {
-        setExportMenuOpen(false);
-        requestAnimationFrame(() => exportToggleRef.current?.focus());
+      if (headerActionsOpen) {
+        setHeaderActionsOpen(false);
+        requestAnimationFrame(() => headerActionsToggleRef.current?.focus());
       } else if (inspectorMode) {
         closeInspector();
       } else if (libraryOpen) {
@@ -1798,12 +1797,12 @@ export default function Home() {
     if (!action) return;
     if (action.kind === "clear") executeClearDiagram();
     else executeTemplate(action.templateId);
-    requestAnimationFrame(() => projectToggleRef.current?.focus());
+    requestAnimationFrame(() => headerActionsToggleRef.current?.focus());
   };
 
   const cancelPendingDestructiveAction = () => {
     setPendingDestructiveAction(null);
-    requestAnimationFrame(() => projectToggleRef.current?.focus());
+    requestAnimationFrame(() => headerActionsToggleRef.current?.focus());
   };
 
   const saveSelectionAsModule = () => {
@@ -1929,29 +1928,44 @@ export default function Home() {
     <Button size="sm" kind="ghost" onClick={() => { void exportPowerPoint().then(() => recordExport(`${safeFilename(title)}.pptx`, "PowerPoint")).catch(() => undefined); close(); }}>PPTX</Button>
     <Button size="sm" kind="ghost" onClick={() => { exportNetlist(); recordExport(`${safeFilename(title)}.net`, "Netlist"); close(); }}>Netlist</Button>
     <Button size="sm" kind="ghost" onClick={() => { exportBom(); recordExport(`${safeFilename(title)}-bom.csv`, "BOM CSV"); close(); }}>BOM CSV</Button>
-    <Button size="sm" kind="primary" onClick={() => { if (exportPdf()) recordExport(`${safeFilename(title)}.pdf`, "PDF", "Print dialog opened"); close(); }}>PDF</Button>
+    <Button size="sm" kind="primary" onClick={() => { if (exportPdf()) recordExport(`${safeFilename(title)}.pdf`, "PDF", "Print dialog opened"); close(); }}><UiIcon name="export" />PDF</Button>
   </>;
 
-  const projectActions = <Popover as="div" className="toolbar-menu toolbar-project" open={projectMenuOpen} align="bottom-end" onRequestClose={() => setProjectMenuOpen(false)}>
-    <IconButton ref={projectToggleRef} id="project-toggle" size="sm" kind="ghost" align="bottom-end" label="Project" aria-expanded={projectMenuOpen} aria-controls="project-menu" aria-haspopup="dialog" onClick={() => setProjectMenuOpen((open) => !open)}><UiIcon name="project" /></IconButton>
+  const renderProjectActions = (close: () => void) => <>
+    <Select id="project-template" size="sm" labelText="Template" className="connection-type" defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; close(); }}>
+      <option value="" disabled>Choose setup</option>
+      {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
+    </Select>
+    <div className="toolbar-group" role="group" aria-label="File actions">
+      <Button size="sm" kind="ghost" onClick={() => { saveJson(); close(); }}><UiIcon name="project" />Save JSON</Button>
+      <Button size="sm" kind="ghost" onClick={() => { fileRef.current?.click(); close(); }}><UiIcon name="project" />Open JSON</Button>
+      <Button size="sm" kind="ghost" onClick={() => { bomRef.current?.click(); close(); }}><UiIcon name="project" />Import BOM</Button>
+      <Button size="sm" kind="ghost" onClick={() => { arrangeDiagram(); close(); }}><UiIcon name="fit" />Arrange overlaps</Button>
+      <Button size="sm" kind="danger--ghost" onClick={() => { clearDiagram(); close(); }}><UiIcon name="project" />Reset diagram</Button>
+      <input ref={fileRef} hidden aria-label="Open diagram JSON" type="file" accept="application/json,.json" onChange={loadJson} />
+      <input ref={bomRef} hidden aria-label="Import bill of materials" type="file" accept="text/csv,.csv" onChange={loadBom} />
+    </div>
+  </>;
+
+  const headerActions = <Popover as="div" className="toolbar-header-actions" open={headerActionsOpen} align="bottom-end" onRequestClose={() => setHeaderActionsOpen(false)}>
+    <IconButton ref={headerActionsToggleRef} id="header-actions-toggle" size="lg" kind="ghost" align="bottom-end" label="More actions" aria-expanded={headerActionsOpen} aria-controls="header-actions-menu" aria-haspopup="dialog" onClick={() => setHeaderActionsOpen((open) => !open)}>
+      <OverflowMenuVertical size={20} aria-hidden={true} />
+    </IconButton>
     <PopoverContent>
-      <Layer id="project-menu" withBackground className="toolbar-menu-actions">
-        {narrowWorkspace && <div className="toolbar-menu-theme"><span>Theme</span><ScientificThemeToggle /></div>}
-        {narrowWorkspace && <div className="toolbar-group" role="group" aria-label="Edit history">
-          <Button size="sm" kind="ghost" renderIcon={() => <UiIcon name="undo" />} disabled={!past.length} onClick={() => { undo(); setProjectMenuOpen(false); }}>Undo</Button>
-          <Button size="sm" kind="ghost" renderIcon={() => <UiIcon name="redo" />} disabled={!future.length} onClick={() => { redo(); setProjectMenuOpen(false); }}>Redo</Button>
-        </div>}
-        <Select id="project-template" size="sm" labelText="Template" className="connection-type" defaultValue="" onChange={(event) => { applyTemplate(event.target.value); event.target.value = ""; setProjectMenuOpen(false); }}>
-          <option value="" disabled>Choose setup</option>
-          {setupTemplates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}
-        </Select>
-        <div className="toolbar-group" role="group" aria-label="File actions">
-          <Button size="sm" kind="ghost" onClick={() => { saveJson(); setProjectMenuOpen(false); }}>Save JSON</Button>
-          <Button size="sm" kind="ghost" onClick={() => { fileRef.current?.click(); setProjectMenuOpen(false); }}>Open JSON</Button>
-          <Button size="sm" kind="ghost" onClick={() => { bomRef.current?.click(); setProjectMenuOpen(false); }}>Import BOM</Button>
-          <Button size="sm" kind="ghost" onClick={() => { arrangeDiagram(); setProjectMenuOpen(false); }}>Arrange overlaps</Button>
-          <Button size="sm" kind="danger--ghost" onClick={() => { clearDiagram(); setProjectMenuOpen(false); }}>Reset diagram</Button>
-          <input ref={fileRef} hidden aria-label="Open diagram JSON" type="file" accept="application/json,.json" onChange={loadJson} />
+      <Layer id="header-actions-menu" withBackground className="toolbar-menu-actions toolbar-header-menu">
+        <div className="toolbar-group" role="group" aria-label="Edit actions">
+          <Button size="sm" kind="ghost" disabled={!past.length} onClick={() => { undo(); setHeaderActionsOpen(false); }}><UiIcon name="undo" />Undo</Button>
+          <Button size="sm" kind="ghost" disabled={!future.length} onClick={() => { redo(); setHeaderActionsOpen(false); }}><UiIcon name="redo" />Redo</Button>
+          <Button size="sm" kind={connectMode ? "secondary" : "ghost"} onClick={() => { setConnectMode(!connectMode); setConnectFrom(null); }}><UiIcon name="link" />{connectFrom ? "Choose connection target" : "Connect components"}</Button>
+        </div>
+        {connectMode && <Select id="connection-domain" size="sm" hideLabel labelText="Connection domain" className="connection-type connection-type-active" value={connectionDomain} onChange={(event) => setConnectionDomain(event.target.value as PortType)}>
+          {(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <option value={type} key={type}>{label}</option>)}
+        </Select>}
+        <div className="toolbar-group" role="group" aria-label="Project actions">
+          {renderProjectActions(() => setHeaderActionsOpen(false))}
+        </div>
+        <div className="toolbar-export-actions" role="group" aria-label="Export actions">
+          {renderExportActions(() => setHeaderActionsOpen(false))}
         </div>
       </Layer>
     </PopoverContent>
@@ -1962,9 +1976,12 @@ export default function Home() {
     return <svg className="library-icon" viewBox="-60 -55 120 110" aria-hidden="true"><ComponentPortStubs element={element} /><ComponentShape element={element} /></svg>;
   };
 
-  const shellStatus = connectMode
+  const hasDiagramContent = elements.length > 0 || connections.length > 0;
+  const shellStatus: { state: SetupShellState; label: string } = connectMode
     ? { state: "ready" as const, label: connectFrom ? `Select ${portTypeLabels[connectionDomain]} destination` : `Select ${portTypeLabels[connectionDomain]} source` }
-    : { state: notice === "Saved" ? "up-to-date" as const : "ready" as const, label: notice };
+    : hasDiagramContent
+      ? { state: "modified" as const, label: notice }
+      : { state: "needs-input" as const, label: notice };
 
   return (
     <div className="setupsketch-root" onKeyDownCapture={handleEditorKeyDown}>
@@ -1999,29 +2016,7 @@ export default function Home() {
             { keys: ["Delete"], description: "Remove the current selection" },
           ],
         }}
-        secondaryActions={<>
-          <div className="toolbar-group" role="group" aria-label="Edit actions">
-            <IconButton size="sm" kind="ghost" align="bottom-end" label="Undo" onClick={undo} disabled={!past.length}><UiIcon name="undo" /></IconButton>
-            <IconButton size="sm" kind="ghost" align="bottom-end" label="Redo" onClick={redo} disabled={!future.length}><UiIcon name="redo" /></IconButton>
-            <IconButton size="sm" kind="ghost" align="bottom-end" label={connectFrom ? "Choose connection target" : "Connect components"} isSelected={connectMode} onClick={() => { setConnectMode(!connectMode); setConnectFrom(null); }}><UiIcon name="link" /></IconButton>
-          </div>
-          {connectMode && <div className="toolbar-group" role="group" aria-label="Connection settings">
-            <Select id="connection-domain" size="sm" hideLabel labelText="Connection domain" className="connection-type connection-type-active" value={connectionDomain} onChange={(event) => setConnectionDomain(event.target.value as PortType)}>
-                {(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <option value={type} key={type}>{label}</option>)}
-            </Select>
-          </div>}
-          <input ref={bomRef} hidden aria-label="Import bill of materials" type="file" accept="text/csv,.csv" onChange={loadBom} />
-        </>}
-        primaryAction={<>
-          {narrowWorkspace && past.length > 0 && <IconButton size="sm" kind="ghost" align="bottom-end" label="Undo" onClick={undo}><UiIcon name="undo" /></IconButton>}
-          {projectActions}
-          <Popover as="div" className="toolbar-export-mobile" open={exportMenuOpen} align="bottom-end" onRequestClose={() => setExportMenuOpen(false)}>
-            <IconButton ref={exportToggleRef} id="export-toggle" size="sm" kind="ghost" align="bottom-end" label="Export" aria-expanded={exportMenuOpen} aria-controls="export-menu" aria-haspopup="dialog" onClick={() => setExportMenuOpen((open) => !open)}><UiIcon name="export" /></IconButton>
-            <PopoverContent>
-              <Layer id="export-menu" withBackground className="toolbar-export-actions">{renderExportActions(() => setExportMenuOpen(false))}</Layer>
-            </PopoverContent>
-          </Popover>
-        </>}
+        primaryAction={headerActions}
       />}
       navigation={<WorkspaceNavigation libraryOpen={libraryOpen} activeInspector={inspectorMode} onToggleLibrary={toggleLibrary} onToggleInspector={toggleInspector} registerItemRef={registerWorkspaceNavigationRef} />}
       statusBar={<ScientificStatusBar aria-label="Diagram status" status={shellStatus} metadata={<>
@@ -2105,7 +2100,12 @@ export default function Home() {
           inert={narrowWorkspace && (libraryOpen || Boolean(inspectorMode)) || undefined}
         >
           <div className="stage scientific-stage">
-            {elements.length === 0 && <div className="stage-empty"><strong>Start with a component</strong><p>Add one from the library or load a template from the toolbar.</p></div>}
+            {elements.length === 0 && <ScientificEmptyState
+              className="stage-empty"
+              title="Start with a component"
+              description="Add one from the library or load a template from the toolbar."
+              action={<Button size="sm" kind="secondary" onClick={toggleLibrary}>Open component library</Button>}
+            />}
             <div className="diagram-flow" role="group" aria-label={`${title}, editable scientific setup diagram`}>
               <DiagramCanvas<CanvasFlowNode, ScientificFlowEdge>
                 nodes={flowNodes}

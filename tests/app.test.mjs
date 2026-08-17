@@ -59,26 +59,28 @@ test("builds a static TypeScript, React, and Vite app", async () => {
     'id="diagram-workspace"',
     'aria-label="Edit actions"',
     'aria-label="File actions"',
-    'className="toolbar-export-mobile"',
+    'id="header-actions-menu"',
   ]) assert.match(editor, new RegExp(feature));
   assert.match(componentLibrary, /labelText="Search components"/);
   assert.doesNotMatch(editor, /ref=\{(?:fileRef|bomRef)\} className="sr-only"/);
   assert.match(editor, /useState<DiagramElement\[]>\(\[\]\)/);
   assert.match(editorConfig, /componentGroups\.map\(\(group\) => group\.title\)/);
-  assert.match(editor, /Start with a component/);
+  assert.match(editor, /<ScientificEmptyState/);
+  assert.match(editor, /title="Start with a component"/);
   assert.match(editor, /buttonId="publication-title" label="Publication"/);
   assert.doesNotMatch(editor, /toolbar-export-desktop/);
-  assert.equal([...editor.matchAll(/<Popover as="div" className="toolbar-/g)].length, 2);
+  assert.equal([...editor.matchAll(/<Popover as="div" className="toolbar-/g)].length, 1);
   assert.doesNotMatch(editor, /<details|<summary|uiIconPaths/);
   assert.match(editor, /from "@carbon\/react"/);
   assert.match(editor, /from "@carbon\/react\/icons"/);
   assert.match(editorControls, /<Accordion /);
   assert.match(editor, /<PopoverContent/);
-  assert.match(editor, /<PopoverContent>\s*<Layer id="project-menu" withBackground className="toolbar-menu-actions">/);
-  assert.match(editor, /<PopoverContent>\s*<Layer id="export-menu" withBackground className="toolbar-export-actions">/);
-  assert.equal([...editor.matchAll(/<Popover[^>]*align="bottom-end"/g)].length, 2);
-  assert.equal([...editor.matchAll(/<IconButton[^>]*align="bottom-end"/g)].length, 6);
-  assert.equal([...editor.matchAll(/aria-expanded=\{(?:project|export)MenuOpen\}/g)].length, 2);
+  assert.match(editor, /<PopoverContent>\s*<Layer id="header-actions-menu" withBackground className="toolbar-menu-actions toolbar-header-menu">/);
+  assert.match(editor, /className="toolbar-export-actions"/);
+  assert.match(editor, /id="header-actions-toggle"/);
+  assert.doesNotMatch(editor, /projectMenuOpen|exportMenuOpen|project-toggle|export-toggle/);
+  assert.equal([...editor.matchAll(/<Popover[^>]*align="bottom-end"/g)].length, 1);
+  assert.match(editor, /aria-expanded=\{headerActionsOpen\}/);
   assert.match(editor, /<IconButton/);
   assert.match(editor, /if \(narrowWorkspace\) openSelectionInspector\(\)/);
   assert.match(editor, /setSelectedIds\(\[id\]\);\s+openSelectionInspector\(\)/);
@@ -122,7 +124,14 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(editor, /const contentNodes = nodes\.filter\(\(node\) => node\.id !== "__paper__"\)/);
   assert.match(editor, /narrowWorkspace \? 0\.35 : 0\.25/);
   assert.match(editor, /new ResizeObserver/);
-  assert.match(editor, /const \[notice, setNotice\] = useState\("Saved"\)/);
+  assert.match(editor, /const \[notice, setNotice\] = useState\("Empty diagram · add components"\)/);
+  assert.match(editor, /const hasDiagramContent = elements\.length > 0 \|\| connections\.length > 0/);
+  assert.match(editor, /state: "needs-input"/);
+  assert.doesNotMatch(editor, /state:\s*notice\s*===\s*["']Saved["']/,
+    "the shell state must not be inferred from a presentation notice");
+  assert.match(editor, /hasDiagramContent[\s\S]*state: "modified"/,
+    "diagram content should map to the typed modified state");
+  assert.match(editor, /setNotice\("Diagram modified"\)/);
   for (const feature of ['NodeToolbar', 'EdgeToolbar', 'NodeResizer', 'ControlButton', 'onConnectStart', 'onMoveEnd', 'diagram-export', 'role="group"', 'className="property-section"', 'BOM CSV', 'Import BOM', 'Arrange overlaps']) assert.match(editor, new RegExp(feature));
   for (const feature of ['ReactFlow', 'ConnectionMode.Loose', 'BaseEdge']) assert.match(diagramCanvas, new RegExp(feature));
   assert.doesNotMatch(diagramCanvas, /<Background|gridVisible/);
@@ -168,6 +177,8 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(workspaceStyles, /container:\s*sidebar \/ inline-size/);
   assert.match(workspaceStyles, /workspace\[data-inspector="document"\]/);
   assert.match(workspaceStyles, /workspace\[data-library-open="true"\]\[data-inspector="selection"\]/);
+  assert.match(workspaceStyles, /\.setupsketch-app \.setup-header-title\s*\{[^}]*width:\s*100%;[^}]*\}/s);
+  assert.match(workspaceStyles, /\.setupsketch-app \.setup-header-title input\s*\{[^}]*text-overflow:\s*ellipsis;/s);
   assert.match(editor, /if \(next && \(!dualPanelWorkspace \|\| inspectorMode !== "selection"\)\) setInspectorMode\(null\)/);
   assert.match(editor, /const toggleInspector = \(mode:[\s\S]*?setLibraryOpen\(false\)/);
   assert.match(packageJson.dependencies["@jorpago2/scientific-ui"], /scientific-ui-\d+\.\d+\.\d+\.tgz$/);

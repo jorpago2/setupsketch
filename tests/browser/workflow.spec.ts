@@ -15,6 +15,10 @@ const importDiagram = async (page: Page, body: object, expectedComponents = 42) 
   await expect(page.locator(".react-flow__node-scientific")).toHaveCount(expectedComponents);
 };
 
+const openHeaderActions = async (page: Page) => {
+  await page.getByRole("button", { name: "More actions" }).click();
+};
+
 const branchedRfDiagram = () => {
   const sinks = Array.from({ length: 41 }, (_, index) => ({
     id: `sink-${index}`,
@@ -37,16 +41,16 @@ const branchedRfDiagram = () => {
 test("destructive actions use a keyboard-operable modal and preserve undo", async ({ page }) => {
   await page.goto("./");
   await importDiagram(page, branchedRfDiagram());
-  await page.getByRole("button", { name: "Project" }).click();
+  await openHeaderActions(page);
   await page.getByRole("button", { name: "Reset diagram" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText("Clear the current diagram?", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
-  await expect(page.getByRole("button", { name: "Project" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "More actions" })).toBeFocused();
 
-  await page.getByRole("button", { name: "Project" }).click();
+  await openHeaderActions(page);
   await page.getByRole("button", { name: "Reset diagram" }).click();
   await page.getByRole("button", { name: "Clear diagram" }).click();
   await expect(page.locator(".react-flow__node-scientific")).toHaveCount(0);
@@ -64,7 +68,7 @@ test("budget truncation and kT provenance are visible and exported", async ({ pa
   await expect(page.getByText(/kT = -170\.96 dBm\/Hz at 580\.0 K/)).toBeVisible();
 
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Project" }).click();
+  await openHeaderActions(page);
   await page.getByRole("button", { name: "Save JSON" }).click();
   const download = await downloadPromise;
   const stream = await download.createReadStream();
@@ -243,7 +247,7 @@ test("fit, import errors and blocked PDF export remain usable", async ({ page })
   await page.locator('input[aria-label="Open diagram JSON"]').setInputFiles({ name: "bad.json", mimeType: "application/json", buffer: Buffer.from("{}") });
   await expect(page.locator("body")).toContainText("Invalid diagram");
   await page.evaluate(() => { window.open = () => null; });
-  await page.getByRole("button", { name: "Export" }).click();
+  await openHeaderActions(page);
   await page.getByRole("button", { name: "PDF", exact: true }).click();
   await expect(page.locator("body")).toContainText("Allow pop-ups to export the vector PDF");
   await expect(page.locator(".setup-export-receipt")).toHaveCount(0);

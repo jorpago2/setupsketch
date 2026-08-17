@@ -1,65 +1,45 @@
 
-# AGENTS.md
+# SetupSketch project guidance
 
-## Project Context
+## Arquitectura y propiedad
 
-This repository contains a React frontend using IBM Carbon Design System. The UI must remain visually consistent with Carbon, responsive, accessible, and behaviorally correct. Treat visual correctness and interaction behavior as first-class requirements.
+- React es el único propietario de la estructura, visibilidad, atributos ARIA, estado visual y eventos de la interfaz.
+- El modelo de dominio vive en `src/features/diagram-editor/model/`: sus funciones de movimiento, rutas, validación, presupuestos, persistencia y formateo deben ser puras y no depender del DOM.
+- `DiagramEditor.tsx` coordina el estado y traduce entre `DiagramElement`/`Connection` y los nodos/aristas de `@xyflow/react`. React Flow es la capa de edición y presentación, no la fuente de verdad científica.
+- `DiagramCanvas.tsx` y las aristas personalizadas pueden usar la API de React Flow, pero no deben duplicar el modelo ni guardar estado de negocio que no pueda persistirse en el snapshot.
 
-## Working Rules
+## Presupuestos y validez científica
 
-Before modifying code, inspect the relevant implementation, nearby components, project conventions, `package.json`, package manager, scripts, Carbon versions, and reproduce the problem whenever possible. For UI bugs, inspect the application in a real browser when available. Do not invent scripts, dependencies, component APIs, or Carbon APIs. Prefer the smallest root-cause fix without regressions.
+- Conserva las unidades y supuestos explícitos de `calculateBudgets`: ganancia/pérdida en dB, rutas por dominio, Friis para RF y densidad térmica `kT` a la temperatura indicada.
+- Respeta los límites de cálculo (`MAX_INCLUDED_BUDGETS` y `MAX_COUNTED_BUDGETS`). Si el resultado está truncado, conserva `truncated`, `totalIsExact` y la evidencia visible; no lo presentes como exhaustivo.
+- `validateSetup` debe seguir siendo una validación del modelo, no un efecto colateral de la vista. Mantén separados errores científicos/estructurales, advertencias y decisiones puramente visuales.
+- Al cambiar puertos, conexiones, rutas o componentes, comprueba tipos de puerto, ciclos, elementos sin conectar, calibración, ancho de banda, ruido y terminaciones antes de ajustar CSS o React Flow.
 
-## React Architecture
+## React Flow, canvas y exportaciones
 
-Prefer small focused components, predictable composition, shared components, existing hooks/utilities, semantic HTML, and stable layouts. Avoid unrelated rewrites during visual fixes.
+- El estado React/modelo controla nodos, aristas, selección, viewport, waypoints, grid y visibilidad. No mezcles listeners imperativos y handlers React sobre el mismo control.
+- Mantén la geometría de conexiones y el routing ortogonal en el modelo; la arista de React Flow solo debe representar ese resultado y seguir siendo accesible e interactiva.
+- SVG, PNG, PDF, TikZ, netlist, BOM CSV y PowerPoint deben derivarse del snapshot/modelo actual, usar nombres de archivo seguros y escapar correctamente texto, CSV y LaTeX. No exportes datos obsoletos del estado anterior.
+- Para exportaciones rasterizadas o de publicación, comprueba tamaño, escala, recorte, capas, etiquetas y legibilidad. Para importación BOM CSV, conserva la validación de columnas, valores numéricos y mensajes de error.
+- Los accesos imperativos a `canvas`, descarga de blobs, impresión y captura del frame son fronteras de exportación controladas por React; no conviertas esas operaciones en una segunda fuente de estado.
 
-## IBM Carbon
+## Carbon y `scientific-ui`
 
-Use the installed Carbon implementation first. Before creating custom controls, check whether Carbon already provides the required Button, Input, Select, Dropdown, ComboBox, Checkbox, Tabs, Accordion, Modal, Notification, Tooltip, Menu, Table, Loading, Tag, Breadcrumb, Search, or shell component. Preserve Carbon accessibility, sizing, interaction, and visual conventions.
+- Usa la versión instalada de `@carbon/react` cuando encaje, pero Carbon no garantiza por sí solo una composición clara, jerarquía correcta o buen responsive. Consulta documentación o Storybook solo al introducir un componente, resolver una duda o sobrescribir estilos internos.
+- Respeta tokens, accesibilidad, foco, teclado, estados de carga/error/vacío y comportamiento responsive. Evalúa la interfaz renderizada, incluida la edición React Flow y sus paneles, no solo el JSX.
+- Corrige por defecto los problemas específicos de SetupSketch. Modifica `@jorpago2/scientific-ui` únicamente si la causa pertenece realmente al componente compartido y la corrección debe propagarse.
+- Si se actualiza la dependencia vendorizada, cambia conjuntamente `package.json`, `pnpm-lock.yaml` y `vendor/jorpago2-scientific-ui-*.tgz`, y comprueba que el tarball nuevo queda rastreado por Git.
 
-Use Carbon or project tokens for spacing, typography, color, backgrounds, borders, layers, focus, and sizing. Avoid arbitrary magic values unless product-specific and intentional. Respect `Grid`, `Column`, gutters, margins, maximum widths, shell offsets, and breakpoints; do not replace a functioning Carbon grid with local hacks.
+## Camino rápido y colaboración
 
-## Responsive UI
+- Atiende una familia concreta de problemas por iteración. Inspecciona la implementación relevante y un flujo representativo; amplía el alcance solo si el riesgo o el resultado lo justifican.
+- Usa subagentes `gpt-5.6-luna` con razonamiento `max` en paralelo solo para partes independientes donde mejoren claramente velocidad, cobertura o calidad. Asigna archivos y objetivos sin solapamiento; el agente principal integra, revisa el diff y verifica el estado final.
+- No uses subagentes para cambios pequeños o fuertemente acoplados, ni permitas ediciones simultáneas del mismo archivo.
 
-Verify significant UI changes at 1440×900, 1280×800, 1024×768, 768×1024, and 390×844, including intermediate widths around breakpoints. Check horizontal overflow, clipping, overlaps, navigation coverage, fixed widths, min/max widths, wrapping, controls, modals, popovers, stacking, empty space, and layout jumps.
+## Verificación
 
-## Browser Validation
-
-For UI work, use `$playwright-interactive` when available. Reproduce the issue, inspect the affected viewport, interact with controls, apply the fix, reload, verify the original scenario, check other supported viewports, and check nearby regressions. Do not claim a visual issue is fixed based only on compilation, static CSS, or unit tests.
-
-## Interaction and Accessibility
-
-Test default, hover, focus, active, selected, expanded, collapsed, disabled, loading, empty, error, and success states when relevant. Check semantic HTML, accessible names, keyboard operation, tab order, visible focus, Escape behavior, ARIA usage, error association, and disabled semantics. Prefer Carbon's built-in accessible behavior.
-
-## CSS and Overlays
-
-Prefer local, predictable, token-based, responsive, content-resilient styles. Avoid `!important`, arbitrary z-index escalation, negative margins, magic offsets, absolute structural positioning, JavaScript layout calculations, duplicate media queries, excessive specificity, and DOM-order hacks. For overlays inspect stacking contexts, `position`, `transform`, `opacity`, `overflow`, portals, and Carbon layers. Fix the source rather than increasing z-index repeatedly.
-
-## Forms, Dense Interfaces, and Content
-
-Check labels, help text, validation, required/disabled states, field sizing, spacing, keyboard navigation, mobile layout, long messages, empty/loading states, narrow tables, truncation, sorting, selection, and large datasets. Test long titles, labels, values, missing optional values, and localization-length content.
-
-## Runtime and Testing
-
-During browser validation inspect React warnings, exceptions, failed relevant requests, hydration errors, missing keys, invalid DOM nesting, accessibility warnings, and Carbon warnings. Discover and run the repository's actual scripts: typecheck, lint, tests, component/integration/accessibility tests, visual regression, and production build as applicable. Do not invent command names.
-
-## Definition of Done
-
-A UI change is complete only when the problem is reproduced or understood, the root cause is identified, the architecture and Carbon conventions are respected, browser behavior is verified, relevant responsive viewports and interaction states are checked, accessibility and runtime behavior have not regressed, automated checks pass, and nearby UI has been inspected.
-
-## Required UI Bug Workflow
-
-1. Reproduce: locate the route/component, run the app, identify viewport and interaction state.
-2. Diagnose: determine whether the cause is Carbon usage, grid, CSS, parent layout, state, rendering, DOM, overflow, stacking, breakpoint, content, or browser behavior.
-3. Fix: apply the smallest robust root-cause correction.
-4. Verify: return to the browser and test the original scenario, other viewports, states, and adjacent UI.
-5. Validate: run the appropriate automated checks.
-6. Report: summarize root cause, changes, browser verification, automated verification, and remaining risks. Never claim unperformed verification.
-
-## Repository Skills
-
-Use `$carbon-ui-review` for Carbon-specific visual, component, consistency, or accessibility work. Use `$responsive-ui-audit` for responsive layout, breakpoint, overflow, wrapping, or viewport-specific problems. Use both when applicable. Prefer `$playwright-interactive` as the browser inspection layer.
-
-## Review Priorities
-
-Prioritize user-facing regressions: incorrect Carbon usage, reimplemented Carbon controls, hard-coded design values, overflow, fragile CSS hacks, missing interaction states, keyboard/accessibility regressions, long-content failures, modal/popover viewport problems, runtime errors, and missing verification. Distinguish defects, maintainability risks, and optional polish.
+- Para cambios visuales o de interacción, usa `$browser:control-in-app-browser` cuando esté disponible, inspecciona la pantalla renderizada y reutiliza el servidor local y HMR durante la iteración. No declares resuelto un problema visual solo por compilación o inspección estática.
+- Cambio visual localizado: navegador interno y resolución afectada. Cambio responsive: escritorio y un viewport representativo del breakpoint. Cambio de modelo, React Flow o exportación: ejecuta el flujo afectado y las comprobaciones correspondientes.
+- Usa únicamente los scripts reales del proyecto: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:ui`, `pnpm build`, `pnpm dev` y `pnpm preview`.
+- `pnpm test` construye la aplicación y ejecuta las pruebas de modelo/app; `pnpm test:ui` ejecuta los flujos de navegador. Reserva `pnpm build` para la integración final o antes de publicar, y no ejecutes una matriz completa para un ajuste localizado.
+- Mantén separadas la validez de presupuestos/modelo y la calidad visual salvo que el cambio afecte a ambas. Informa solo de comprobaciones realmente ejecutadas.
