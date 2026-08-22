@@ -160,6 +160,15 @@ body {
   grid-column: 1 / -1;
 }
 
+.export-blocked-note {
+  margin: 0;
+  padding: var(--space-xs);
+  border-inline-start: 3px solid var(--color-danger);
+  color: var(--color-danger);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+
 .module-row,
 .checklist-row {
   display: grid;

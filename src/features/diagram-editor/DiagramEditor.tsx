@@ -128,30 +128,26 @@ type NumericDraftInputProps = Omit<ComponentProps<typeof NumberInput>, "value" |
 function NumericDraftInput({ value, onValueChange, required = false, ...props }: NumericDraftInputProps) {
   const normalizedValue = typeof value === "number" && Number.isFinite(value) ? value : undefined;
   const [draft, setDraft] = useState(normalizedValue === undefined ? "" : String(normalizedValue));
+  const [draftSource, setDraftSource] = useState<number | undefined>(normalizedValue);
   const [focused, setFocused] = useState(false);
   const [invalid, setInvalid] = useState(false);
-  const [committedValue, setCommittedValue] = useState<number | undefined>(normalizedValue);
-
-  if (!focused && normalizedValue !== committedValue) {
-    setCommittedValue(normalizedValue);
-    const nextDraft = normalizedValue === undefined ? "" : String(normalizedValue);
-    if (draft !== nextDraft) setDraft(nextDraft);
-    if (invalid) setInvalid(false);
-  }
+  const displayedDraft = focused || normalizedValue === draftSource
+    ? draft
+    : normalizedValue === undefined ? "" : String(normalizedValue);
 
   const commitDraft = (next: string) => {
     setDraft(next);
     if (next.trim() === "") {
       setInvalid(required);
       if (!required) {
-        setCommittedValue(undefined);
+        setDraftSource(undefined);
         onValueChange(undefined);
       }
       return;
     }
     const parsed = Number(next);
     if (!Number.isFinite(parsed)) return;
-    setCommittedValue(parsed);
+    setDraftSource(parsed);
     setInvalid(false);
     onValueChange(parsed);
   };
@@ -171,10 +167,16 @@ function NumericDraftInput({ value, onValueChange, required = false, ...props }:
   return <NumberInput
     {...props}
     allowEmpty
-    value={draft}
-    invalid={invalid}
+    value={displayedDraft}
+    invalid={invalid && normalizedValue === draftSource}
     invalidText={required && draft.trim() === "" ? "Enter a value." : "Enter a valid number."}
-    onFocus={(event) => { setFocused(true); props.onFocus?.(event); }}
+    onFocus={(event) => {
+      setDraft(displayedDraft);
+      setDraftSource(normalizedValue);
+      setInvalid(false);
+      setFocused(true);
+      props.onFocus?.(event);
+    }}
     onBlur={handleBlur}
     onChange={handleChange}
   />;
@@ -706,6 +708,11 @@ export default function Home() {
     mechanicalKinds,
     (kind, portId) => elementKinds.has(kind as ElementKind) ? portTypeFor(kind as ElementKind, portId) : undefined,
   );
+  const blockingValidationIssues = validationIssues.filter((issue) => issue.severity === "error");
+  const exportBlocked = blockingValidationIssues.length > 0;
+  const exportBlockReason = exportBlocked
+    ? `Resolve ${blockingValidationIssues.length} structural issue${blockingValidationIssues.length === 1 ? "" : "s"} in Review before exporting the review PDF.`
+    : undefined;
   const budgetSummary = calculateBudgets(elements, connections, noiseTemperatureK);
   const budgets = budgetSummary.items;
   const budgetCountLabel = `${budgetSummary.included} of ${budgetSummary.totalIsExact ? budgetSummary.total : `at least ${budgetSummary.total}`}`;
@@ -1558,6 +1565,10 @@ export default function Home() {
   });
 
   const exportPdf = () => {
+    if (exportBlocked) {
+      setNotice(exportBlockReason ?? "Resolve structural issues before exporting");
+      return false;
+    }
     const popup = window.open("", "_blank", "popup");
     if (!popup) {
       setNotice("Allow pop-ups to export the vector PDF");
@@ -2038,13 +2049,14 @@ export default function Home() {
 
   const recordExport = (fileName: string, format: string, destination = "Download requested") => setExportReceipt({ fileName, format, destination });
   const renderExportActions = (close: () => void) => <>
+    {exportBlocked && <p className="export-blocked-note" role="alert">{exportBlockReason}</p>}
     <Button size="sm" kind="ghost" onClick={() => { exportSvg(); recordExport(`${safeFilename(title)}.svg`, "SVG"); close(); }}>SVG</Button>
     <Button size="sm" kind="ghost" onClick={() => { void exportPng().then(() => recordExport(`${safeFilename(title)}.png`, "PNG")).catch((error) => setNotice(error instanceof Error ? error.message : "PNG export failed")); close(); }}>PNG</Button>
     <Button size="sm" kind="ghost" onClick={() => { exportTikz(); recordExport(`${safeFilename(title)}.tex`, "TeX"); close(); }}>TeX</Button>
     <Button size="sm" kind="ghost" onClick={() => { void exportPowerPoint().then(() => recordExport(`${safeFilename(title)}.pptx`, "PowerPoint")).catch(() => undefined); close(); }}>PPTX</Button>
     <Button size="sm" kind="ghost" onClick={() => { exportNetlist(); recordExport(`${safeFilename(title)}.net`, "Netlist"); close(); }}>Netlist</Button>
     <Button size="sm" kind="ghost" onClick={() => { exportBom(); recordExport(`${safeFilename(title)}-bom.csv`, "BOM CSV"); close(); }}>BOM CSV</Button>
-    <Button size="sm" kind="primary" onClick={() => { if (exportPdf()) recordExport(`${safeFilename(title)}.pdf`, "PDF", "Print dialog opened"); close(); }}><UiIcon name="export" />PDF</Button>
+    <Button size="sm" kind="primary" disabled={exportBlocked} title={exportBlockReason} onClick={() => { if (exportPdf()) recordExport(`${safeFilename(title)}.pdf`, "PDF", "Print dialog opened"); close(); }}><UiIcon name="export" />PDF</Button>
   </>;
 
   const renderProjectActions = (close: () => void) => <>
@@ -2490,7 +2502,7 @@ export default function Home() {
                 { id: "checklist", label: "Checklist", value: experiment.checklist.length ? `${experiment.checklist.filter((item) => item.done).length}/${experiment.checklist.length}` : "Not defined" },
               ]}
               actions={[
-                { id: "export-pdf", label: "Export review PDF", emphasis: "primary", disabled: validationIssues.some((issue) => issue.severity === "error"), onClick: () => { if (exportPdf()) recordExport(`${safeFilename(title)}.pdf`, "PDF", "Print dialog opened"); } },
+                { id: "export-pdf", label: "Export review PDF", emphasis: "primary", disabled: exportBlocked, disabledReason: exportBlockReason, onClick: () => { if (exportPdf()) recordExport(`${safeFilename(title)}.pdf`, "PDF", "Print dialog opened"); } },
                 { id: "edit-procedure", label: "Edit procedure", emphasis: "secondary", collapseAt: "sm", onClick: () => setInspectorMode("experiment") },
                 { id: "save-project", label: "Save project JSON", emphasis: "tertiary", overflowOnly: true, onClick: () => { saveJson(); recordExport(`${safeFilename(title)}.json`, "JSON"); } },
               ]}
