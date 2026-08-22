@@ -97,7 +97,7 @@ import { annotationDefaultSizes, defaultCollapsedGroups, defaultExperiment, defa
 import { cloneSnapshot, download, safeFilename } from "./model/editorPersistence";
 import { closestPortPair, getConnectionDomain, getConnectionType, normalizeConnectionPorts, portsFor } from "./model/connectionGeometry";
 import { csvCell, escapeLatex, formatBandwidth, optionalNumber, svgDataUri } from "./model/exportFormatting";
-import { ExportReceipt, SCIENTIFIC_AUTOSAVE_FORMAT, ScientificAppShell, ScientificAutosaveStatus, ScientificEmptyState, ScientificHeader, ScientificOutcomeSummary, ScientificRecoveryNotice, ScientificStatusBar, ScientificValidationSummary, useScientificAutosave, type ScientificState } from "@jorpago2/scientific-ui";
+import { ExportReceipt, SCIENTIFIC_AUTOSAVE_FORMAT, ScientificAppShell, ScientificAutosaveStatus, ScientificEmptyState, ScientificHeader, ScientificOutcomeSummary, ScientificRecoveryNotice, ScientificStatusBar, ScientificValidationSummary, useScientificAutosave, useScientificTheme, type ScientificState } from "@jorpago2/scientific-ui";
 
 type DiagramFile = {
   version?: number;
@@ -130,28 +130,28 @@ function NumericDraftInput({ value, onValueChange, required = false, ...props }:
   const [draft, setDraft] = useState(normalizedValue === undefined ? "" : String(normalizedValue));
   const [focused, setFocused] = useState(false);
   const [invalid, setInvalid] = useState(false);
-  const committedValue = useRef<number | undefined>(normalizedValue);
+  const [committedValue, setCommittedValue] = useState<number | undefined>(normalizedValue);
 
-  useEffect(() => {
-    if (focused || normalizedValue === committedValue.current) return;
-    committedValue.current = normalizedValue;
-    setDraft(normalizedValue === undefined ? "" : String(normalizedValue));
-    setInvalid(false);
-  }, [focused, normalizedValue]);
+  if (!focused && normalizedValue !== committedValue) {
+    setCommittedValue(normalizedValue);
+    const nextDraft = normalizedValue === undefined ? "" : String(normalizedValue);
+    if (draft !== nextDraft) setDraft(nextDraft);
+    if (invalid) setInvalid(false);
+  }
 
   const commitDraft = (next: string) => {
     setDraft(next);
     if (next.trim() === "") {
       setInvalid(required);
       if (!required) {
-        committedValue.current = undefined;
+        setCommittedValue(undefined);
         onValueChange(undefined);
       }
       return;
     }
     const parsed = Number(next);
     if (!Number.isFinite(parsed)) return;
-    committedValue.current = parsed;
+    setCommittedValue(parsed);
     setInvalid(false);
     onValueChange(parsed);
   };
@@ -621,6 +621,7 @@ const flowNodeTypes = { scientific: ScientificFlowNodeComponent, paper: PaperFlo
 const flowEdgeTypes = { waypoint: WaypointEdgeComponent };
 
 export default function Home() {
+  const { isDark } = useScientificTheme();
   const [elements, setElements] = useState<DiagramElement[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [title, setTitle] = useState("Untitled scientific setup");
@@ -662,6 +663,7 @@ export default function Home() {
   const [savedViewport, setSavedViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<CanvasFlowNode, ScientificFlowEdge> | null>(null);
   const narrowWorkspace = useWorkspaceMediaQuery("(max-width: 65.99rem)");
+  const overlayWorkspace = useWorkspaceMediaQuery("(max-width: 47.99rem)");
   const dualPanelWorkspace = useWorkspaceMediaQuery("(min-width: 99rem)");
   const svgRef = useRef<SVGSVGElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -901,7 +903,7 @@ export default function Home() {
     return instance.fitView({
       nodes: targets,
       padding: selectedNodes.length ? 0.2 : narrowWorkspace ? 0.12 : 0.04,
-      minZoom: selectedNodes.length ? 0.7 : narrowWorkspace ? 0.35 : 0.25,
+      minZoom: selectedNodes.length ? 0.7 : 0.25,
       maxZoom: selectedNodes.length ? 1.5 : 1,
     });
   }, [inspectorMode, narrowWorkspace]);
@@ -964,9 +966,9 @@ export default function Home() {
     const visibleNodes = instance.getNodes().filter((node) => !node.hidden && node.id !== "__paper__");
     const selectedNodes = selectedIds.length ? visibleNodes.filter((node) => selectedIds.includes(node.id)) : [];
     const nodes = selectedNodes.length ? selectedNodes : visibleNodes.length ? visibleNodes : instance.getNodes().filter((node) => node.id === "__paper__");
-    void instance.fitView({ nodes, padding: selectedNodes.length ? 0.2 : 0.08, minZoom: selectedNodes.length ? 0.7 : narrowWorkspace ? 0.35 : 0.25, maxZoom: selectedNodes.length ? 1.5 : 1 });
+    void instance.fitView({ nodes, padding: selectedNodes.length ? 0.2 : 0.08, minZoom: selectedNodes.length ? 0.7 : 0.25, maxZoom: selectedNodes.length ? 1.5 : 1 });
     setNotice(selectedNodes.length ? "Selection fitted for editing" : "Overview fitted · zoom in to edit labels and ports");
-  }, [narrowWorkspace, selectedIds]);
+  }, [selectedIds]);
 
   useEffect(() => {
     setFlowNodes(modelFlowNodes);
@@ -1008,6 +1010,11 @@ export default function Home() {
     const frame = requestAnimationFrame(() => panel.focus());
     return () => cancelAnimationFrame(frame);
   }, [inspectorMode, libraryOpen, narrowWorkspace]);
+
+  useEffect(() => {
+    const panel = inspectorMode === "selection" ? selectionPanelRef.current : inspectorMode ? workspacePanelRef.current : null;
+    panel?.querySelector<HTMLElement>(".scientific-task-panel__body")?.scrollTo({ top: 0 });
+  }, [inspectorMode, selectedConnectionId, selectedIds]);
 
   useEffect(() => {
     if (!hasSelection && inspectorMode === "selection") setInspectorMode(null);
@@ -2224,8 +2231,8 @@ export default function Home() {
           lg={16}
           className="stage-wrap scientific-stage"
           aria-label="Diagram workspace"
-          aria-hidden={narrowWorkspace && (libraryOpen || Boolean(inspectorMode)) || undefined}
-          inert={narrowWorkspace && (libraryOpen || Boolean(inspectorMode)) || undefined}
+          aria-hidden={overlayWorkspace && (libraryOpen || Boolean(inspectorMode)) || undefined}
+          inert={overlayWorkspace && (libraryOpen || Boolean(inspectorMode)) || undefined}
         >
           <div className="stage scientific-stage">
             {elements.length === 0 && <ScientificEmptyState
@@ -2263,6 +2270,7 @@ export default function Home() {
                 onInit={initializeFlow}
                 onMoveEnd={(_, viewport) => rememberFlowViewport(viewport)}
                 attributionPosition="bottom-left"
+                colorMode={isDark ? "dark" : "light"}
               >
                 {selectedIds.length > 0 && <NodeToolbar nodeId={selectedIds} isVisible={inspectorMode !== "selection" && !narrowWorkspace} className="context-toolbar" position={Position.Top}>
                   <IconButton size="sm" kind="ghost" label="Properties" onClick={openSelectionInspector}><SettingsAdjust size={16} aria-hidden={true} /></IconButton>

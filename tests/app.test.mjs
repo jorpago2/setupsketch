@@ -115,6 +115,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
     assert.match(editor, new RegExp(`<${component}`));
   }
   assert.match(componentLibrary, /<Search/);
+  assert.match(componentLibrary, /className="component-add"[^>]*kind="ghost"/);
   assert.match(componentLibrary, /<TrashCan size=\{16\}/);
   assert.match(componentLibrary, /<ScientificTaskPanel/);
   assert.match(componentLibrary, /bodyClassName="sidebar-content"/);
@@ -122,7 +123,7 @@ test("builds a static TypeScript, React, and Vite app", async () => {
   assert.match(inspectorPanel, /bodyClassName="sidebar-content"/);
   assert.doesNotMatch(editor, /↶|↷|toolbar-label-compact/);
   assert.match(editor, /const contentNodes = nodes\.filter\(\(node\) => node\.id !== "__paper__"\)/);
-  assert.match(editor, /narrowWorkspace \? 0\.35 : 0\.25/);
+  assert.doesNotMatch(editor, /narrowWorkspace \? 0\.35/);
   assert.match(editor, /new ResizeObserver/);
   assert.match(editor, /const \[notice, setNotice\] = useState\("Empty diagram · add components"\)/);
   assert.match(editor, /const hasDiagramContent = elements\.length > 0 \|\| connections\.length > 0/);

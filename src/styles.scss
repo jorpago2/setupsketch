@@ -97,8 +97,7 @@ body {
   width: min(272px, calc(100dvw - 2 * var(--space-sm)));
 }
 
-.toolbar-menu-actions,
-.toolbar-export-actions {
+.toolbar-menu-actions {
   max-width: none;
   width: min(272px, calc(100dvw - 2 * var(--space-sm)));
   display: grid;
@@ -107,6 +106,19 @@ body {
   padding: var(--space-sm);
   border: var(--rule-hair) solid var(--color-rule);
   background: var(--color-surface-raised);
+}
+
+.toolbar-menu-actions {
+  max-block-size: calc(100dvh - var(--scientific-ui-header-block-size) - var(--space-sm));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.toolbar-export-actions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-xs);
 }
 
 .toolbar-menu-actions .connection-type {
@@ -665,8 +677,7 @@ body {
     overflow: visible;
   }
 
-  .toolbar-menu-actions,
-  .toolbar-export-actions {
+  .toolbar-menu-actions {
     width: 280px;
   }
 

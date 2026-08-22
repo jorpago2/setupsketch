@@ -253,7 +253,7 @@ test("cropped SVG exports resolve colors and include rotated geometry", async ({
     connections: [],
   }, 1);
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export" }).click();
+  await openHeaderActions(page);
   await page.getByRole("button", { name: "SVG", exact: true }).click();
   const download = await downloadPromise;
   const stream = await download.createReadStream();
@@ -448,7 +448,7 @@ test("the scientific viewport follows layout changes without feedback shifting t
   }
 
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export" }).click();
+  await openHeaderActions(page);
   await page.getByRole("button", { name: "SVG", exact: true }).click();
   await downloadPromise;
   await expect(page.locator(".setup-export-receipt")).toBeVisible();
@@ -458,4 +458,54 @@ test("the scientific viewport follows layout changes without feedback shifting t
   await page.getByRole("button", { name: "Fit overview" }).click();
   await expect(page.locator(".scientific-status").filter({ visible: true }).first()).toContainText("Overview fitted");
   await expect(page.locator(".scientific-status").filter({ visible: true }).first()).toContainText("Saved", { timeout: 7_000 });
+});
+
+test("tablet panels preserve the scientific result and reset inspector scroll", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto("./");
+  await importDiagram(page, {
+    version: 12,
+    title: "Tablet workspace",
+    elements: [
+      { id: "source", kind: "laser", label: "Source", x: 240, y: 320, rotation: 0, color: "#20242a" },
+      { id: "sample", kind: "sample", label: "Sample", x: 760, y: 320, rotation: 0, color: "#cc79a7" },
+    ],
+    connections: [],
+  }, 2);
+
+  await page.getByRole("button", { name: "Layout", exact: true }).click();
+  await expect(page.locator("#document-inspector")).toBeVisible();
+  await expect(page.locator(".stage-wrap")).toBeVisible();
+  await expect(page.locator(".stage-wrap")).not.toHaveAttribute("aria-hidden", "true");
+  const [panelBox, stageBox] = await Promise.all([
+    page.locator("#document-inspector").boundingBox(),
+    page.locator(".stage-wrap").boundingBox(),
+  ]);
+  expect(panelBox?.width).toBeGreaterThanOrEqual(320);
+  expect(stageBox?.width).toBeGreaterThanOrEqual(500);
+
+  await page.getByRole("button", { name: "Close document settings" }).click();
+  await page.locator(".react-flow__node-scientific").first().click();
+  const inspectorBody = page.locator("#selection-inspector .scientific-task-panel__body");
+  await expect(inspectorBody).toBeVisible();
+  await page.getByRole("button", { name: "Engineering parameters" }).click();
+  await page.getByRole("button", { name: "Traceability" }).click();
+  await inspectorBody.evaluate((body) => { body.scrollTop = body.scrollHeight; });
+  expect(await inspectorBody.evaluate((body) => body.scrollTop)).toBeGreaterThan(0);
+  await page.getByRole("button", { name: "Close selection properties" }).click();
+  await page.locator(".react-flow__node-scientific").last().click();
+  await expect.poll(() => inspectorBody.evaluate((body) => body.scrollTop)).toBe(0);
+});
+
+test("React Flow follows the application theme", async ({ page }) => {
+  await page.goto("./");
+  const flow = page.locator(".react-flow");
+  const startedDark = await flow.evaluate((element) => element.classList.contains("dark"));
+  await expect(flow).toHaveClass(startedDark ? /dark/ : /light/);
+  const themeToggle = page.getByRole("button", { name: startedDark ? "Use light theme" : "Use dark theme" });
+  if (await themeToggle.isVisible()) {
+    await themeToggle.click();
+    await expect(flow).toHaveClass(startedDark ? /light/ : /dark/);
+    await expect(flow).not.toHaveClass(startedDark ? /dark/ : /light/);
+  }
 });

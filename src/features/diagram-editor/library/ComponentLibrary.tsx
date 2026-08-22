@@ -91,7 +91,7 @@ export function ComponentLibrary({
                   {group.items.map((item) => {
                     const favorite = favoriteKinds.includes(item.kind);
                     return <div className="component-card" key={`${group.title}-${item.kind}`}>
-                      <Button className="component-add" type="button" kind="tertiary" size="sm" onClick={() => onAddElement(item.kind, item.label)}>
+                      <Button className="component-add" type="button" kind="ghost" size="sm" onClick={() => onAddElement(item.kind, item.label)}>
                         {renderPreview(item.kind)}
                         {item.label}
                       </Button>
