@@ -2,6 +2,7 @@
 
 import {
   ChangeEvent,
+  type ComponentProps,
   type KeyboardEvent as ReactKeyboardEvent,
   memo,
   useCallback,
@@ -19,6 +20,7 @@ import {
   Layer,
   Modal,
   NumberInput,
+  ActionableNotification,
   Popover,
   PopoverContent,
   Select,
@@ -114,7 +116,69 @@ type SetupShellState = Extract<ScientificState, "needs-input" | "ready" | "modif
 
 type PendingDestructiveAction =
   | { kind: "clear" }
-  | { kind: "template"; templateId: string };
+  | { kind: "template"; templateId: string }
+  | { kind: "module"; moduleId: string };
+
+type NumericDraftInputProps = Omit<ComponentProps<typeof NumberInput>, "value" | "onChange" | "invalid" | "invalidText"> & {
+  value: number | undefined;
+  onValueChange: (value: number | undefined) => void;
+  required?: boolean;
+};
+
+function NumericDraftInput({ value, onValueChange, required = false, ...props }: NumericDraftInputProps) {
+  const normalizedValue = typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  const [draft, setDraft] = useState(normalizedValue === undefined ? "" : String(normalizedValue));
+  const [focused, setFocused] = useState(false);
+  const [invalid, setInvalid] = useState(false);
+  const committedValue = useRef<number | undefined>(normalizedValue);
+
+  useEffect(() => {
+    if (focused || normalizedValue === committedValue.current) return;
+    committedValue.current = normalizedValue;
+    setDraft(normalizedValue === undefined ? "" : String(normalizedValue));
+    setInvalid(false);
+  }, [focused, normalizedValue]);
+
+  const commitDraft = (next: string) => {
+    setDraft(next);
+    if (next.trim() === "") {
+      setInvalid(required);
+      if (!required) {
+        committedValue.current = undefined;
+        onValueChange(undefined);
+      }
+      return;
+    }
+    const parsed = Number(next);
+    if (!Number.isFinite(parsed)) return;
+    committedValue.current = parsed;
+    setInvalid(false);
+    onValueChange(parsed);
+  };
+
+  const handleChange: NonNullable<ComponentProps<typeof NumberInput>["onChange"]> = (_, data) => {
+    commitDraft(String(data.value ?? ""));
+  };
+
+  const handleBlur: NonNullable<ComponentProps<typeof NumberInput>["onBlur"]> = (event) => {
+    const trimmed = draft.trim();
+    const parsed = Number(trimmed);
+    setInvalid((trimmed === "" && required) || (trimmed !== "" && !Number.isFinite(parsed)));
+    setFocused(false);
+    props.onBlur?.(event);
+  };
+
+  return <NumberInput
+    {...props}
+    allowEmpty
+    value={draft}
+    invalid={invalid}
+    invalidText={required && draft.trim() === "" ? "Enter a value." : "Enter a valid number."}
+    onFocus={(event) => { setFocused(true); props.onFocus?.(event); }}
+    onBlur={handleBlur}
+    onChange={handleChange}
+  />;
+}
 
 const isViewport = (value: unknown): value is Viewport => {
   if (!value || typeof value !== "object") return false;
@@ -593,6 +657,7 @@ export default function Home() {
   const [recentKinds, setRecentKinds] = useState<ElementKind[]>([]);
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>(defaultCollapsedGroups);
   const [savedModules, setSavedModules] = useState<SavedModule[]>([]);
+  const [deletedModuleUndo, setDeletedModuleUndo] = useState<{ module: SavedModule; index: number } | null>(null);
   const [checklistDraft, setChecklistDraft] = useState("");
   const [savedViewport, setSavedViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<CanvasFlowNode, ScientificFlowEdge> | null>(null);
@@ -675,6 +740,7 @@ export default function Home() {
         },
         selected: selectedIds.includes(element.id),
         draggable: !element.locked,
+        focusable: true,
         hidden: !layers[annotationKinds.has(element.kind) ? "annotations" : electronicKinds.has(element.kind) ? "electronics" : "optics"],
         zIndex: index + 1,
         ariaLabel: `${element.label}, ${componentByKind.get(element.kind)?.label ?? element.kind}${element.locked ? ", locked" : ""}`,
@@ -1333,6 +1399,13 @@ export default function Home() {
         closeInspector();
       } else if (libraryOpen) {
         closeLibrary();
+      } else if (connectMode) {
+        setConnectMode(false);
+        setConnectFrom(null);
+        setNotice("Connection mode cancelled");
+        setSelectedIds([]);
+        setSelectedConnectionId(null);
+        requestAnimationFrame(() => headerActionsToggleRef.current?.focus());
       } else {
         setConnectMode(false);
         setConnectFrom(null);
@@ -1343,6 +1416,16 @@ export default function Home() {
     }
 
     const target = event.target instanceof Element ? event.target : null;
+    const flowNode = target?.closest<HTMLElement>(".react-flow__node[data-id]");
+    if (connectMode && flowNode && (event.key === "Enter" || event.key === " ")) {
+      const nodeId = flowNode.dataset.id;
+      if (nodeId) {
+        event.preventDefault();
+        event.stopPropagation();
+        selectFlowNode(nodeId);
+      }
+      return;
+    }
     const interfaceControl = target?.closest("input, textarea, select, button, a, [contenteditable='true']");
     if (interfaceControl) return;
     if (target?.closest(".react-flow") && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
@@ -1796,13 +1879,34 @@ export default function Home() {
     setPendingDestructiveAction(null);
     if (!action) return;
     if (action.kind === "clear") executeClearDiagram();
-    else executeTemplate(action.templateId);
+    else if (action.kind === "template") executeTemplate(action.templateId);
+    else {
+      const index = savedModules.findIndex((module) => module.id === action.moduleId);
+      const module = index >= 0 ? savedModules[index] : undefined;
+      if (module) {
+        setSavedModules((items) => items.filter((item) => item.id !== module.id));
+        setDeletedModuleUndo({ module, index });
+        setNotice(`Reusable module “${module.name}” deleted · Undo available`);
+      }
+    }
     requestAnimationFrame(() => headerActionsToggleRef.current?.focus());
   };
 
   const cancelPendingDestructiveAction = () => {
     setPendingDestructiveAction(null);
     requestAnimationFrame(() => headerActionsToggleRef.current?.focus());
+  };
+
+  const restoreDeletedModule = () => {
+    if (!deletedModuleUndo) return;
+    setSavedModules((items) => {
+      if (items.some((item) => item.id === deletedModuleUndo.module.id)) return items;
+      const next = [...items];
+      next.splice(Math.min(deletedModuleUndo.index, next.length), 0, deletedModuleUndo.module);
+      return next;
+    });
+    setDeletedModuleUndo(null);
+    setNotice("Reusable module restored");
   };
 
   const saveSelectionAsModule = () => {
@@ -1830,6 +1934,11 @@ export default function Home() {
     setModuleDialogOpen(false);
     setNotice("Reusable module saved");
     requestAnimationFrame(() => moduleSaveTriggerRef.current?.focus());
+  };
+
+  const requestDeleteModule = (moduleId: string) => {
+    if (!savedModules.some((module) => module.id === moduleId)) return;
+    setPendingDestructiveAction({ kind: "module", moduleId });
   };
 
   const insertModule = (moduleId: string) => {
@@ -2033,15 +2142,21 @@ export default function Home() {
         danger
         size="sm"
         modalLabel="Reversible diagram action"
-        modalHeading={pendingDestructiveAction?.kind === "template" ? "Replace the current diagram?" : "Clear the current diagram?"}
-        primaryButtonText={pendingDestructiveAction?.kind === "template" ? "Replace diagram" : "Clear diagram"}
+        modalHeading={pendingDestructiveAction?.kind === "template"
+          ? "Replace the current diagram?"
+          : pendingDestructiveAction?.kind === "module"
+            ? `Delete “${savedModules.find((module) => module.id === pendingDestructiveAction.moduleId)?.name ?? "saved module"}”?`
+            : "Clear the current diagram?"}
+        primaryButtonText={pendingDestructiveAction?.kind === "template" ? "Replace diagram" : pendingDestructiveAction?.kind === "module" ? "Delete module" : "Clear diagram"}
         secondaryButtonText="Cancel"
         onRequestClose={cancelPendingDestructiveAction}
         onRequestSubmit={confirmPendingDestructiveAction}
       >
         <p>{pendingDestructiveAction?.kind === "template"
           ? "The selected template will replace the current components and connections. You can restore the previous diagram with Undo."
-          : "All components and connections will be removed. You can restore them with Undo."}</p>
+          : pendingDestructiveAction?.kind === "module"
+            ? "The saved module will be removed from this browser. You can restore it with Undo immediately after deletion."
+            : "All components and connections will be removed. You can restore them with Undo."}</p>
       </Modal>
 
       <Modal
@@ -2067,6 +2182,19 @@ export default function Home() {
       </Modal>
 
       {exportReceipt && <div className="scientific-notifications"><ExportReceipt className="setup-export-receipt" fileName={exportReceipt.fileName} format={exportReceipt.format} destination={exportReceipt.destination} onDismiss={() => setExportReceipt(null)} /></div>}
+      {deletedModuleUndo && <div className="scientific-notifications">
+        <ActionableNotification
+          inline
+          lowContrast
+          kind="info"
+          title="Reusable module deleted"
+          subtitle={`“${deletedModuleUndo.module.name}” can be restored until another deletion replaces this recovery action.`}
+          actionButtonLabel="Undo deletion"
+          onActionButtonClick={restoreDeletedModule}
+          onClose={() => setDeletedModuleUndo(null)}
+          aria-label="Reusable module deletion"
+        />
+      </div>}
 
       <Grid as="section" ref={workspaceRef} fullWidth condensed className="workspace" id="diagram-workspace" aria-labelledby="app-title" data-library-open={libraryOpen} data-inspector-open={Boolean(inspectorMode)} data-inspector={inspectorMode ?? "none"} tabIndex={-1}>
         <ComponentLibrary
@@ -2081,7 +2209,7 @@ export default function Home() {
           onClose={closeLibrary}
           onQueryChange={setLibraryQuery}
           onInsertModule={insertModule}
-          onDeleteModule={(id) => setSavedModules((items) => items.filter((item) => item.id !== id))}
+          onDeleteModule={requestDeleteModule}
           onToggleGroup={(title) => setCollapsedGroups((items) => items.includes(title) ? items.filter((item) => item !== title) : [...items, title])}
           onAddElement={addElement}
           onToggleFavorite={toggleFavorite}
@@ -2228,28 +2356,28 @@ export default function Home() {
             <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
               <TextInput id="component-label" size="sm" labelText="Label" value={selected.label} onChange={(event) => updateSelected({ label: event.target.value })} />
               <div className="property-row">
-                <NumberInput id="component-x" size="sm" label="X" value={selected.x} min={0} max={dimensions.width} onChange={(_, { value }) => updateSelected({ x: Number(value) })} />
-                <NumberInput id="component-y" size="sm" label="Y" value={selected.y} min={0} max={dimensions.height} onChange={(_, { value }) => updateSelected({ y: Number(value) })} />
+                <NumericDraftInput id="component-x" size="sm" label="X" value={selected.x} min={0} max={dimensions.width} required onValueChange={(value) => { if (value !== undefined) updateSelected({ x: value }); }} />
+                <NumericDraftInput id="component-y" size="sm" label="Y" value={selected.y} min={0} max={dimensions.height} required onValueChange={(value) => { if (value !== undefined) updateSelected({ y: value }); }} />
               </div>
               <Slider id="component-rotation" hideTextInput labelText={`Rotation · ${selected.rotation}°`} min={0} max={345} step={15} value={selected.rotation} onChange={({ value }) => updateSelected({ rotation: Number(value) })} />
               <Slider id="component-scale" hideTextInput labelText={`Scale · ${(selected.scale ?? 1).toFixed(1)}×`} min={0.5} max={2} step={0.1} value={selected.scale ?? 1} onChange={({ value }) => updateSelected({ scale: Number(value) })} />
               {annotationKinds.has(selected.kind) && <div className="property-row">
-                <NumberInput id="annotation-width" size="sm" label="Width" min={40} max={600} value={selected.width ?? annotationDefaultSizes[selected.kind]?.width ?? 180} onChange={(_, { value }) => updateSelected({ width: Number(value) })} />
-                <NumberInput id="annotation-height" size="sm" label="Height" min={30} max={500} value={selected.height ?? annotationDefaultSizes[selected.kind]?.height ?? 70} onChange={(_, { value }) => updateSelected({ height: Number(value) })} />
+                <NumericDraftInput id="annotation-width" size="sm" label="Width" min={40} max={600} value={selected.width ?? annotationDefaultSizes[selected.kind]?.width ?? 180} required onValueChange={(value) => { if (value !== undefined) updateSelected({ width: value }); }} />
+                <NumericDraftInput id="annotation-height" size="sm" label="Height" min={30} max={500} value={selected.height ?? annotationDefaultSizes[selected.kind]?.height ?? 70} required onValueChange={(value) => { if (value !== undefined) updateSelected({ height: value }); }} />
               </div>}
               <label className="color-control">Color<input className="color-input" aria-label="Component color" type="color" value={selected.color} onChange={(event) => updateSelected({ color: event.target.value })} /></label>
               <InspectorDisclosure className="property-section" label="Engineering parameters" panelClassName="property-section-content">
                   <div className="property-row">
-                    <NumberInput id="source-power" size="sm" label="Source power (dBm)" step={0.1} allowEmpty value={selected.powerDbm ?? ""} onChange={(_, { value }) => updateSelected({ powerDbm: optionalNumber(String(value)) })} />
-                    <NumberInput id="component-gain" size="sm" label="Gain (dB)" step={0.1} allowEmpty value={selected.gainDb ?? ""} onChange={(_, { value }) => updateSelected({ gainDb: optionalNumber(String(value)) })} />
+                    <NumericDraftInput id="source-power" size="sm" label="Source power (dBm)" step={0.1} value={selected.powerDbm} onValueChange={(value) => updateSelected({ powerDbm: value })} />
+                    <NumericDraftInput id="component-gain" size="sm" label="Gain (dB)" step={0.1} value={selected.gainDb} onValueChange={(value) => updateSelected({ gainDb: value })} />
                   </div>
                   <div className="property-row">
-                    <NumberInput id="component-loss" size="sm" label="Loss (dB)" min={0} step={0.1} allowEmpty value={selected.lossDb ?? ""} onChange={(_, { value }) => updateSelected({ lossDb: optionalNumber(String(value)) })} />
-                    <NumberInput id="noise-figure" size="sm" label="Noise figure (dB)" min={0} step={0.1} allowEmpty value={selected.noiseFigureDb ?? ""} onChange={(_, { value }) => updateSelected({ noiseFigureDb: optionalNumber(String(value)) })} />
+                    <NumericDraftInput id="component-loss" size="sm" label="Loss (dB)" min={0} step={0.1} value={selected.lossDb} onValueChange={(value) => updateSelected({ lossDb: value })} />
+                    <NumericDraftInput id="noise-figure" size="sm" label="Noise figure (dB)" min={0} step={0.1} value={selected.noiseFigureDb} onValueChange={(value) => updateSelected({ noiseFigureDb: value })} />
                   </div>
                   <div className="property-row">
-                    <NumberInput id="component-bandwidth" size="sm" label="Bandwidth (Hz)" min={0} allowEmpty value={selected.bandwidthHz ?? ""} onChange={(_, { value }) => updateSelected({ bandwidthHz: optionalNumber(String(value)) })} />
-                    <NumberInput id="component-wavelength" size="sm" label="Wavelength (nm)" min={0} allowEmpty value={selected.wavelengthNm ?? ""} onChange={(_, { value }) => updateSelected({ wavelengthNm: optionalNumber(String(value)) })} />
+                    <NumericDraftInput id="component-bandwidth" size="sm" label="Bandwidth (Hz)" min={0} value={selected.bandwidthHz} onValueChange={(value) => updateSelected({ bandwidthHz: value })} />
+                    <NumericDraftInput id="component-wavelength" size="sm" label="Wavelength (nm)" min={0} value={selected.wavelengthNm} onValueChange={(value) => updateSelected({ wavelengthNm: value })} />
                   </div>
               </InspectorDisclosure>
               <InspectorDisclosure className="property-section" label="Traceability" panelClassName="property-section-content">
@@ -2308,8 +2436,8 @@ export default function Home() {
                 </>;
               })()}
               <div className="property-row">
-                <NumberInput id="path-loss" size="sm" label="Path loss (dB)" min={0} step={0.1} allowEmpty value={selectedConnection.lossDb ?? ""} onChange={(_, { value }) => updateSelectedConnection({ lossDb: optionalNumber(String(value)) })} />
-                <NumberInput id="path-bandwidth" size="sm" label="Bandwidth (Hz)" min={0} allowEmpty value={selectedConnection.bandwidthHz ?? ""} onChange={(_, { value }) => updateSelectedConnection({ bandwidthHz: optionalNumber(String(value)) })} />
+                <NumericDraftInput id="path-loss" size="sm" label="Path loss (dB)" min={0} step={0.1} value={selectedConnection.lossDb} onValueChange={(value) => updateSelectedConnection({ lossDb: value })} />
+                <NumericDraftInput id="path-bandwidth" size="sm" label="Bandwidth (Hz)" min={0} value={selectedConnection.bandwidthHz} onValueChange={(value) => updateSelectedConnection({ bandwidthHz: value })} />
               </div>
               <Select id="connection-routing" size="sm" labelText="Routing" value={selectedConnection.routing ?? "auto"} onChange={(event) => commit(elements, connections.map((connection) => connection.id === selectedConnection.id ? { ...connection, routing: event.target.value === "auto" ? undefined : event.target.value as Routing, waypoints: undefined } : connection))}>
                 <option value="auto">Automatic · {defaultRoutingLabel(getConnectionDomain(selectedConnection, elements.find((element) => element.id === selectedConnection.from)))}</option>
@@ -2380,7 +2508,7 @@ export default function Home() {
           </InspectorDisclosure>}
           {inspectorMode === "review" && <InspectorDisclosure className="layers-panel budget-panel" buttonId="budget-title" label="Path budgets" meta={budgets.length ? budgetCountLabel : 0}>
             <div className="property-form" onFocusCapture={beginPropertyEdit} onBlurCapture={(event) => finishPropertyEdit(event.relatedTarget, event.currentTarget)}>
-              <NumberInput
+              <NumericDraftInput
                 id="noise-temperature"
                 size="sm"
                 label="RF noise temperature (K)"
@@ -2388,10 +2516,8 @@ export default function Home() {
                 max={5000}
                 step={1}
                 value={noiseTemperatureK}
-                onChange={(_, { value }) => {
-                  const next = Number(value);
-                  if (Number.isFinite(next) && next >= 1 && next <= 5000) setNoiseTemperatureK(next);
-                }}
+                required
+                onValueChange={(value) => { if (value !== undefined) setNoiseTemperatureK(value); }}
               />
             </div>
             {budgetSummary.truncated && <p className="validation-more">Showing {budgetCountLabel} calculated paths. Exports declare this truncation.</p>}

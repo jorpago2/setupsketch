@@ -16,7 +16,17 @@ const importDiagram = async (page: Page, body: object, expectedComponents = 42) 
 };
 
 const openHeaderActions = async (page: Page) => {
-  await page.getByRole("button", { name: "More actions" }).click();
+  await page.locator("#header-actions-toggle").click();
+};
+
+const clickHeaderUndo = async (page: Page) => {
+  await openHeaderActions(page);
+  await page.getByRole("group", { name: "Edit actions" }).getByRole("button", { name: "Undo", exact: true }).click();
+};
+
+const clickHeaderRedo = async (page: Page) => {
+  await openHeaderActions(page);
+  await page.getByRole("group", { name: "Edit actions" }).getByRole("button", { name: "Redo", exact: true }).click();
 };
 
 const branchedRfDiagram = () => {
@@ -48,15 +58,85 @@ test("destructive actions use a keyboard-operable modal and preserve undo", asyn
   await expect(dialog.getByText("Clear the current diagram?", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
-  await expect(page.getByRole("button", { name: "More actions" })).toBeFocused();
+  await expect(page.locator("#header-actions-toggle")).toBeFocused();
 
   await openHeaderActions(page);
   await page.getByRole("button", { name: "Reset diagram" }).click();
   await page.getByRole("button", { name: "Clear diagram" }).click();
   await expect(page.locator(".react-flow__node-scientific")).toHaveCount(0);
-  await page.getByRole("button", { name: "Undo" }).click();
+  await clickHeaderUndo(page);
   await expect(page.locator(".react-flow__node-scientific")).toHaveCount(42);
   await expectNoSeriousAccessibilityViolations(page);
+});
+
+test("connect mode accepts keyboard-activated nodes and saved modules are recoverable", async ({ page }) => {
+  await page.goto("./");
+  await importDiagram(page, {
+    version: 12,
+    title: "Keyboard setup",
+    elements: [
+      { id: "source", kind: "laser", label: "Source", x: 280, y: 320, rotation: 0, color: "#20242a" },
+      { id: "detector", kind: "detector", label: "Detector", x: 760, y: 320, rotation: 0, color: "#20242a" },
+    ],
+    connections: [],
+  }, 2);
+
+  const nodes = page.locator(".react-flow__node-scientific");
+  await openHeaderActions(page);
+  await page.getByRole("button", { name: "Connect components" }).click();
+  await page.keyboard.press("Escape");
+  await nodes.first().focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Diagram status").getByRole("button", { name: /Select Free-space optical destination/ })).toBeVisible();
+  await nodes.nth(1).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Diagram status").getByRole("button", { name: "Connection added" })).toBeVisible();
+
+  await openHeaderActions(page);
+  await page.getByRole("button", { name: "Connect components" }).click();
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await expect(page.getByLabel("Diagram status").getByRole("button", { name: /Connection mode cancelled/ })).toBeVisible();
+  await expect(page.locator("#header-actions-toggle")).toBeFocused();
+
+  if ((page.viewportSize()?.width ?? 0) <= 1055) return;
+
+  await nodes.first().click();
+  await nodes.nth(1).click({ modifiers: ["Shift"] });
+  await page.getByRole("button", { name: "Properties" }).click();
+  await page.getByRole("button", { name: "Save module" }).click();
+  const saveDialog = page.getByRole("dialog");
+  await saveDialog.getByLabel("Module name").fill("Keyboard module");
+  await saveDialog.getByRole("button", { name: "Save module" }).click();
+  await page.getByRole("button", { name: "Components", exact: true }).click();
+  const moduleDelete = page.getByRole("button", { name: "Delete Keyboard module" });
+  await moduleDelete.click();
+  const deleteDialog = page.getByRole("dialog");
+  await expect(deleteDialog).toContainText("Delete “Keyboard module”?");
+  await deleteDialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(moduleDelete).toBeVisible();
+  await moduleDelete.click();
+  await deleteDialog.getByRole("button", { name: "Delete module" }).click();
+  await expect(page.getByRole("button", { name: "Undo deletion" })).toBeVisible();
+  await page.getByRole("button", { name: "Undo deletion" }).click();
+  await expect(page.getByRole("button", { name: "Delete Keyboard module" })).toBeVisible();
+});
+
+test("numeric drafts stay empty instead of becoming zero", async ({ page }) => {
+  await page.goto("./");
+  await importDiagram(page, {
+    version: 12,
+    title: "Numeric draft",
+    elements: [{ id: "source", kind: "laser", label: "Source", x: 280, y: 320, rotation: 0, color: "#20242a" }],
+    connections: [],
+  }, 1);
+  await page.locator(".react-flow__node-scientific").click();
+  if ((page.viewportSize()?.width ?? 0) > 1055) await page.getByRole("button", { name: "Properties" }).click();
+  const x = page.locator("#selection-inspector").getByRole("spinbutton", { name: "X" });
+  await x.fill("");
+  await x.press("Tab");
+  await expect(x).toHaveValue("");
+  await expect(x).toHaveAttribute("aria-invalid", "true");
 });
 
 test("budget truncation and kT provenance are visible and exported", async ({ page }) => {
@@ -86,15 +166,9 @@ test("project history restores imported metadata and edited analysis settings", 
   await importDiagram(page, branchedRfDiagram());
   await expect(page.getByRole("textbox", { name: "Diagram title" })).toHaveValue("Branched RF budget");
 
-  await page.getByRole("button", { name: "Undo" }).click();
+  await clickHeaderUndo(page);
   await expect(page.getByRole("textbox", { name: "Diagram title" })).toHaveValue(originalTitle);
-  if ((page.viewportSize()?.width ?? 0) <= 1055) {
-    await page.getByRole("button", { name: "Project" }).click();
-    await expect(page.getByRole("button", { name: "Project" })).toHaveAttribute("aria-expanded", "true");
-    await page.locator("#project-menu").getByRole("button", { name: "Redo" }).click();
-  } else {
-    await page.getByRole("button", { name: "Redo" }).click();
-  }
+  await clickHeaderRedo(page);
   await expect(page.getByRole("textbox", { name: "Diagram title" })).toHaveValue("Branched RF budget");
 
   await page.getByRole("button", { name: "Review" }).click();
@@ -104,7 +178,7 @@ test("project history restores imported metadata and edited analysis settings", 
   await noiseTemperature.fill("600");
   await noiseTemperature.press("Tab");
   await expect(noiseTemperature).toHaveValue("600");
-  await page.getByRole("button", { name: "Undo" }).click();
+  await clickHeaderUndo(page);
   await expect(noiseTemperature).toHaveValue("580");
 });
 
