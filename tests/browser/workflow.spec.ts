@@ -1,6 +1,14 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+const gotoApp = async (page: Page) => {
+  await page.goto("./");
+  const notice = page.getByRole("dialog", { name: "Application under development" });
+  await expect(notice).toBeVisible();
+  await notice.getByRole("button", { name: "I understand — Continue", exact: true }).click();
+  await expect(notice).toBeHidden();
+};
+
 const expectNoSeriousAccessibilityViolations = async (page: Page) => {
   const result = await new AxeBuilder({ page }).exclude(".react-flow").analyze();
   expect(result.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
@@ -61,7 +69,7 @@ const branchedRfDiagram = () => {
 test("undo and redo a selected component without replaying stale canvas selection", async ({ page }) => {
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
-  await page.goto("./");
+  await gotoApp(page);
   await openHeaderActions(page);
   await page.getByRole("combobox", { name: "Template", exact: true }).selectOption({ label: "Mach–Zehnder interferometer" });
   for (const label of ["Edited laser", "Edited laser again"]) {
@@ -82,7 +90,7 @@ test("undo and redo a selected component without replaying stale canvas selectio
 });
 
 test("destructive actions use a keyboard-operable modal and preserve undo", async ({ page }) => {
-  await page.goto("./");
+  await gotoApp(page);
   await importDiagram(page, branchedRfDiagram());
   await openHeaderActions(page);
   await page.getByRole("button", { name: "Reset diagram" }).click();
@@ -103,7 +111,7 @@ test("destructive actions use a keyboard-operable modal and preserve undo", asyn
 });
 
 test("connect mode accepts keyboard-activated nodes and saved modules are recoverable", async ({ page }) => {
-  await page.goto("./");
+  await gotoApp(page);
   await importDiagram(page, {
     version: 12,
     title: "Keyboard setup",
@@ -152,7 +160,7 @@ test("connect mode accepts keyboard-activated nodes and saved modules are recove
 });
 
 test("numeric drafts stay empty instead of becoming zero", async ({ page }) => {
-  await page.goto("./");
+  await gotoApp(page);
   await importDiagram(page, {
     version: 12,
     title: "Numeric draft",
@@ -169,7 +177,7 @@ test("numeric drafts stay empty instead of becoming zero", async ({ page }) => {
 });
 
 test("budget truncation and kT provenance are visible and exported", async ({ page }) => {
-  await page.goto("./");
+  await gotoApp(page);
   await importDiagram(page, branchedRfDiagram());
   await page.getByRole("button", { name: "Review" }).click();
   await page.getByRole("button", { name: /Path budgets/ }).click();
@@ -190,7 +198,7 @@ test("budget truncation and kT provenance are visible and exported", async ({ pa
 });
 
 test("project history restores imported metadata and edited analysis settings", async ({ page }) => {
-  await page.goto("./");
+  await gotoApp(page);
   const originalTitle = await page.getByRole("textbox", { name: "Diagram title" }).inputValue();
   await importDiagram(page, branchedRfDiagram());
   await expect(page.getByRole("textbox", { name: "Diagram title" })).toHaveValue("Branched RF budget");
@@ -216,7 +224,7 @@ test("legacy connection handles are repaired before React Flow renders them", as
   page.on("console", (message) => {
     if (message.type() === "warning" && message.text().includes("Couldn't create edge")) reactFlowWarnings.push(message.text());
   });
-  await page.goto("./");
+  await gotoApp(page);
   await importDiagram(page, {
     version: 7,
     title: "Legacy optical path",
@@ -232,7 +240,7 @@ test("legacy connection handles are repaired before React Flow renders them", as
 });
 
 test("incompatible legacy endpoints remain visible but are reported as scientific errors", async ({ page }) => {
-  await page.goto("./");
+  await gotoApp(page);
   await importDiagram(page, {
     version: 7,
     title: "Invalid mixed-domain path",
@@ -248,7 +256,7 @@ test("incompatible legacy endpoints remain visible but are reported as scientifi
 });
 
 test("manual orthogonal waypoints use right-angle segments on screen and in export", async ({ page }) => {
-  await page.goto("./");
+  await gotoApp(page);
   await importDiagram(page, {
     version: 12,
     title: "Orthogonal route",
@@ -273,7 +281,7 @@ test("manual orthogonal waypoints use right-angle segments on screen and in expo
 });
 
 test("cropped SVG exports resolve colors and include rotated geometry", async ({ page }) => {
-  await page.goto("./");
+  await gotoApp(page);
   await importDiagram(page, {
     version: 12,
     title: "Rotated export",
@@ -301,7 +309,7 @@ test("cropped SVG exports resolve colors and include rotated geometry", async ({
 });
 
 test("duplicate connection identifiers are rejected without replacing the project", async ({ page }) => {
-  await page.goto("./");
+  await gotoApp(page);
   await importDiagram(page, {
     version: 12,
     title: "Valid project",
@@ -333,7 +341,7 @@ test("duplicate connection identifiers are rejected without replacing the projec
 });
 
 test("fit, import errors and blocked PDF export remain usable", async ({ page }) => {
-  await page.goto("./");
+  await gotoApp(page);
   await importDiagram(page, branchedRfDiagram());
   await page.locator(".react-flow__node-scientific").first().click();
   const closeSelection = page.locator("#selection-inspector .scientific-task-panel__actions button");
@@ -357,7 +365,7 @@ test("fit, import errors and blocked PDF export remain usable", async ({ page })
 });
 
 test("selection tools stay in React and Escape closes one visual layer at a time", async ({ page }) => {
-  await page.goto("./");
+  await gotoApp(page);
   await importDiagram(page, {
     version: 12,
     title: "Selection workflow",
@@ -410,7 +418,7 @@ test("selection tools stay in React and Escape closes one visual layer at a time
 });
 
 test("Carbon layout controls update the React-owned document state", async ({ page }) => {
-  await page.goto("./");
+  await gotoApp(page);
   await page.getByRole("button", { name: "Layout", exact: true }).click();
 
   const snap = page.getByRole("checkbox", { name: "Snap to grid" });
@@ -435,7 +443,7 @@ test("Carbon layout controls update the React-owned document state", async ({ pa
 });
 
 test("the scientific viewport follows layout changes without feedback shifting the stage", async ({ page }) => {
-  await page.goto("./");
+  await gotoApp(page);
   await importDiagram(page, {
     version: 12,
     title: "Ring cavity",
@@ -491,7 +499,7 @@ test("the scientific viewport follows layout changes without feedback shifting t
 
 test("tablet panels preserve the scientific result and reset inspector scroll", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
-  await page.goto("./");
+  await gotoApp(page);
   await importDiagram(page, {
     version: 12,
     title: "Tablet workspace",
@@ -527,7 +535,7 @@ test("tablet panels preserve the scientific result and reset inspector scroll", 
 });
 
 test("React Flow follows the application theme", async ({ page }) => {
-  await page.goto("./");
+  await gotoApp(page);
   const flow = page.locator(".react-flow");
   const startedDark = await flow.evaluate((element) => element.classList.contains("dark"));
   await expect(flow).toHaveClass(startedDark ? /dark/ : /light/);
