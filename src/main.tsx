@@ -1,3 +1,4 @@
+import DevelopmentNotice from "./DevelopmentNotice";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ScientificUiProvider } from "@jorpago2/scientific-ui";
@@ -11,7 +12,7 @@ import App from "./app/App";
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ScientificUiProvider>
-      <App />
+      <App /><DevelopmentNotice />
     </ScientificUiProvider>
   </StrictMode>,
 );

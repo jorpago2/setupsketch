@@ -78,6 +78,7 @@ import {
   elementKinds,
   mechanicalKinds,
   portTypeColors,
+  portDirectionFor,
   portTypeFor,
   portTypeLabels,
   type ConnectionType,
@@ -96,7 +97,7 @@ import type { Connection, DiagramElement, ExperimentRecord, InspectorMode, Layer
 import { annotationDefaultSizes, defaultCollapsedGroups, defaultExperiment, defaultPublication, DEFAULT_VIEWPORT, DIAGRAM_VERSION, FLOW_SNAP_GRID, FAVORITES_KEY, GRID_STEP, MODULES_KEY, pagePresets, resizableAnnotationKinds, STORAGE_KEY } from "./editorConfig";
 import { cloneSnapshot, download, safeFilename } from "./model/editorPersistence";
 import { closestPortPair, getConnectionDomain, getConnectionType, normalizeConnectionPorts, portsFor } from "./model/connectionGeometry";
-import { csvCell, escapeLatex, formatBandwidth, optionalNumber, svgDataUri } from "./model/exportFormatting";
+import { csvCell, escapeLatex, formatBandwidth, svgDataUri } from "./model/exportFormatting";
 import { ExportReceipt, SCIENTIFIC_AUTOSAVE_FORMAT, ScientificAppShell, ScientificAutosaveStatus, ScientificEmptyState, ScientificHeader, ScientificOutcomeSummary, ScientificRecoveryNotice, ScientificStatusBar, ScientificValidationSummary, useScientificAutosave, useScientificTheme, type ScientificState } from "@jorpago2/scientific-ui";
 
 type DiagramFile = {
@@ -599,10 +600,10 @@ const ScientificFlowNodeComponent = memo(function ScientificFlowNodeComponent({ 
           className={`scientific-handle${data.portsVisible ? " is-visible" : ""}`}
           id={port.id}
           key={port.id}
-          type="source"
+          type={port.direction === "input" ? "target" : "source"}
           position={handlePositionFor(element, port)}
           isConnectable={data.portsVisible}
-          aria-label={`${port.id}: ${portTypeLabels[port.type]}`}
+          aria-label={`${port.id}: ${portTypeLabels[port.type]} ${port.direction} port`}
           style={{ left: width / 2 + port.x - element.x, top: height / 2 + port.y - element.y, background: portTypeColors[port.type] }}
         />
       ))}
@@ -644,6 +645,7 @@ export default function Home() {
   const [past, setPast] = useState<Snapshot[]>([]);
   const [future, setFuture] = useState<Snapshot[]>([]);
   const [notice, setNotice] = useState("Empty diagram · add components");
+  const [bomImportError, setBomImportError] = useState<string | null>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [inspectorMode, setInspectorMode] = useState<InspectorMode | null>(null);
   const [headerActionsOpen, setHeaderActionsOpen] = useState(false);
@@ -676,6 +678,7 @@ export default function Home() {
   const pendingViewportRef = useRef<Viewport | null>(null);
   const pendingFitRef = useRef(false);
   const headerActionsToggleRef = useRef<HTMLButtonElement>(null);
+  const connectActionRef = useRef<HTMLButtonElement>(null);
   const moduleSaveTriggerRef = useRef<HTMLButtonElement>(null);
   const workspaceRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLElement>(null);
@@ -707,6 +710,7 @@ export default function Home() {
     annotationKinds,
     mechanicalKinds,
     (kind, portId) => elementKinds.has(kind as ElementKind) ? portTypeFor(kind as ElementKind, portId) : undefined,
+    (kind, portId) => elementKinds.has(kind as ElementKind) ? portDirectionFor(kind as ElementKind, portId) : "bidirectional",
   );
   const blockingValidationIssues = validationIssues.filter((issue) => issue.severity === "error");
   const exportBlocked = blockingValidationIssues.length > 0;
@@ -1099,6 +1103,7 @@ export default function Home() {
     setNoiseTemperatureK(previous.noiseTemperatureK);
     setSelectedIds([]);
     setSelectedConnectionId(null);
+    setNotice("Undo applied");
   };
 
   const redo = () => {
@@ -1114,6 +1119,7 @@ export default function Home() {
     setNoiseTemperatureK(next.noiseTemperatureK);
     setSelectedIds([]);
     setSelectedConnectionId(null);
+    setNotice("Redo applied");
   };
 
   const addElement = (kind: ElementKind, label: string) => {
@@ -1199,6 +1205,9 @@ export default function Home() {
     const sourceType = portTypeFor(from.kind, candidate.sourceHandle);
     const targetType = portTypeFor(to.kind, candidate.targetHandle);
     if (sourceType !== targetType) return null;
+    const sourceDirection = portDirectionFor(from.kind, candidate.sourceHandle);
+    const targetDirection = portDirectionFor(to.kind, candidate.targetHandle);
+    if (sourceDirection === "input" || targetDirection === "output") return null;
     const occupied = connections.some((connection) => connection.id !== ignoredConnectionId && (
       connection.from === from.id && connection.fromPort === candidate.sourceHandle ||
       connection.to === from.id && connection.toPort === candidate.sourceHandle ||
@@ -1221,7 +1230,7 @@ export default function Home() {
   const addFlowConnection = useCallback((candidate: ReactFlowConnection) => {
     const connection = connectionFromFlow(candidate);
     if (!connection) {
-      setNotice("Choose two compatible, unused ports");
+      setNotice("Choose a compatible unused output and input port");
       return;
     }
     commit(elements, [...connections, { ...connection, id: `connection-${Date.now()}` }]);
@@ -1239,7 +1248,7 @@ export default function Home() {
   }, [elements]);
 
   const finishFlowConnection = useCallback<OnConnectEnd>((_, state) => {
-    if (!state.isValid) setNotice("No connection added: choose a compatible unused port");
+    if (!state.isValid) setNotice("No connection added: choose a compatible unused output and input port");
   }, []);
 
   const selectFlowNode = useCallback((id: string) => {
@@ -1266,16 +1275,21 @@ export default function Home() {
     addFlowConnection({ source: from.id, target: to.id, sourceHandle: pair.source.id, targetHandle: pair.target.id });
   }, [addFlowConnection, connectFrom, connectMode, connectionDomain, elements, narrowWorkspace, openSelectionInspector]);
 
+  // React Flow replays selection when this callback changes. Keep it stable so
+  // undo cannot replay the old nodes before the restored model reaches the canvas.
+  const selectionElementsRef = useRef(elements);
+  useEffect(() => { selectionElementsRef.current = elements; }, [elements]);
   const changeFlowSelection = useCallback<OnSelectionChangeFunc<CanvasFlowNode, ScientificFlowEdge>>(({ nodes, edges }) => {
+    const selectionElements = selectionElementsRef.current;
     const nextIds = [...new Set(nodes.flatMap((node) => {
       if (node.id === "__paper__") return [];
-      const element = elements.find((candidate) => candidate.id === node.id);
-      return element?.groupId ? elements.filter((candidate) => candidate.groupId === element.groupId).map((candidate) => candidate.id) : [node.id];
+      const element = selectionElements.find((candidate) => candidate.id === node.id);
+      return element?.groupId ? selectionElements.filter((candidate) => candidate.groupId === element.groupId).map((candidate) => candidate.id) : [node.id];
     }))];
     setSelectedIds((current) => current.length === nextIds.length && current.every((id, index) => id === nextIds[index]) ? current : nextIds);
     const nextEdgeId = nextIds.length ? null : edges[0]?.id ?? null;
     setSelectedConnectionId((current) => current === nextEdgeId ? current : nextEdgeId);
-  }, [elements]);
+  }, []);
 
   const handleFlowNodeClick = useCallback<NodeMouseHandler<CanvasFlowNode>>((_, node) => {
     if (node.id !== "__paper__") {
@@ -1419,7 +1433,7 @@ export default function Home() {
         setNotice("Connection mode cancelled");
         setSelectedIds([]);
         setSelectedConnectionId(null);
-        requestAnimationFrame(() => headerActionsToggleRef.current?.focus());
+        requestAnimationFrame(() => connectActionRef.current?.focus());
       } else {
         setConnectMode(false);
         setConnectFrom(null);
@@ -1739,6 +1753,7 @@ export default function Home() {
   const loadBom = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    setBomImportError(null);
     try {
       if (file.size > MAX_IMPORT_BYTES) throw new Error("BOM exceeds the 2 MB import limit");
       const [header, ...rows] = parseCsv(await file.text());
@@ -1746,13 +1761,45 @@ export default function Home() {
       const columns = new Map(header.map((cell, index) => [cell.trim().toLowerCase(), index]));
       const kindColumn = columns.get("kind");
       if (kindColumn === undefined) throw new Error("Missing Kind column");
+      const cell = (row: string[], key: string) => {
+        const index = columns.get(key);
+        return index === undefined ? "" : (row[index] ?? "").trim();
+      };
+      const numericColumns = ["power dbm", "gain db", "loss db", "noise figure db", "bandwidth hz", "wavelength nm"];
+      const invalidRows: string[] = [];
+      const validatedRows: Array<{ row: string[]; kind: ElementKind; quantity: number }> = [];
+      let importedCount = 0;
+      rows.forEach((row, rowIndex) => {
+        const line = rowIndex + 2;
+        const rawKind = cell(row, "kind");
+        const kind = rawKind.toLowerCase() as ElementKind;
+        if (!rawKind) invalidRows.push(`row ${line}: Kind is required`);
+        else if (!elementKinds.has(kind)) invalidRows.push(`row ${line}: unknown Kind “${rawKind}”`);
+        const rawQuantity = columns.has("quantity") ? cell(row, "quantity") : "1";
+        const quantity = Number(rawQuantity);
+        if (!rawQuantity || !Number.isInteger(quantity) || quantity < 1 || quantity > 100) {
+          invalidRows.push(`row ${line}: Quantity must be an integer from 1 to 100`);
+        }
+        for (const key of numericColumns) {
+          const value = cell(row, key);
+          if (value && !Number.isFinite(Number(value))) invalidRows.push(`row ${line}: ${key} must be a finite number`);
+        }
+        if (elementKinds.has(kind) && Number.isInteger(quantity) && quantity >= 1 && quantity <= 100) {
+          validatedRows.push({ row, kind, quantity });
+          importedCount += quantity;
+        }
+      });
+      if (invalidRows.length) {
+        const details = invalidRows.slice(0, 5).join("; ");
+        const suffix = invalidRows.length > 5 ? `; +${invalidRows.length - 5} more` : "";
+        throw new Error(`Fix the BOM before importing (${details}${suffix})`);
+      }
+      if (!importedCount) throw new Error("No recognized components");
+      if (elements.length + importedCount > MAX_ELEMENTS) throw new Error(`BOM exceeds the ${MAX_ELEMENTS.toLocaleString()} component limit`);
       const imported: DiagramElement[] = [];
       const bomBaseY = Math.max(80, ...elements.map((element) => element.y + 120));
-      for (const row of rows) {
-        const kind = row[kindColumn]?.trim() as ElementKind;
-        if (!elementKinds.has(kind)) continue;
-        const quantity = Math.min(100, Math.max(1, Number.parseInt(row[columns.get("quantity") ?? -1] ?? "1", 10) || 1));
-        if (elements.length + imported.length + quantity > MAX_ELEMENTS) throw new Error(`BOM exceeds the ${MAX_ELEMENTS.toLocaleString()} component limit`);
+      const stamp = Date.now();
+      for (const { row, kind, quantity } of validatedRows) {
         for (let count = 0; count < quantity; count += 1) {
           const placementIndex = imported.length;
           const position = {
@@ -1760,39 +1807,41 @@ export default function Home() {
             y: bomBaseY + Math.floor(placementIndex / 8) * 100,
           };
           imported.push({
-            id: `${kind}-bom-${Date.now()}-${elements.length + imported.length}`,
+            id: `${kind}-bom-${stamp}-${elements.length + imported.length}`,
             kind,
-            label: row[columns.get("component") ?? -1] || componentByKind.get(kind)?.label || kind,
+            label: cell(row, "component") || componentByKind.get(kind)?.label || kind,
             ...position,
             rotation: 0,
             color: defaultColor(kind),
-            manufacturer: row[columns.get("manufacturer") ?? -1] || undefined,
-            model: row[columns.get("part number") ?? columns.get("model") ?? -1] || undefined,
-            serialNumber: row[columns.get("serial number") ?? -1] || undefined,
-            calibrationDate: row[columns.get("calibration date") ?? -1] || undefined,
-            calibrationDueDate: row[columns.get("calibration due") ?? -1] || undefined,
-            uncertainty: row[columns.get("uncertainty") ?? -1] || undefined,
-            datasheetUrl: row[columns.get("datasheet url") ?? -1] || undefined,
-            powerDbm: optionalNumber(row[columns.get("power dbm") ?? -1] ?? ""),
-            gainDb: optionalNumber(row[columns.get("gain db") ?? -1] ?? ""),
-            lossDb: optionalNumber(row[columns.get("loss db") ?? -1] ?? ""),
-            noiseFigureDb: optionalNumber(row[columns.get("noise figure db") ?? -1] ?? ""),
-            bandwidthHz: optionalNumber(row[columns.get("bandwidth hz") ?? -1] ?? ""),
-            wavelengthNm: optionalNumber(row[columns.get("wavelength nm") ?? -1] ?? ""),
-            specs: row[columns.get("specifications") ?? -1] || undefined,
-            notes: row[columns.get("notes") ?? -1] || undefined,
+            manufacturer: cell(row, "manufacturer") || undefined,
+            model: cell(row, "part number") || cell(row, "model") || undefined,
+            serialNumber: cell(row, "serial number") || undefined,
+            calibrationDate: cell(row, "calibration date") || undefined,
+            calibrationDueDate: cell(row, "calibration due") || undefined,
+            uncertainty: cell(row, "uncertainty") || undefined,
+            datasheetUrl: cell(row, "datasheet url") || undefined,
+            powerDbm: cell(row, "power dbm") ? Number(cell(row, "power dbm")) : undefined,
+            gainDb: cell(row, "gain db") ? Number(cell(row, "gain db")) : undefined,
+            lossDb: cell(row, "loss db") ? Number(cell(row, "loss db")) : undefined,
+            noiseFigureDb: cell(row, "noise figure db") ? Number(cell(row, "noise figure db")) : undefined,
+            bandwidthHz: cell(row, "bandwidth hz") ? Number(cell(row, "bandwidth hz")) : undefined,
+            wavelengthNm: cell(row, "wavelength nm") ? Number(cell(row, "wavelength nm")) : undefined,
+            specs: cell(row, "specifications") || undefined,
+            notes: cell(row, "notes") || undefined,
           });
         }
       }
-      if (!imported.length) throw new Error("No recognized components");
       commit([...elements, ...imported]);
       setSelectedIds(imported.map((element) => element.id));
       setSelectedConnectionId(null);
       setConnectMode(false);
       setConnectFrom(null);
+      setBomImportError(null);
       setNotice(`${imported.length} BOM components imported`);
     } catch (error) {
-      setNotice(error instanceof Error ? `BOM import failed: ${error.message}` : "BOM import failed: use the exported CSV format");
+      const message = error instanceof Error ? `BOM import failed: ${error.message}` : "BOM import failed: use the exported CSV format";
+      setBomImportError(message);
+      setNotice(message);
     } finally {
       event.target.value = "";
     }
@@ -2075,29 +2124,44 @@ export default function Home() {
     </div>
   </>;
 
-  const headerActions = <Popover as="div" className="toolbar-header-actions" open={headerActionsOpen} align="bottom-end" onRequestClose={() => setHeaderActionsOpen(false)}>
-    <IconButton ref={headerActionsToggleRef} id="header-actions-toggle" size="lg" kind="ghost" align="bottom-end" label="More actions" aria-expanded={headerActionsOpen} aria-controls="header-actions-menu" aria-haspopup="dialog" onClick={() => setHeaderActionsOpen((open) => !open)}>
-      <OverflowMenuVertical size={20} aria-hidden={true} />
-    </IconButton>
-    <PopoverContent>
-      <Layer id="header-actions-menu" withBackground className="toolbar-menu-actions toolbar-header-menu">
-        <div className="toolbar-group" role="group" aria-label="Edit actions">
-          <Button size="sm" kind="ghost" disabled={!past.length} onClick={() => { undo(); setHeaderActionsOpen(false); }}><UiIcon name="undo" />Undo</Button>
-          <Button size="sm" kind="ghost" disabled={!future.length} onClick={() => { redo(); setHeaderActionsOpen(false); }}><UiIcon name="redo" />Redo</Button>
-          <Button size="sm" kind={connectMode ? "secondary" : "ghost"} onClick={() => { setConnectMode(!connectMode); setConnectFrom(null); }}><UiIcon name="link" />{connectFrom ? "Choose connection target" : "Connect components"}</Button>
-        </div>
-        {connectMode && <Select id="connection-domain" size="sm" hideLabel labelText="Connection domain" className="connection-type connection-type-active" value={connectionDomain} onChange={(event) => setConnectionDomain(event.target.value as PortType)}>
-          {(Object.entries(portTypeLabels) as Array<[PortType, string]>).map(([type, label]) => <option value={type} key={type}>{label}</option>)}
-        </Select>}
-        <div className="toolbar-group" role="group" aria-label="Project actions">
-          {renderProjectActions(() => setHeaderActionsOpen(false))}
-        </div>
-        <div className="toolbar-export-actions" role="group" aria-label="Export actions">
-          {renderExportActions(() => setHeaderActionsOpen(false))}
-        </div>
-      </Layer>
-    </PopoverContent>
-  </Popover>;
+  const editorActions = (
+    <div className="editor-action-toolbar" role="toolbar" aria-label="Edit actions">
+      <Button size="sm" kind="ghost" aria-label="Undo" disabled={!past.length} onClick={undo}><UiIcon name="undo" /><span className="header-action-label">Undo</span></Button>
+      <Button size="sm" kind="ghost" aria-label="Redo" disabled={!future.length} onClick={redo}><UiIcon name="redo" /><span className="header-action-label">Redo</span></Button>
+      <Button ref={connectActionRef} size="sm" kind={connectMode ? "secondary" : "ghost"} aria-label={connectMode ? "Cancel connection mode" : "Connect components"} aria-pressed={connectMode} onClick={() => { setConnectMode((active) => !active); setConnectFrom(null); }}><UiIcon name="link" /><span className="header-action-label">{connectMode ? "Cancel" : "Connect"}</span></Button>
+    </div>
+  );
+
+  const headerActions = (
+    <Popover as="div" className="toolbar-header-actions" open={headerActionsOpen} align="bottom-end" onRequestClose={() => setHeaderActionsOpen(false)}>
+      <Button ref={headerActionsToggleRef} id="header-actions-toggle" className="toolbar-menu-trigger" size="sm" kind="ghost" renderIcon={OverflowMenuVertical} iconDescription="More actions" aria-label="More actions" aria-expanded={headerActionsOpen} aria-controls="header-actions-menu" aria-haspopup="dialog" onClick={() => setHeaderActionsOpen((open) => !open)} />
+      <PopoverContent>
+        <Layer id="header-actions-menu" withBackground className="toolbar-menu-actions toolbar-header-menu">
+          <section className="toolbar-menu-section" aria-labelledby="edit-actions-title">
+            <h3 id="edit-actions-title" className="toolbar-menu-heading">Edit</h3>
+            <div className="toolbar-group" role="group" aria-label="Edit actions">
+              <Button size="sm" kind="ghost" aria-label="Undo" disabled={!past.length} onClick={() => { undo(); setHeaderActionsOpen(false); }}><UiIcon name="undo" />Undo</Button>
+              <Button size="sm" kind="ghost" aria-label="Redo" disabled={!future.length} onClick={() => { redo(); setHeaderActionsOpen(false); }}><UiIcon name="redo" />Redo</Button>
+              <Button size="sm" kind={connectMode ? "secondary" : "ghost"} aria-label={connectMode ? "Cancel connection mode" : "Connect components"} aria-pressed={connectMode} onClick={() => { setConnectMode((active) => !active); setConnectFrom(null); setHeaderActionsOpen(false); }}><UiIcon name="link" />{connectMode ? "Cancel connection mode" : "Connect components"}</Button>
+            </div>
+            {connectMode && <Select id="connection-domain" size="sm" labelText="Connection domain" value={connectionDomain} onChange={(event) => setConnectionDomain(event.target.value as PortType)}>
+              {Object.entries(portTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </Select>}
+          </section>
+          <section className="toolbar-menu-section" aria-labelledby="project-actions-title">
+            <h3 id="project-actions-title" className="toolbar-menu-heading">Project</h3>
+            {renderProjectActions(() => setHeaderActionsOpen(false))}
+          </section>
+          <section className="toolbar-menu-section" aria-labelledby="export-actions-title">
+            <h3 id="export-actions-title" className="toolbar-menu-heading">Export</h3>
+            <div className="toolbar-export-actions" role="group" aria-label="Export actions">
+              {renderExportActions(() => setHeaderActionsOpen(false))}
+            </div>
+          </section>
+        </Layer>
+      </PopoverContent>
+    </Popover>
+  );
 
   const renderLibraryPreview = (kind: ElementKind) => {
     const element = { id: "preview", kind, label: "", x: 0, y: 0, rotation: 0, color: defaultColor(kind) } as DiagramElement;
@@ -2201,6 +2265,17 @@ export default function Home() {
       </Modal>
 
       {exportReceipt && <div className="scientific-notifications"><ExportReceipt className="setup-export-receipt" fileName={exportReceipt.fileName} format={exportReceipt.format} destination={exportReceipt.destination} onDismiss={() => setExportReceipt(null)} /></div>}
+      {bomImportError && <div className="scientific-notifications">
+        <ActionableNotification
+          inline
+          lowContrast
+          kind="error"
+          title="BOM import failed"
+          subtitle={bomImportError}
+          onClose={() => setBomImportError(null)}
+          aria-label="BOM import error"
+        />
+      </div>}
       {deletedModuleUndo && <div className="scientific-notifications">
         <ActionableNotification
           inline
@@ -2247,6 +2322,7 @@ export default function Home() {
           inert={overlayWorkspace && (libraryOpen || Boolean(inspectorMode)) || undefined}
         >
           <div className="stage scientific-stage">
+            <div className="stage-actions">{editorActions}</div>
             {elements.length === 0 && <ScientificEmptyState
               className="stage-empty"
               title="Start with a component"

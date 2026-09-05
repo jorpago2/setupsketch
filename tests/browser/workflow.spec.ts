@@ -20,11 +20,21 @@ const openHeaderActions = async (page: Page) => {
 };
 
 const clickHeaderUndo = async (page: Page) => {
+  const visibleUndo = page.locator('button[aria-label="Undo"]:visible');
+  if (await visibleUndo.count()) {
+    await visibleUndo.first().click();
+    return;
+  }
   await openHeaderActions(page);
   await page.getByRole("group", { name: "Edit actions" }).getByRole("button", { name: "Undo", exact: true }).click();
 };
 
 const clickHeaderRedo = async (page: Page) => {
+  const visibleRedo = page.locator('button[aria-label="Redo"]:visible');
+  if (await visibleRedo.count()) {
+    await visibleRedo.first().click();
+    return;
+  }
   await openHeaderActions(page);
   await page.getByRole("group", { name: "Edit actions" }).getByRole("button", { name: "Redo", exact: true }).click();
 };
@@ -47,6 +57,29 @@ const branchedRfDiagram = () => {
     connections: sinks.map((sink, index) => ({ id: `path-${index}`, from: "source", to: sink.id, color: "#20242a", type: "signal", portType: "rf" })),
   };
 };
+
+test("undo and redo a selected component without replaying stale canvas selection", async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await page.goto("./");
+  await openHeaderActions(page);
+  await page.getByRole("combobox", { name: "Template", exact: true }).selectOption({ label: "Mach–Zehnder interferometer" });
+  for (const label of ["Edited laser", "Edited laser again"]) {
+    const previous = label === "Edited laser" ? "Laser" : "Edited laser";
+    await page.getByRole("group", { name: `${previous}, Laser`, exact: true }).click();
+    const labelInput = page.getByRole("textbox", { name: "Label", exact: true });
+    if (!(await labelInput.isVisible())) await page.getByRole("button", { name: "Properties", exact: true }).click();
+    await labelInput.fill(label);
+    await page.getByRole("button", { name: "Close selection properties", exact: true }).click();
+    await openHeaderActions(page);
+    await openHeaderActions(page);
+    await clickHeaderUndo(page);
+    await expect(page.getByRole("group", { name: `${previous}, Laser`, exact: true })).toBeVisible();
+    await clickHeaderRedo(page);
+    await expect(page.getByRole("group", { name: `${label}, Laser`, exact: true })).toBeVisible();
+  }
+  expect(pageErrors).toEqual([]);
+});
 
 test("destructive actions use a keyboard-operable modal and preserve undo", async ({ page }) => {
   await page.goto("./");
@@ -82,9 +115,7 @@ test("connect mode accepts keyboard-activated nodes and saved modules are recove
   }, 2);
 
   const nodes = page.locator(".react-flow__node-scientific");
-  await openHeaderActions(page);
   await page.getByRole("button", { name: "Connect components" }).click();
-  await page.keyboard.press("Escape");
   await nodes.first().focus();
   await page.keyboard.press("Enter");
   await expect(page.getByLabel("Diagram status").getByRole("button", { name: /Select Free-space optical destination/ })).toBeVisible();
@@ -92,12 +123,10 @@ test("connect mode accepts keyboard-activated nodes and saved modules are recove
   await page.keyboard.press("Enter");
   await expect(page.getByLabel("Diagram status").getByRole("button", { name: "Connection added" })).toBeVisible();
 
-  await openHeaderActions(page);
   await page.getByRole("button", { name: "Connect components" }).click();
   await page.keyboard.press("Escape");
-  await page.keyboard.press("Escape");
   await expect(page.getByLabel("Diagram status").getByRole("button", { name: /Connection mode cancelled/ })).toBeVisible();
-  await expect(page.locator("#header-actions-toggle")).toBeFocused();
+  await expect(page.getByRole("button", { name: "Connect components" })).toBeFocused();
 
   if ((page.viewportSize()?.width ?? 0) <= 1055) return;
 

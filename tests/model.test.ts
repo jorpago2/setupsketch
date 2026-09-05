@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { arrangeOverlaps, calculateBudgets, findOpenPosition, moveElements, parseCsv, routeOrthogonal, validateSetup } from "../src/features/diagram-editor/model/editorModel.ts";
-import { componentByKind, componentPortLayouts, portTypeFor } from "../src/features/diagram-editor/library/componentCatalog.ts";
+import { componentByKind, componentPortLayouts, portDirectionFor, portTypeFor } from "../src/features/diagram-editor/library/componentCatalog.ts";
 import { setupTemplates } from "../src/features/diagram-editor/model/templates.ts";
 import { canvasEdgeTypeFor, defaultRoutingLabel, migrateCanvasRouting } from "../src/features/diagram-editor/canvas/canvasRouting.ts";
 
@@ -134,6 +134,28 @@ test("typed ports distinguish optical, fiber, RF, DC, trigger and digital domain
     (kind, port) => portTypeFor(kind as Parameters<typeof portTypeFor>[0], port),
   );
   assert.ok(issues.some((issue) => issue.message.includes("incompatible port")));
+});
+
+test("directional endpoints reject output-to-output and input-to-input paths", () => {
+  const resolveDirection = (kind: string, port: string) => portDirectionFor(kind as Parameters<typeof portDirectionFor>[0], port);
+  const issues = validateSetup(
+    [
+      { id: "source-a", kind: "source", label: "Source A", x: 0, y: 0 },
+      { id: "source-b", kind: "source", label: "Source B", x: 100, y: 0 },
+      { id: "load-a", kind: "termination", label: "Load A", x: 0, y: 100 },
+      { id: "load-b", kind: "termination", label: "Load B", x: 100, y: 100 },
+    ],
+    [
+      { id: "outputs", from: "source-a", to: "source-b", type: "signal", portType: "rf", fromPort: "output", toPort: "output" },
+      { id: "inputs", from: "load-a", to: "load-b", type: "signal", portType: "rf", fromPort: "input", toPort: "input" },
+    ],
+    new Set(["source", "termination"]),
+    new Set(),
+    new Set(),
+    (kind, port) => portTypeFor(kind as Parameters<typeof portTypeFor>[0], port),
+    resolveDirection,
+  );
+  assert.equal(issues.filter((issue) => issue.message.includes("must run from an output to an input")).length, 2);
 });
 
 test("reflector ports meet at the optical surface", () => {

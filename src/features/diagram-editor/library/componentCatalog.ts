@@ -1,5 +1,6 @@
 export type ConnectionType = "beam" | "signal";
 export type PortType = "optical-free-space" | "fiber" | "rf" | "dc" | "trigger" | "digital";
+export type PortDirection = "input" | "output" | "bidirectional";
 
 const BLUE = "#0072b2";
 const PURPLE = "#cc79a7";
@@ -220,6 +221,23 @@ export const portTypeColors: Record<PortType, string> = {
   dc: "#e69f00",
   trigger: "#cc79a7",
   digital: "#009e73",
+};
+
+/** Direction is a constraint on the endpoint, while bidirectional ports can
+ * participate on either side of a path (mirrors, splitters and passive parts). */
+export const portDirectionFor = (kind: ElementKind, portId: string): PortDirection => {
+  if (portId === "input") return "input";
+  if (portId === "output") return "output";
+  if (kind === "laser") return portId === "left" ? "input" : portId === "right" ? "output" : "bidirectional";
+  if (["detector", "photodiode", "qpd"].includes(kind)) return portId === "left" ? "input" : portId === "right" ? "output" : "bidirectional";
+  if (["aom", "eom", "mzm"].includes(kind)) return portId === "right" ? "output" : "input";
+  if (["splitter", "diplexer", "rfswitch"].includes(kind)) return portId === "left" ? "input" : "output";
+  if (kind === "directionalcoupler") return portId === "left-top" ? "input" : "output";
+  if (kind === "mixer") return portId === "right" ? "output" : "input";
+  if (kind === "biastee") return portId === "right" ? "output" : "input";
+  if (["source", "vco", "powersupply"].includes(kind)) return "output";
+  if (["termination", "beamdump"].includes(kind)) return "input";
+  return "bidirectional";
 };
 
 const fiberKinds = new Set<ElementKind>(["fiber", "fibercoupler", "opticalcirculator", "wdm", "fbg", "edfa", "ringresonator", "opticalswitch"]);

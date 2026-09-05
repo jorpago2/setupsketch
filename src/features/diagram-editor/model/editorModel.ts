@@ -69,6 +69,7 @@ export type ValidationIssue = {
   message: string;
   elementIds: string[];
 };
+export type PortDirection = "input" | "output" | "bidirectional";
 
 // ponytail: fixed cells fit catalog components; use measured bounds if variable-size auto-layout is needed.
 const positionsOverlap = (a: ModelPoint, b: ModelPoint) => Math.abs(a.x - b.x) < 140 && Math.abs(a.y - b.y) < 120;
@@ -289,6 +290,7 @@ export const validateSetup = (
   annotationKinds: Set<string>,
   unconnectedAllowedKinds: Set<string> = new Set(),
   resolvePortType?: (kind: string, portId: string) => ModelConnection["portType"],
+  resolvePortDirection?: (kind: string, portId: string) => PortDirection,
   today = new Date().toISOString().slice(0, 10),
 ): ValidationIssue[] => {
   const issues: ValidationIssue[] = [];
@@ -337,6 +339,13 @@ export const validateSetup = (
     } else if (resolvePortType && connection.portType && connection.fromPort && connection.toPort &&
       (resolvePortType(from.kind, connection.fromPort) !== connection.portType || resolvePortType(to.kind, connection.toPort) !== connection.portType)) {
       issues.push({ severity: "error", message: `${connection.portType} path uses an incompatible port`, elementIds: [from.id, to.id] });
+    }
+    if (from && to && resolvePortDirection && connection.fromPort && connection.toPort) {
+      const fromDirection = resolvePortDirection(from.kind, connection.fromPort);
+      const toDirection = resolvePortDirection(to.kind, connection.toPort);
+      if (fromDirection === "input" || toDirection === "output") {
+        issues.push({ severity: "error", message: `Connection ${connection.id} must run from an output to an input`, elementIds: [from.id, to.id] });
+      }
     }
     if (connection.bandwidthHz !== undefined && connection.bandwidthHz <= 0) {
       issues.push({ severity: "error", message: `Connection ${connection.id} bandwidth must be positive`, elementIds: [connection.from, connection.to] });

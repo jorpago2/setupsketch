@@ -91,6 +91,64 @@ body {
 .toolbar-header-actions {
   position: relative;
   display: block;
+  flex: 0 0 var(--scientific-ui-header-block-size);
+  inline-size: var(--scientific-ui-header-block-size);
+}
+
+.stage {
+  position: relative;
+}
+
+.stage-actions {
+  position: absolute;
+  z-index: var(--z-raised);
+  inset-block-start: var(--space-sm);
+  inset-inline-start: var(--space-sm);
+  max-inline-size: calc(100% - 2 * var(--space-sm));
+}
+
+.editor-action-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  max-inline-size: 100%;
+  padding: var(--space-2xs);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-input);
+  background: var(--color-surface);
+  box-shadow: 0 2px 8px color-mix(in oklch, var(--color-ink) 12%, transparent);
+}
+
+.editor-action-toolbar button {
+  min-block-size: var(--scientific-ui-target-size);
+  gap: var(--space-2xs);
+}
+
+.toolbar-menu-trigger {
+  gap: var(--space-2xs);
+  inline-size: var(--scientific-ui-header-block-size);
+  min-inline-size: var(--scientific-ui-header-block-size);
+  padding-inline: 0;
+  justify-content: center;
+}
+
+.toolbar-menu-section {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.toolbar-menu-section + .toolbar-menu-section {
+  padding-block-start: var(--space-sm);
+  border-block-start: var(--rule-hair) solid var(--color-rule);
+}
+
+.toolbar-menu-heading {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: var(--text-xs);
+  letter-spacing: .06em;
+  text-transform: uppercase;
 }
 
 .toolbar-header-menu {
@@ -101,6 +159,7 @@ body {
   max-width: none;
   width: min(272px, calc(100dvw - 2 * var(--space-sm)));
   display: grid;
+  container-type: inline-size;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-xs);
   padding: var(--space-sm);
@@ -117,7 +176,7 @@ body {
 .toolbar-export-actions {
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-xs);
 }
 
@@ -158,6 +217,12 @@ body {
 
 .toolbar-export-actions .primary:last-child {
   grid-column: 1 / -1;
+}
+
+@container (max-width: 12.5rem) {
+  .toolbar-export-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .export-blocked-note {
